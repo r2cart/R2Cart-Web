@@ -1,0 +1,6 @@
+import {useState} from 'react';
+import {coupons} from '../../data/content';
+import {useApp} from '../../context/AppContext';
+import {Button,money} from '../../components/ui';
+const PageHead=({eyebrow,title,text,actions})=><div className="page-head"><div><span>{eyebrow}</span><h1>{title}</h1>{text&&<p>{text}</p>}</div>{actions}</div>;
+export function CouponsPage(){const {notify}=useApp();const [applied,setApplied]=useState(null);return <div className="container page"><PageHead eyebrow="OFFERS" title="Coupons & savings" text="A little extra value for your everyday shopping."/><div className="coupon-grid">{coupons.map(c=><article className={`coupon-card ${c.status==='Expired'?'disabled':''}`} key={c.id}><div className="coupon-cut left"/><div className="coupon-cut right"/><div className="coupon-value">{c.discount}</div><div><span className="coupon-code">{c.code}</span><p>Minimum order {money(c.min)} · Max discount {c.max}</p><small>Valid until {c.expiry}</small><details><summary>View terms</summary><p>{c.terms}</p></details></div><Button disabled={c.status==='Expired'} variant={applied===c.id?'primary':'outline'} onClick={()=>{setApplied(c.id);notify(`${c.code} copied and ready to apply`)}}>{c.status==='Expired'?'Expired':applied===c.id?'Applied ✓':'Apply'}</Button></article>)}</div></div>}
