@@ -1,0 +1,10 @@
+.upload-box{padding:18px}
+.upload-preview{width:120px;height:120px;object-fit:cover;border:1px solid var(--line);border-radius:10px;background:#fff}
+.upload-box>input{max-width:520px;background:#fff}
+.upload-box>.btn{width:auto}
+.checkout-coupon-list{display:grid;gap:10px}
+.checkout-coupon-list .coupon-select{border-style:solid;border-radius:10px}
+.checkout-coupon-list .coupon-select.disabled{opacity:.55}
+.checkout-coupon-actions{display:flex!important;gap:10px;font-size:11px!important}
+.checkout-coupon-actions button{color:var(--green);font-weight:800}
+@media(max-width:560px){.checkout-coupon-list .coupon-select{align-items:flex-start;flex-wrap:wrap}.checkout-coupon-list .coupon-select .btn{margin-left:35px}.checkout-coupon-actions{width:100%;justify-content:flex-end}}

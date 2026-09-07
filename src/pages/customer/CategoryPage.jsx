@@ -1,7 +1,22 @@
 import {useState} from 'react';
 import {Link,useParams} from 'react-router-dom';
-import {categories} from '../../data/categories';
-import {products} from '../../data/products';
-import {ProductGrid} from '../../components/ui';
-const PageHead=({eyebrow,title,text,actions})=><div className="page-head"><div><span>{eyebrow}</span><h1>{title}</h1>{text&&<p>{text}</p>}</div>{actions}</div>;
-export function CategoryPage(){const {slug}=useParams();const active=categories.find(c=>c.slug===slug)||categories[0];const [sort,setSort]=useState('popular');const [stock,setStock]=useState('all');let list=products.filter(p=>p.category===active.slug);if(!list.length)list=products.slice(0,10);if(stock==='in')list=list.filter(x=>x.stock);if(sort==='low')list.sort((a,b)=>a.price-b.price);if(sort==='high')list.sort((a,b)=>b.price-a.price);return <div className="container page"><div className="category-tabs">{categories.map(c=><Link className={c.slug===active.slug?'active':''} to={`/category/${c.slug}`} key={c.slug}><img src={c.image} alt=""/> {c.name}</Link>)}</div><div className="listing-layout"><aside className="category-sidebar"><h3>Categories</h3>{categories.map(c=><Link className={c.slug===active.slug?'active':''} to={`/category/${c.slug}`} key={c.slug}><span><img src={c.image} alt=""/></span>{c.name}</Link>)}</aside><section className="listing-main"><PageHead eyebrow="CATEGORY" title={active.name} text={`${list.length} quality products available`}/><div className="listing-toolbar"><div className="chips"><button className={stock==='all'?'active':''} onClick={()=>setStock('all')}>All products</button><button className={stock==='in'?'active':''} onClick={()=>setStock('in')}>In stock</button></div><select value={sort} onChange={e=>setSort(e.target.value)}><option value="popular">Sort: Popular</option><option value="low">Price: Low to High</option><option value="high">Price: High to Low</option></select></div><ProductGrid items={list}/></section></div></div>}
+import {EmptyState,ProductGrid} from '../../components/ui';
+import {useApp} from '../../context/AppContext';
+
+const PageHead=({eyebrow,title,text})=><div className="page-head"><div><span>{eyebrow}</span><h1>{title}</h1>{text&&<p>{text}</p>}</div></div>;
+export function CategoryPage(){
+ const {slug}=useParams();
+ const {categories,products}=useApp();
+ const active=categories.find(category=>category.slug===slug)||categories[0];
+ const [sort,setSort]=useState('popular');
+ const [stock,setStock]=useState('all');
+ if(!active)return null;
+ let list=products.filter(product=>product.category===active.slug);
+ if(stock==='in')list=list.filter(product=>product.stock);
+ if(sort==='low')list=[...list].sort((a,b)=>a.price-b.price);
+ if(sort==='high')list=[...list].sort((a,b)=>b.price-a.price);
+ return <div className="container page">
+  <div className="category-tabs">{categories.map(category=><Link className={category.slug===active.slug?'active':''} to={`/category/${category.slug}`} key={category.slug}><img src={category.image} alt=""/> {category.name}</Link>)}</div>
+  <div className="listing-layout"><aside className="category-sidebar"><h3>Categories</h3>{categories.map(category=><Link className={category.slug===active.slug?'active':''} to={`/category/${category.slug}`} key={category.slug}><span><img src={category.image} alt=""/></span>{category.name}</Link>)}</aside><section className="listing-main"><PageHead eyebrow="CATEGORY" title={active.name} text={`${list.length} quality products available`}/><div className="listing-toolbar"><div className="chips"><button className={stock==='all'?'active':''} onClick={()=>setStock('all')}>All products</button><button className={stock==='in'?'active':''} onClick={()=>setStock('in')}>In stock</button></div><select value={sort} onChange={event=>setSort(event.target.value)}><option value="popular">Sort: Popular</option><option value="low">Price: Low to High</option><option value="high">Price: High to Low</option></select></div>{list.length?<ProductGrid items={list}/>:<EmptyState icon="package" title="Products coming soon" text={`No products have been added to ${active.name} yet.`}/>}</section></div>
+ </div>;
+}
