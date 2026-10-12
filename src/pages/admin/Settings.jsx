@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {BellRing,Clock3,Image as ImageIcon,KeyRound,LoaderCircle,RefreshCcw,Save,ShieldCheck,Store,Trash2,Upload} from 'lucide-react';
+import {BellRing,Clock3,Eye,EyeOff,Image as ImageIcon,KeyRound,LoaderCircle,RefreshCcw,Save,ShieldCheck,Store,Trash2,Upload} from 'lucide-react';
 import {Button} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -8,6 +8,7 @@ import {mediaUrl} from '../../utils/media';
 const blank={storeName:'',logo:'',contactNumber:'',email:'',address:'',openingTime:'',closingTime:'',currency:'INR',minimumOrder:'',deliveryFee:'',freeDeliveryThreshold:'',estimatedDelivery:'',notifications:{orders:false,stock:false,customers:false}};
 const normalize=value=>({...blank,...value,logo:mediaUrl(value?.logo||''),minimumOrder:value?.minimumOrder??'',deliveryFee:value?.deliveryFee??'',freeDeliveryThreshold:value?.freeDeliveryThreshold??'',notifications:{...blank.notifications,...(value?.notifications||{})}});
 const Field=({label,hint,...props})=><label><span>{label}</span><input {...props}/>{hint&&<small>{hint}</small>}</label>;
+const PasswordField=({label,hint,show,onToggle,...props})=><label><span>{label}</span><div style={{position:'relative',display:'flex',alignItems:'center'}}><input {...props} type={show?'text':'password'} style={{width:'100%',paddingRight:'2.5rem'}}/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={onToggle} style={{position:'absolute',right:'0.75rem',background:'none',border:'none',cursor:'pointer',padding:'0.25rem',color:'#64748b',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div>{hint&&<small>{hint}</small>}</label>;
 const SectionTitle=({icon:Icon,title,text})=><div className="settings-section-title"><i><Icon/></i><div><h3>{title}</h3><p>{text}</p></div></div>;
 
 export function AdminSettings(){
@@ -15,6 +16,7 @@ export function AdminSettings(){
  const [settings,setSettings]=useState(null),[saved,setSaved]=useState(null),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[uploading,setUploading]=useState(false);
  const [adminEmail,setAdminEmail]=useState('r2cartsupport@gmail.com');
  const [currentPassword,setCurrentPassword]=useState(''),[newPassword,setNewPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[pwdSaving,setPwdSaving]=useState(false);
+ const [showCurrent,setShowCurrent]=useState(false),[showNew,setShowNew]=useState(false),[showConfirm,setShowConfirm]=useState(false);
  const fileRef=useRef(null);
  const load=async()=>{setLoading(true);try{const data=normalize(await adminService.settings());setSettings(data);setSaved(data);try{const prof=await adminService.getProfile();if(prof?.email)setAdminEmail(prof.email)}catch{}}catch(error){notify(error.message,'error')}finally{setLoading(false)}};
  useEffect(()=>{load()},[]);
@@ -42,9 +44,9 @@ export function AdminSettings(){
     <SectionTitle icon={KeyRound} title="Admin login & security" text="Manage your administrator password and login credentials."/>
     <div className="form-grid">
      <label><span>Admin login email</span><input disabled value={adminEmail||'Loading…'} style={{opacity:0.8,background:'rgba(0,0,0,0.03)'}}/><small>Primary administrator account email</small></label>
-     <Field required type="password" label="Current password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} placeholder="Enter current password"/>
-     <Field required type="password" label="New password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Minimum 8 characters"/>
-     <Field required type="password" label="Confirm new password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Re-enter new password"/>
+     <PasswordField required label="Current password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} placeholder="Enter current password" show={showCurrent} onToggle={()=>setShowCurrent(!showCurrent)}/>
+     <PasswordField required label="New password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Minimum 8 characters" show={showNew} onToggle={()=>setShowNew(!showNew)}/>
+     <PasswordField required label="Confirm new password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Re-enter new password" show={showConfirm} onToggle={()=>setShowConfirm(!showConfirm)}/>
     </div>
     <div style={{marginTop:'1.25rem',display:'flex',justifyContent:'flex-end'}}>
      <Button type="button" disabled={pwdSaving||!currentPassword||!newPassword} onClick={updatePassword}>
