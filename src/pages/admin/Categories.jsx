@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Edit2,FolderTree,Plus,Trash2} from 'lucide-react';
+import {ArrowDown,ArrowUp,Edit2,FolderTree,Plus,Trash2} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -15,6 +15,7 @@ export function AdminCategories(){
  const [edit,setEdit]=useState(null);
  const [remove,setRemove]=useState(null);
  const [saving,setSaving]=useState(false);
+ const move=async(index,direction)=>{const next=[...list],target=index+direction;if(target<0||target>=next.length)return;[next[index],next[target]]=[next[target],next[index]];setSaving(true);try{await adminService.reorderCategories(next.map(item=>item.id));await load();await refreshCategories();window.dispatchEvent(new Event('grocify:categories-updated'))}catch(reason){notify(reason.message,'error')}finally{setSaving(false)}};
 
  const load=async()=>{
   setLoading(true);setError('');
@@ -36,7 +37,7 @@ export function AdminCategories(){
    await refreshCategories();
    window.dispatchEvent(new Event('grocify:categories-updated'));
    notify(edit?.id?'Category updated':'New category added');
-  }catch(err){notify(err.message,'error')}
+  }catch(err){notify(err.message,'error');return false}
   finally{setSaving(false)}
  };
 
@@ -49,7 +50,7 @@ export function AdminCategories(){
    await refreshCategories();
    window.dispatchEvent(new Event('grocify:categories-updated'));
    notify('Category deleted');
-  }catch(err){notify(err.message,'error')}
+  }catch(err){notify(err.message,'error');return false}
  };
 
  return <>
@@ -58,8 +59,8 @@ export function AdminCategories(){
    {loading&&<div className="modal-body muted">Loading categories…</div>}
    {!loading&&error&&<div className="modal-body"><p className="text-danger">{error}</p><Button variant="outline" onClick={load}>Try again</Button></div>}
    {!loading&&!error&&!list.length&&<div className="modal-body muted">No categories yet. Add your first category.</div>}
-   {!loading&&!error&&list.map(category=><div key={category.id}>
-    <span className="drag" title={`Display order ${category.position}`}>⠿</span>
+   {!loading&&!error&&list.map((category,index)=><div key={category.id}>
+    <div className="category-order-actions"><button disabled={saving||index===0} onClick={()=>move(index,-1)} aria-label="Move category up"><ArrowUp size={16}/></button><button disabled={saving||index===list.length-1} onClick={()=>move(index,1)} aria-label="Move category down"><ArrowDown size={16}/></button></div>
     <div className="cat-icon" style={{background:category.color||'#EAF8E8'}}>{category.image?<img src={category.image} alt="" onError={event=>{event.currentTarget.style.display='none'}}/>:<FolderTree/>}</div>
     <span><b>{category.name}</b><small>{category._count?.products??0} products{category.parent?.name?` · Under ${category.parent.name}`:category.children?.length?` · ${category.children.length} subcategories`:''}</small></span>
     <StatusBadge status={labelStatus(category.status)}/>

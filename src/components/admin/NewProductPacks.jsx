@@ -1,0 +1,6 @@
+import {Button} from '../ui';
+
+export default function NewProductPacks({packs,onChange,disabled}){
+ const update=(index,key,value)=>onChange(packs.map((pack,i)=>i===index?{...pack,[key]:value}:pack));
+ return <section className="admin-card"><h3>Additional pack sizes</h3><p className="muted">The size above is your first pack. Add more sizes here; one save publishes all packs as separate customer listings with the same image and description.</p>{packs.map((pack,index)=><div className="new-pack-row" key={index}><h4>Pack {index+2}</h4><div className="form-grid">{[['unit','Pack size','text'],['mrp','MRP (₹)','number'],['price','Selling price (₹)','number'],['stock','Stock','number']].map(([key,label,type])=><label key={key}>{label}<input required disabled={disabled} type={type} min={key==='stock'?0:type==='number'?0.01:undefined} step={key==='stock'?1:type==='number'?0.01:undefined} placeholder={key==='unit'?'e.g. 1 L':undefined} value={pack[key]} onChange={event=>update(index,key,event.target.value)}/></label>)}</div><Button type="button" disabled={disabled} variant="ghost" onClick={()=>onChange(packs.filter((_,i)=>i!==index))}>Remove this pack</Button></div>)}<Button type="button" disabled={disabled||packs.length>=20} variant="outline" onClick={()=>onChange([...packs,{unit:'',mrp:'',price:'',stock:''}])}>Add another pack size</Button></section>;
+}

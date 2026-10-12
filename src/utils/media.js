@@ -1,0 +1,2 @@
+import {env} from '../config/env';
+export function mediaUrl(value){if(!value)return '';try{const origin=new URL(env.apiBaseUrl,window.location.origin).origin;if(value.startsWith('/uploads/'))return new URL(value,origin).href;const url=new URL(value);if(['localhost','127.0.0.1'].includes(url.hostname)&&url.pathname.startsWith('/uploads/'))return new URL(url.pathname,origin).href}catch{}return value}

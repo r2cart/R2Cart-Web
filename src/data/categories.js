@@ -3,7 +3,7 @@ const image=id=>`https://images.unsplash.com/${id}?auto=format&fit=crop&w=320&q=
 export const categories = [
   ['fruits-vegetables','Fruits & Vegetables',image('photo-1610832958506-aa56368176cf'),'#EAF8E8'],
   ['dairy-breakfast','Dairy & Breakfast',image('photo-1550583724-b2692b85b150'),'#E9F5FF'],
-  ['snacks','Snacks',image('photo-1621939514649-280e2aa9454a'),'#FFF2DF'],
+  ['snacks','Snacks',image('photo-1566478989037-eec170784d0b'),'#FFF2DF'],
   ['beverages','Beverages',image('photo-1544145945-f90425340c7e'),'#FFEDED'],
   ['staples','Atta, Rice & Dal',image('photo-1586201375761-83865001e31c'),'#FFF6D9'],
   ['cooking','Cooking Essentials',image('photo-1474979266404-7eaacbcd87c5'),'#F9EDE0'],

@@ -4,7 +4,7 @@ export {CategoryPage} from './CategoryPage';
 export {ProductPage} from './ProductPage';
 export {FavoritesPage} from './FavoritesPage';
 export {CartPage} from './CartPage';
-export {LoginPage,OTPPage} from './AuthPages';
+export {ForgotPasswordPage,LoginPage,OTPPage} from './AuthPages';
 export {CheckoutPage} from './CheckoutPage';
 export {OrderSuccessPage} from './OrderSuccessPage';
 export {OrdersPage,OrderDetailPage} from './OrdersPages';

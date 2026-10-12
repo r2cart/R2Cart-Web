@@ -5,6 +5,8 @@ export const authService={
  login:credentials=>api.post('/auth/login',credentials).then(save),
  requestOtp:payload=>api.post('/auth/request-otp',payload),
  verifyOtp:payload=>api.post('/auth/verify-otp',payload).then(save),
+ requestPasswordReset:email=>api.post('/auth/forgot-password',{email}),
+ resetPassword:payload=>api.post('/auth/reset-password',payload),
  adminLogin:credentials=>api.post('/admin/auth/login',credentials).then(session=>{const user=saveAdmin(session);localStorage.setItem('grocify-admin','true');return user}),
  me:()=>api.get('/auth/me'),
  async logout(){try{await api.post('/auth/logout',{})}finally{localStorage.removeItem('grocify-access-token');localStorage.removeItem('grocify-user')}},

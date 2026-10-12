@@ -16,7 +16,7 @@ async function refreshSession(){
 export async function request(path,options={}){
  if(!env.apiBaseUrl)throw new ApiError('API is not configured. Mock services are active.',0);
  const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),env.requestTimeout);
+ const timeout=setTimeout(()=>controller.abort(),options.body instanceof FormData?65000:path.startsWith('/admin/products/import')?75000:env.requestTimeout);
  try{
   let result=await parse(await fetch(`${env.apiBaseUrl}${path}`,{...options,credentials:'include',headers:headersFor(path,options),signal:controller.signal}));
   if(result.response.status===401&&!path.startsWith('/admin')&&(path==='/auth/me'||!path.startsWith('/auth/'))){
@@ -25,7 +25,7 @@ export async function request(path,options={}){
   }
   if(!result.response.ok)throw new ApiError(result.data?.message||'Request failed',result.response.status,result.data);
   return result.data?.data??result.data;
- }catch(error){if(error.name==='AbortError')throw new ApiError('Server response timed out. Please try again.',408);if(error instanceof TypeError)throw new ApiError('Cannot connect to Grocify server. Make sure the backend is running.',0);throw error}finally{clearTimeout(timeout)}
+ }catch(error){if(error.name==='AbortError')throw new ApiError('Server response timed out. Please try again.',408);if(error instanceof TypeError)throw new ApiError('Cannot connect to R2Cart server. Make sure the backend is running.',0);throw error}finally{clearTimeout(timeout)}
 }
 
 export const api={get:path=>request(path),post:(path,body)=>request(path,{method:'POST',body:JSON.stringify(body)}),upload:(path,body)=>request(path,{method:'POST',body}),put:(path,body)=>request(path,{method:'PUT',body:JSON.stringify(body)}),patch:(path,body)=>request(path,{method:'PATCH',body:JSON.stringify(body)}),delete:path=>request(path,{method:'DELETE'})};

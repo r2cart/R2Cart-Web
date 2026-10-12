@@ -1,5 +1,6 @@
 import {api} from './httpClient';
 export const customerService={
+ rateProduct:(id,score)=>api.put(`/products/${id}/rating`,{score}),
  profile:()=>api.get('/users/me'),updateProfile:value=>api.patch('/users/me',value),
  cart:()=>api.get('/cart'),setCartItem:(productId,quantity)=>api.put('/cart/items',{productId,quantity}),clearCart:()=>api.delete('/cart'),
  favorites:()=>api.get('/favorites'),addFavorite:id=>api.post(`/favorites/${id}`,{}),removeFavorite:id=>api.delete(`/favorites/${id}`),
