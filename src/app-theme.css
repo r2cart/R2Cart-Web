@@ -56,8 +56,12 @@ main>.page,main>.static-page,main>.success-page{animation:pageEnter .38s cubic-b
 .address-option>span svg{width:20px;height:20px;color:var(--green)}
 .issue-grid span svg{width:25px;height:25px;color:var(--green)}
 .coupon-select>span svg,.payment-option>span svg{width:23px;height:23px;color:var(--green)}
-.category-tabs a{display:inline-flex;align-items:center;gap:7px}
-.category-tabs a img{width:24px;height:24px;border-radius:7px;object-fit:cover}
+.category-tabs{scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch}
+.category-tabs::-webkit-scrollbar{display:none}
+.category-tabs a{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 7px;border-radius:9999px;border:1px solid var(--line);background:#fff;font-size:12px;line-height:1.2;white-space:nowrap;flex-shrink:0;min-width:max-content;box-sizing:border-box;text-decoration:none;transition:all .15s ease}
+.category-tabs a img{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.category-tabs a span{white-space:nowrap;flex-shrink:0}
+.category-tabs a.active{background:#eaf7ef;border-color:#8fc5a4;color:var(--green);font-weight:700}
 .category-sidebar a{min-height:58px;padding:8px;line-height:1.25}
 .category-sidebar a span{display:block;flex:0 0 42px;width:42px;height:42px;overflow:hidden;border-radius:10px;background:#F2F2F7}
 .category-sidebar a span img{display:block;width:42px;height:42px;max-width:none;object-fit:cover}
