@@ -25,5 +25,6 @@ export const adminService={
  delivery:()=>api.get('/admin/delivery'),createDeliveryZone:value=>api.post('/admin/delivery',value),updateDeliveryZone:(id,value)=>api.patch(`/admin/delivery/${id}`,value),updateDeliveryStatus:(id,status)=>api.patch(`/admin/delivery/${id}/status`,{status}),deleteDeliveryZone:id=>api.delete(`/admin/delivery/${id}`),
  updateDeliveryDefaults:value=>api.patch('/admin/delivery/defaults',value),
  support:()=>api.get('/admin/support'),replyTicket:(id,value)=>api.patch(`/admin/support/${id}`,value),
- settings:()=>api.get('/admin/settings'),uploadStoreLogo:file=>upload('/admin/uploads/settings/logo',file),saveSettings:value=>api.put('/admin/settings',value)
+ settings:()=>api.get('/admin/settings'),uploadStoreLogo:file=>upload('/admin/uploads/settings/logo',file),saveSettings:value=>api.put('/admin/settings',value),
+ getProfile:()=>api.get('/admin/profile'),updateProfile:value=>api.patch('/admin/profile',value),changePassword:(currentPassword,password)=>api.patch('/admin/profile/password',{currentPassword,password})
 };
