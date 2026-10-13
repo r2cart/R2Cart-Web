@@ -22,6 +22,7 @@ export function AdminLogin(){
 
   try{
    await authService.adminLogin({email,password});
+   sessionStorage.setItem('r2cart-auth-prompt','ADMIN');
    window.location.assign('/admin/dashboard');
   }catch(reason){
    console.error('Admin login error:', reason);

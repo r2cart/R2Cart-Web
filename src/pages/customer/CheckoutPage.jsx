@@ -52,9 +52,17 @@ function getAvailableDates(){
 }
 
 export function CheckoutPage(){
- const {cartItems,subtotal,mrpTotal,addressList,setAddressList,setOrderList,setCart,notify,deliveryConfig,deliveryZones,deliveryRulesFor}=useApp();
+ const {cartItems,subtotal,mrpTotal,addressList,setAddressList,setOrderList,setCart,notify,deliveryConfig,deliveryZones,deliveryRulesFor,user,openAuthModal,refreshProducts}=useApp();
  const nav=useNavigate();
  const [selected,setSelected]=useState();
+
+ useEffect(()=>{
+  if(!user&&!localStorage.getItem('grocify-access-token')){
+   sessionStorage.setItem('grocify-auth-redirect','/checkout');
+   openAuthModal('order');
+   nav('/cart',{replace:true});
+  }
+ },[user]);
  const [addressModal,setAddressModal]=useState(false);
  const [instruction,setInstruction]=useState('Call before delivery');
  const [customNote,setCustomNote]=useState('');
@@ -113,6 +121,9 @@ export function CheckoutPage(){
    sessionStorage.removeItem('grocify-coupon-discount');
    setOrderList(current=>[order,...current]);
    setCart({});
+   await refreshProducts();
+   window.dispatchEvent(new Event('grocify:products-updated'));
+   window.dispatchEvent(new Event('grocify:orders-updated'));
    notify('Order placed successfully');
    nav('/order-success');
   }catch(error){

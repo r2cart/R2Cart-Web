@@ -9,3 +9,13 @@
 .navbar-result img{width:40px;height:40px;object-fit:contain;flex-shrink:0;border-radius:6px}
 .head-avatar img{width:100%;height:100%;object-fit:contain;border-radius:50%}.admin-search button{display:flex;background:transparent;border:0;padding:2px}.admin-search input{min-width:0}
 @media(max-width:600px){.admin-global-search .admin-search{display:flex!important;width:125px;padding:8px;gap:5px}.admin-global-search .admin-search input{width:100%;font-size:11px}.admin-navbar-popover{position:fixed;top:80px;right:16px;width:calc(100vw - 32px)!important}.admin-head-actions{gap:8px!important}}
+
+.admin-push-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;display:flex;flex-direction:column;gap:6px}
+.admin-push-box.denied{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.admin-push-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;color:#166534}
+.admin-push-head.denied{color:#991b1b}
+.admin-push-actions{display:flex;align-items:center;gap:8px;margin-top:2px}
+.btn-push-act{background:#10b981;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer}
+.btn-push-act:hover{background:#059669}
+.btn-push-test{background:#fff;color:#059669;border:1px solid #a7f3d0;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer}
+.btn-push-test:hover{background:#ecfdf5}

@@ -10,7 +10,7 @@ function dateLabel(value){const date=new Date(value);return Number.isNaN(date.ge
 export function Dashboard(){
  const [data,setData]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
  const load=async()=>{setLoading(true);setError('');try{setData(await adminService.dashboard())}catch(reason){setError(reason.message)}finally{setLoading(false)}};
- useEffect(()=>{let active=true;const refresh=()=>{if(!active)return;adminService.dashboard().then(value=>{if(active){setData(value);setError('')}}).catch(reason=>{if(active)setError(reason.message)}).finally(()=>{if(active)setLoading(false)})};refresh();const timer=setInterval(refresh,60000);window.addEventListener('focus',refresh);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
+ useEffect(()=>{let active=true;const refresh=()=>{if(!active)return;adminService.dashboard().then(value=>{if(active){setData(value);setError('')}}).catch(reason=>{if(active)setError(reason.message)}).finally(()=>{if(active)setLoading(false)})};refresh();const timer=setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('grocify:orders-updated',refresh);window.addEventListener('grocify:products-updated',refresh);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('grocify:orders-updated',refresh);window.removeEventListener('grocify:products-updated',refresh)}},[]);
  const s=data?.stats;
  const stats=s?[
   ['Today’s orders',s.todayOrders,'Placed today · India time',Package,'green'],

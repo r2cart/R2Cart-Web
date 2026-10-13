@@ -19,7 +19,18 @@ export function AdminInventory(){
  const [error,setError]=useState('');
 
  const load=async()=>{setLoading(true);setError('');try{setItems(await adminService.inventory())}catch(err){setError(err.message);notify(err.message,'error')}finally{setLoading(false)}};
- useEffect(()=>{load()},[]);
+ useEffect(()=>{
+  load();
+  const onSync=()=>load();
+  window.addEventListener('focus',onSync);
+  window.addEventListener('grocify:orders-updated',onSync);
+  window.addEventListener('grocify:products-updated',onSync);
+  return()=>{
+   window.removeEventListener('focus',onSync);
+   window.removeEventListener('grocify:orders-updated',onSync);
+   window.removeEventListener('grocify:products-updated',onSync);
+  };
+ },[]);
  const list=useMemo(()=>tab==='ALL'?items:items.filter(item=>item.stockStatus===tab),[items,tab]);
  const open=product=>{setSelected(product);setStock(String(product.stock));setThreshold(String(product.lowStockThreshold))};
  const close=()=>{if(!saving)setSelected(null)};
@@ -29,7 +40,7 @@ export function AdminInventory(){
   <AdminTitle title="Inventory" text={`${items.length} database products · stock updates publish to the customer store`}/>
   <div className="tabs admin-tabs">{tabs.map(([label,value])=><button className={tab===value?'active':''} onClick={()=>setTab(value)} key={value}>{label} <small>{value==='ALL'?items.length:items.filter(item=>item.stockStatus===value).length}</small></button>)}</div>
   <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Current stock</th><th>Low stock threshold</th><th>Status</th><th>Action</th></tr></thead><tbody>
-   {loading?<tr><td colSpan="5">Loading inventory…</td></tr>:error?<tr><td colSpan="5"><span className="text-danger">{error}</span> <Button variant="outline" onClick={load}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="5">No products in this stock state.</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku} · {product.unit}</small></span></div></td><td><b>{product.stock}</b></td><td>{product.lowStockThreshold}</td><td><StatusBadge status={statusLabel(product.stockStatus)}/></td><td><Button variant="outline" onClick={()=>open(product)}>Update stock</Button></td></tr>)}
+   {loading?<tr><td colSpan="5">Loading inventory…</td></tr>:error?<tr><td colSpan="5"><span className="text-danger">{error}</span> <Button variant="outline" onClick={load}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="5">No products in this stock state.</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku} · {product.unit}</small></span></div></td><td><b>{product.stock}</b><span style={{fontSize:'11px',color:'var(--muted)',marginLeft:'5px'}}>({product.unit})</span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td>{product.lowStockThreshold}</td><td><StatusBadge status={statusLabel(product.stockStatus)}/></td><td><Button variant="outline" onClick={()=>open(product)}>Update stock</Button></td></tr>)}
   </tbody></table></div></div>
   <Modal open={!!selected} onClose={close} title={`Update ${selected?.name||'stock'}`}><form className="modal-body admin-form" onSubmit={save}><label>Current stock<input type="number" min="0" step="1" required value={stock} onChange={event=>setStock(event.target.value)}/></label><label>Low stock threshold<input type="number" min="0" step="1" required value={threshold} onChange={event=>setThreshold(event.target.value)}/></label><p className="muted">The product will show as low stock when its quantity is at or below this threshold.</p><div className="row end gap"><Button type="button" variant="ghost" disabled={saving} onClick={close}>Cancel</Button><Button disabled={saving}>{saving?'Updating…':'Update stock'}</Button></div></form></Modal>
  </>;

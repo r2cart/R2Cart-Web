@@ -17,6 +17,7 @@ export function OrderSuccessPage(){
    <span>ORDER CONFIRMED</span>
    <h1>{isScheduled?'Order scheduled successfully!':'Thank you! Your groceries are on the way.'}</h1>
    <p>{isScheduled?`Your order is booked for delivery on ${last.deliveryDate}.`:'We’ve received your order and started preparing it with care.'}</p>
+   
    <div className="success-card">
     <div><span>Order ID</span><b>#{last.orderNumber||last.id}</b></div>
     <div>
@@ -26,6 +27,7 @@ export function OrderSuccessPage(){
     <div><span>Delivering to</span><b>{address.line}{address.cityLine&&<><br/>{address.cityLine}</>}</b></div>
     <div><span>Total payable</span><b>{money(last.total??last.grandTotal)}</b></div>
    </div>
+
    <div className="row center gap">
     <Link className="btn btn-primary" to={`/orders/${last.id}`}>View order</Link>
     <Link className="btn btn-ghost" to="/">Continue shopping</Link>

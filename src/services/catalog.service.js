@@ -7,5 +7,6 @@ export const catalogService={
  listBanners:()=>api.get('/banners'),
  listDelivery:()=>api.get('/delivery'),
  getStoreSettings:()=>api.get('/settings'),
- searchProducts:query=>api.get(`/products?q=${encodeURIComponent(query)}`)
+ searchProducts:query=>api.get(`/products?q=${encodeURIComponent(query)}`),
+ sendContactMessage:value=>api.post('/contact',value)
 };

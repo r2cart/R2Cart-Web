@@ -109,6 +109,7 @@ export function AdminOrderDetails(){
    setStatus(value.status);
    await refreshProducts();
    window.dispatchEvent(new Event('grocify:orders-updated'));
+   window.dispatchEvent(new Event('grocify:products-updated'));
    notify('Order status saved');
   }catch(reason){
    notify(reason.message,'error');

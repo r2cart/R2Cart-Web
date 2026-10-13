@@ -5,7 +5,7 @@ export class ApiError extends Error{
 }
 
 let refreshRequest=null;
-const tokenKey=path=>path.startsWith('/admin')?'grocify-admin-access-token':'grocify-access-token';
+const tokenKey=path=>{if(path.startsWith('/admin'))return 'grocify-admin-access-token';if(path.startsWith('/notifications')&&localStorage.getItem('grocify-admin-access-token')&&!localStorage.getItem('grocify-access-token'))return 'grocify-admin-access-token';return 'grocify-access-token'};
 const headersFor=(path,options)=>{const token=localStorage.getItem(tokenKey(path));return {...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(token?{Authorization:`Bearer ${token}`}:{}) ,...options.headers}};
 async function parse(response){const data=response.status===204?null:await response.json();return{data,response}}
 async function refreshSession(){

@@ -37,6 +37,20 @@ export function AppProvider({children}){
  const [storeSettings,setStoreSettings]=useState(null);
  const [deliveryZones,setDeliveryZones]=useState([]);
  const [toast,setToast]=useState(null);const [locationOpen,setLocationOpen]=useState(false);const [cartOpen,setCartOpen]=useState(false);
+ const [authModalOpen,setAuthModalOpen]=useState(false);
+ const [authModalReason,setAuthModalReason]=useState('welcome');
+ const openAuthModal=(reason='welcome')=>{setAuthModalReason(reason);setAuthModalOpen(true)};
+ const closeAuthModal=()=>{setAuthModalOpen(false);if(authModalReason==='welcome')sessionStorage.setItem('r2cart-auth-popup-dismissed','1')};
+
+ useEffect(()=>{
+  if(onlineSession()||user?.id)return;
+  if(sessionStorage.getItem('r2cart-auth-popup-dismissed'))return;
+  const path=window.location.pathname;
+  if(['/login','/signup','/verify-otp','/forgot-password'].includes(path)||path.startsWith('/admin'))return;
+  const timer=setTimeout(()=>{setAuthModalReason('welcome');setAuthModalOpen(true)},1200);
+  return()=>clearTimeout(timer);
+ },[user?.id]);
+
  function onlineSession(){return Boolean(localStorage.getItem('grocify-access-token'))}
  const online=onlineSession;
  const setUser=value=>{setUserState(value);if(value)storage.set('user',value);else storage.remove('user')};
@@ -45,7 +59,12 @@ export function AppProvider({children}){
  useEffect(()=>{if(!isInvalidCustomer(user))return;authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView()},[user]);
  useEffect(()=>{storage.remove('location');if(!user?.id){setAddressList([]);setLocation(DEFAULT_LOCATION)}},[user?.id]);
  useEffect(()=>{if(user?.id&&location!==DEFAULT_LOCATION)storage.set(`location-${user.id}`,location)},[location,user?.id]);
- useEffect(()=>{if(!online())return;Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()]).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView();return null}const addresses=remoteAddresses.map(addressView);setUser(profile);setCart(remoteCart.cart);setFavorites(remoteFavorites.map(p=>p.id));setAddressList(addresses);const savedLocation=storage.get(`location-${profile.id}`,'');const defaultAddress=addresses.find(address=>address.default)||addresses[0];setLocation(savedLocation||formatLocation(defaultAddress));return orderService.list()}).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{if(error?.status===401||error?.status===403){localStorage.removeItem('grocify-access-token');clearCustomerView()}})},[user?.id]);
+ useEffect(()=>{
+  if(!online())return;
+  const localCart=storage.get('cart',{});
+  const syncPromises=Object.entries(localCart).filter(([,q])=>q>0).map(([id,q])=>customerService.setCartItem(id,q).catch(()=>{}));
+  Promise.all(syncPromises).then(()=>Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()])).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView();return null}const addresses=remoteAddresses.map(addressView);setUser(profile);setCart(remoteCart.cart);setFavorites(remoteFavorites.map(p=>p.id));setAddressList(addresses);const savedLocation=storage.get(`location-${profile.id}`,'');const defaultAddress=addresses.find(address=>address.default)||addresses[0];setLocation(savedLocation||formatLocation(defaultAddress));return orderService.list()}).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{if(error?.status===401||error?.status===403){localStorage.removeItem('grocify-access-token');clearCustomerView()}});
+ },[user?.id]);
  const notify=(message,type='success')=>{setToast({message,type});setTimeout(()=>setToast(null),2600)};
  const refreshOrders=async()=>{if(!online())return;try{setOrderList(await orderService.list())}catch(error){if(error.status!==401)notify(error.message,'error')}};
  useEffect(()=>{if(!user?.id)return;window.addEventListener('focus',refreshOrders);window.addEventListener('grocify:orders-updated',refreshOrders);return()=>{window.removeEventListener('focus',refreshOrders);window.removeEventListener('grocify:orders-updated',refreshOrders)}},[user?.id]);
@@ -64,6 +83,6 @@ export function AppProvider({children}){
  const deliveryConfig=useMemo(()=>({minimumOrder:Number(storeSettings?.minimumOrder||0),deliveryFee:Number(storeSettings?.deliveryFee||0),freeDeliveryThreshold:Number(storeSettings?.freeDeliveryThreshold||0),estimatedDelivery:storeSettings?.estimatedDelivery||'Delivery estimate unavailable'}),[storeSettings]);
  const availableLocalities=useMemo(()=>[...new Set(deliveryZones.flatMap(zone=>zone.localities))],[deliveryZones]);
  const deliveryRulesFor=area=>{const zone=deliveryZones.find(item=>item.localities.some(locality=>locality.toLowerCase()===String(area||'').trim().toLowerCase()));return zone?{zoneId:zone.id,zoneName:zone.name,minimumOrder:Number(zone.minimumOrder),deliveryFee:Number(zone.deliveryFee),freeDeliveryThreshold:Number(zone.freeDeliveryThreshold),estimatedDelivery:`${zone.estimatedMinutes} minutes`}:area?null:deliveryConfig};
- return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen}}>{children}</Ctx.Provider>
+ return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
 }
 export const useApp=()=>useContext(Ctx);

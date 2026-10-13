@@ -1,12 +1,12 @@
 import {useState} from 'react';
 import AdminNavbarActions from '../components/admin/AdminNavbarActions';
 import {NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,Bell,ChevronLeft,ChevronRight,Image as ImageIcon,LayoutDashboard,Menu,Package,PanelLeftClose,Search,Settings,ShoppingBasket,Tags,Ticket,Truck,Users,X} from 'lucide-react';
+import {ArrowLeft,Bell,ChevronLeft,ChevronRight,FileText,Image as ImageIcon,LayoutDashboard,Menu,Package,PanelLeftClose,Search,Settings,ShoppingBasket,Tags,Ticket,Truck,Users,X} from 'lucide-react';
 import {Logo} from './CustomerLayout';
 import {authService} from '../services/auth.service';
 import {BRAND} from '../config/brand';
 
-const links=[['/admin/dashboard','Dashboard',LayoutDashboard],['/admin/products','Products',ShoppingBasket],['/admin/categories','Categories',Tags],['/admin/orders','Orders',Package],['/admin/customers','Customers',Users],['/admin/inventory','Inventory',PanelLeftClose],['/admin/coupons','Coupons',Ticket],['/admin/banners','Banners',ImageIcon],['/admin/delivery','Delivery',Truck],['/admin/support','Support',Bell],['/admin/settings','Settings',Settings]];
+const links=[['/admin/dashboard','Dashboard',LayoutDashboard],['/admin/products','Products',ShoppingBasket],['/admin/categories','Categories',Tags],['/admin/orders','Orders',Package],['/admin/customers','Customers',Users],['/admin/inventory','Inventory',PanelLeftClose],['/admin/coupons','Coupons',Ticket],['/admin/banners','Banners',ImageIcon],['/admin/delivery','Delivery',Truck],['/admin/policies','Policies & CMS',FileText],['/admin/support','Support',Bell],['/admin/settings','Settings',Settings]];
 
 function getAdminInfo(){
  try{
