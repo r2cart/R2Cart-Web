@@ -224,3 +224,7 @@ footer{background:#121715!important;color:#fff;border-top:1px solid #232c28}
 .my-tickets{margin-top:40px}.my-tickets article{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:14px 0;border-bottom:1px solid #E5E7EB}.my-tickets article>div{display:flex;flex-direction:column}.my-tickets article p{margin:0}.my-tickets article>small{grid-column:1/-1;color:#66736b}.table-subtext{display:block;color:#8E8E93;margin-top:3px}
 @media(min-width:769px){.page>.page-head+.search-box{display:none}.page>.search-discovery{display:none}}
 .page>.page-head:has(+.search-box){display:none}
+.empty-address-box{border:1.5px dashed #10b981;background:#ecfdf5;border-radius:14px;padding:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+.empty-address-box b{display:block;font-size:14px;color:#064e3b;margin-bottom:4px}
+.empty-address-box p{font-size:12px;color:#374151;margin:0}
+@media(max-width:600px){.empty-address-box{flex-direction:column;align-items:stretch;text-align:left}.empty-address-box .btn{width:100%}}

@@ -55,6 +55,7 @@ export function CheckoutPage(){
  const {cartItems,subtotal,mrpTotal,addressList,setAddressList,setOrderList,setCart,notify,deliveryConfig,deliveryZones,deliveryRulesFor,user,openAuthModal,refreshProducts}=useApp();
  const nav=useNavigate();
  const [selected,setSelected]=useState();
+ const [placing,setPlacing]=useState(false);
 
  useEffect(()=>{
   if(!user&&!localStorage.getItem('grocify-access-token')){
@@ -84,7 +85,19 @@ export function CheckoutPage(){
   return initialAvail||TIME_SLOTS[0];
  });
 
- useEffect(()=>{const available=addressList.filter(item=>deliveryRulesFor(item.area));if(!available.some(item=>item.id===selected))setSelected(available.find(item=>item.default)?.id||available[0]?.id)},[addressList,deliveryZones,selected]);
+ // Request address upfront if user has no saved addresses, avoiding jumping or scrolling later
+ useEffect(()=>{
+  if(user?.id&&Array.isArray(addressList)&&addressList.length===0){
+   setAddressModal(true);
+  }
+ },[user?.id,addressList.length]);
+
+ useEffect(()=>{
+  const available=addressList.filter(item=>deliveryRulesFor(item.area));
+  if(available.length>0&&!available.some(item=>item.id===selected)){
+   setSelected(available.find(item=>item.default)?.id||available[0]?.id);
+  }
+ },[addressList,deliveryZones,selected]);
  useEffect(()=>{let active=true;const refresh=async()=>{try{const rows=await customerService.coupons();if(active)setCoupons(rows);const code=sessionStorage.getItem('grocify-coupon');if(code){try{const result=await customerService.validateCoupon(code);if(active){setCoupon({code:result.code,discount:Number(result.discount)});setShowCoupons(false);sessionStorage.setItem('grocify-coupon-discount',String(result.discount))}}catch(error){if(active){setCoupon(null);setShowCoupons(true);sessionStorage.removeItem('grocify-coupon');sessionStorage.removeItem('grocify-coupon-discount');notify(error.message,'error')}}}}catch(error){if(active)notify(error.message,'error')}finally{if(active)setCouponLoading(false)}};refresh();window.addEventListener('focus',refresh);window.addEventListener('grocify:coupons-updated',refresh);return()=>{active=false;window.removeEventListener('focus',refresh);window.removeEventListener('grocify:coupons-updated',refresh)}},[subtotal]);
 
  if(!cartItems.length)return <div className="container page"><EmptyState icon="cart" title="No items to checkout" text="Add a few groceries before continuing." action="Browse products"/></div>;
@@ -101,16 +114,22 @@ export function CheckoutPage(){
  };
 
  const place=async()=>{
-  if(!selected||!selectedAddress)return notify('Select an available delivery address','error');
+  if(placing)return;
+  if(!selected||!selectedAddress){
+   notify('Please add or select a delivery address to proceed','error');
+   setAddressModal(true);
+   return;
+  }
   if(!deliveryRulesFor(selectedAddress.area))return notify(`Delivery is unavailable in ${selectedAddress.area}`,'error');
   if(minimumRemaining)return notify(`Add ${money(minimumRemaining)} more to place this order`,'error');
   if(deliveryType==='SCHEDULED'&&(!selectedDate||!selectedSlot))return notify('Select a valid delivery date and time slot','error');
 
+  setPlacing(true);
   try{
    const order=await orderService.create({
     addressId:String(selected),
-    couponCode:coupon?.code,
-    deliveryInstruction:instruction==='Custom note'?customNote:instruction,
+    couponCode:coupon?.code||null,
+    deliveryInstruction:instruction==='Custom note'?customNote:(instruction||null),
     paymentMethod:'COD',
     deliveryType,
     deliveryDate:deliveryType==='SCHEDULED'?selectedDate.label:null,
@@ -128,13 +147,15 @@ export function CheckoutPage(){
    nav('/order-success');
   }catch(error){
    notify(error.message,'error');
+  }finally{
+   setPlacing(false);
   }
  };
 
  const saveAddress=async value=>{try{const saved=addressView(await customerService.addAddress(addressPayload(value)));setAddressList(items=>[saved,...items]);setSelected(saved.id);setAddressModal(false);notify('Address saved to your account')}catch(error){notify(error.message,'error')}};
 
  return <div className="container page checkout-page"><PageHead eyebrow="SECURE CHECKOUT" title="Almost there" text="Review your delivery and payment details."/><div className="checkout-layout"><div className="checkout-steps">
-  <CheckoutSection n="1" title="Delivery address" done={!!selected}><div className="address-grid">{addressList.map(address=>{const zone=deliveryRulesFor(address.area);return <button disabled={!zone} className={`address-card selectable ${selected===address.id?'selected':''} ${!zone?'unavailable':''}`} onClick={()=>zone&&setSelected(address.id)} key={address.id}><span className="address-type">{address.type}</span>{selected===address.id&&<i><Check/></i>}<b>{address.name}</b><p>{address.line}<br/>{address.cityLine||address.city}</p><small>{zone?`${zone.zoneName} · ${zone.estimatedDelivery}`:'Delivery currently unavailable'}</small></button>})}<button className="add-address" onClick={()=>setAddressModal(true)}>+ Add new address</button></div></CheckoutSection>
+  <CheckoutSection n="1" title="Delivery address" done={!!selected}>{!addressList.length?<div className="empty-address-box"><div><b>No delivery address found</b><p>Please enter your delivery address to see delivery timing and place your order.</p></div><Button type="button" onClick={()=>setAddressModal(true)}>+ Add delivery address</Button></div>:<div className="address-grid">{addressList.map(address=>{const zone=deliveryRulesFor(address.area);return <button disabled={!zone} className={`address-card selectable ${selected===address.id?'selected':''} ${!zone?'unavailable':''}`} onClick={()=>zone&&setSelected(address.id)} key={address.id}><span className="address-type">{address.type}</span>{selected===address.id&&<i><Check/></i>}<b>{address.name}</b><p>{address.line}<br/>{address.cityLine||address.city}</p><small>{zone?`${zone.zoneName} · ${zone.estimatedDelivery}`:'Delivery currently unavailable'}</small></button>})}<button className="add-address" onClick={()=>setAddressModal(true)}>+ Add new address</button></div>}</CheckoutSection>
 
   <CheckoutSection n="2" title="Delivery schedule & timing" done={deliveryType==='INSTANT'||(deliveryType==='SCHEDULED'&&!!selectedSlot)}>
    <div className="delivery-type-grid">
@@ -220,7 +241,7 @@ export function CheckoutPage(){
    <span>Delivery timing</span>
    <b>{deliveryType==='SCHEDULED'?`📅 ${selectedDate?.label} (${selectedSlot?.time})`:`⚡ Instant (${rules.estimatedDelivery||'15–30 mins'})`}</b>
   </div>
-  <PriceSummary title="Final price breakdown" mrpTotal={mrpTotal} subtotal={subtotal} deliveryFee={deliveryFee} couponDiscount={coupon?.discount||0} couponCode={coupon?.code}/>{minimumRemaining&&<p className="checkout-minimum">Add {money(minimumRemaining)} more to meet this zone’s minimum order.</p>}<Button className="wide" onClick={place}>Place order · Pay {money(total)}</Button><small className="secure-note"><ShieldCheck/> {deliveryType==='SCHEDULED'?`Scheduled: ${selectedDate?.label}`:rules.estimatedDelivery} · Safe & secure checkout</small></aside></div>
+  <PriceSummary title="Final price breakdown" mrpTotal={mrpTotal} subtotal={subtotal} deliveryFee={deliveryFee} couponDiscount={coupon?.discount||0} couponCode={coupon?.code}/>{minimumRemaining&&<p className="checkout-minimum">Add {money(minimumRemaining)} more to meet this zone’s minimum order.</p>}<Button className="wide" disabled={placing} onClick={place}>{placing?'Placing order…':`Place order · Pay ${money(total)}`}</Button><small className="secure-note"><ShieldCheck/> {deliveryType==='SCHEDULED'?`Scheduled: ${selectedDate?.label}`:rules.estimatedDelivery} · Safe & secure checkout</small></aside></div>
   <Modal open={addressModal} onClose={()=>setAddressModal(false)} title="Add delivery address" size="location-modal"><div className="modal-body"><AddressForm onCancel={()=>setAddressModal(false)} onSave={saveAddress}/></div></Modal>
  </div>;
 }
