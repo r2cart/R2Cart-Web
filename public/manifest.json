@@ -1,0 +1,19 @@
+{
+  "name": "R2Cart — Daily Needs, Delivered Fresh",
+  "short_name": "R2Cart",
+  "description": "Daily needs, fresh groceries and essentials delivered straight to your door.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#148542",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

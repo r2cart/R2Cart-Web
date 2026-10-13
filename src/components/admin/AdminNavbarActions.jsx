@@ -3,7 +3,7 @@ import {useNavigate} from 'react-router-dom';
 import {Bell,Search,UserRound,X} from 'lucide-react';
 import {api} from '../../services/httpClient';
 import {mediaUrl} from '../../utils/media';
-import {playNotificationSound} from '../../services/pushNotification.service';
+import {playNotificationSound,subscribeToPush} from '../../services/pushNotification.service';
 import './navbar.css';
 
 export default function AdminNavbarActions(){
@@ -25,7 +25,7 @@ export default function AdminNavbarActions(){
 
  useEffect(()=>{
   load();
-  const timer=setInterval(load,45000);
+  const timer=setInterval(load,12000);
   window.addEventListener('focus',load);
   window.addEventListener('grocify:settings-updated',load);
 
@@ -86,6 +86,13 @@ export default function AdminNavbarActions(){
      <b>Notifications</b>
      <button disabled={!unread} onClick={()=>mark(notices.map(n=>n.id))}>Mark all read</button>
     </div>
+
+    {typeof Notification!=='undefined'&&Notification.permission!=='granted'&&(
+     <div style={{padding:'8px 10px',background:'rgba(20,133,66,0.08)',borderRadius:'8px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <span style={{fontSize:'12px',color:'#148542',fontWeight:500}}>Turn on push & chime for orders</span>
+      <button style={{fontSize:'11px',padding:'4px 8px',background:'#148542',color:'#fff',borderRadius:'6px',border:'none',cursor:'pointer'}} onClick={async()=>{await subscribeToPush({role:'ADMIN'});load()}}>Enable</button>
+     </div>
+    )}
 
     {noticeError?<><p role="alert">{noticeError}</p><button onClick={load}>Try again</button></>:!data?<p>Loading notifications…</p>:!notices.length?<p>No pending alerts. Preferences are managed in Settings.</p>:notices.map(n=><button className={`navbar-result ${read.includes(n.id)?'':'unread'}`} key={n.id} onClick={()=>{mark([n.id]);go(n.path)}}><span><b>{n.title}</b><small>{n.text}</small><small>{new Date(n.date).toLocaleString('en-IN')}</small></span></button>)}
    </div>}

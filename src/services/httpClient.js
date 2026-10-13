@@ -5,7 +5,7 @@ export class ApiError extends Error{
 }
 
 let refreshRequest=null;
-const tokenKey=path=>{if(path.startsWith('/admin'))return 'grocify-admin-access-token';if(path.startsWith('/notifications')&&localStorage.getItem('grocify-admin-access-token')&&!localStorage.getItem('grocify-access-token'))return 'grocify-admin-access-token';return 'grocify-access-token'};
+const tokenKey=path=>{if(path.startsWith('/admin'))return 'grocify-admin-access-token';if(typeof window!=='undefined'&&window.location.pathname.startsWith('/admin'))return 'grocify-admin-access-token';return 'grocify-access-token'};
 const headersFor=(path,options)=>{const token=localStorage.getItem(tokenKey(path));return {...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(token?{Authorization:`Bearer ${token}`}:{}) ,...options.headers}};
 async function parse(response){const data=response.status===204?null:await response.json();return{data,response}}
 async function refreshSession(){
@@ -28,4 +28,4 @@ export async function request(path,options={}){
  }catch(error){if(error.name==='AbortError')throw new ApiError('Server response timed out. Please try again.',408);if(error instanceof TypeError)throw new ApiError('Cannot connect to R2Cart server. Make sure the backend is running.',0);throw error}finally{clearTimeout(timeout)}
 }
 
-export const api={get:path=>request(path),post:(path,body)=>request(path,{method:'POST',body:JSON.stringify(body)}),upload:(path,body)=>request(path,{method:'POST',body}),put:(path,body)=>request(path,{method:'PUT',body:JSON.stringify(body)}),patch:(path,body)=>request(path,{method:'PATCH',body:JSON.stringify(body)}),delete:path=>request(path,{method:'DELETE'})};
+export const api={get:(path,options={})=>request(path,options),post:(path,body,options={})=>request(path,{method:'POST',body:JSON.stringify(body),...options}),upload:(path,body,options={})=>request(path,{method:'POST',body,...options}),put:(path,body,options={})=>request(path,{method:'PUT',body:JSON.stringify(body),...options}),patch:(path,body,options={})=>request(path,{method:'PATCH',body:JSON.stringify(body),...options}),delete:(path,options={})=>request(path,{method:'DELETE',...options})};

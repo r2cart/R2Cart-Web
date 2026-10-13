@@ -85,11 +85,15 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
       });
     }
 
-    // 5. Send subscription to backend
+    // 5. Send subscription to backend with role-aware authorization
+    const adminToken = localStorage.getItem('grocify-admin-access-token');
+    const customerToken = localStorage.getItem('grocify-access-token');
+    const token = role === 'ADMIN' ? (adminToken || customerToken) : (customerToken || adminToken);
+
     await api.post('/notifications/subscribe', {
       subscription: subscription.toJSON(),
       role,
-    });
+    }, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
 
     localStorage.setItem('r2cart_push_subscribed', 'true');
     return { success: true, subscription };
@@ -162,23 +166,29 @@ export function playNotificationSound() {
   }
 }
 
-// Automatically trigger native browser notification dialog on visit if not yet decided
+export function isIOS() {
+  return (
+    typeof navigator !== 'undefined' &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+  );
+}
+
+export function isStandalone() {
+  return (
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true)
+  );
+}
+
+// Automatically trigger native browser notification dialog or sync subscription with backend
 export async function autoPromptPushPermission(role = 'CUSTOMER') {
   if (!isPushSupported()) return;
-  if (Notification.permission === 'default') {
+  if (Notification.permission === 'default' || Notification.permission === 'granted') {
     try {
       await subscribeToPush({ role });
     } catch (err) {
-      console.warn('Auto push prompt error:', err);
-    }
-  } else if (Notification.permission === 'granted') {
-    try {
-      const sub = await getCurrentPushSubscription();
-      if (!sub) {
-        await subscribeToPush({ role });
-      }
-    } catch (err) {
-      console.warn('Sync push subscription error:', err);
+      console.warn('Auto push prompt/sync error:', err);
     }
   }
 }
