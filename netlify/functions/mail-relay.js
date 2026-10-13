@@ -17,7 +17,7 @@ export default async (req) => {
   }
 
   try {
-    const { to, subject, text, from } = await req.json();
+    const { to, subject, text, html, from } = await req.json();
 
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -34,9 +34,11 @@ export default async (req) => {
 
     const info = await transporter.sendMail({
       from: from || 'R2Cart <r2cartsupport@gmail.com>',
+      replyTo: 'r2cartsupport@gmail.com',
       to,
       subject,
       text,
+      html: html || undefined,
     });
 
     return new Response(JSON.stringify({ success: true, messageId: info.messageId }), {
