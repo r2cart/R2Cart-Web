@@ -1,4 +1,5 @@
 import { api } from './httpClient.js';
+import { requestFcmToken } from './fcm.service.js';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -96,6 +97,10 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
     }, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
 
     localStorage.setItem('r2cart_push_subscribed', 'true');
+
+    // Register FCM token in parallel for cross-platform support
+    requestFcmToken({ role }).catch((err) => console.warn('[FCM] Token register skipped:', err.message));
+
     return { success: true, subscription };
   } catch (err) {
     console.error('Failed to subscribe to push notifications:', err);
