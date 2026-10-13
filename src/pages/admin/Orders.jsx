@@ -5,20 +5,198 @@ import {Button,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
 import {addressText} from '../../utils/address';
+
 const statuses=['New','Confirmed','Packing','Out for Delivery','Delivered','Cancelled'];
 const date=value=>new Date(value).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
+
 export function AdminOrders(){
  const [tab,setTab]=useState('All'),[page,setPage]=useState(1),[result,setResult]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
- useEffect(()=>{let active=true;setLoading(true);adminService.ordersPage({page,limit:20,...(tab!=='All'&&{status:tab})}).then(value=>{if(active){setResult(value);setError('')}}).catch(reason=>{if(active){setError(reason.message);setResult(null)}}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[tab,page,refresh]);
- return <><div className="admin-title"><div><h1>Orders</h1><p>Live fulfilment queue from the database.</p></div><Button variant="outline" disabled={loading} onClick={()=>setRefresh(value=>value+1)}>Refresh</Button></div><div className="tabs admin-tabs">{['All',...statuses].map(value=><button className={tab===value?'active':''} onClick={()=>{setTab(value);setPage(1)}} key={value}>{value}</button>)}</div><div className="admin-card table-card"><div className="table-wrap"><table><thead><tr>{['Order','Customer','Mobile','Items','Total','Payment','Status','Action'].map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>{loading?<tr><td colSpan="8">Loading orders…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!result?.orders.length?<tr><td colSpan="8">No orders in this status.</td></tr>:result.orders.map(order=><tr key={order.id}><td><b>#{order.orderNumber}</b><small>{date(order.date)}</small></td><td>{order.customer||'Customer unavailable'}</td><td>{order.mobile||'—'}</td><td>{order.items.reduce((sum,item)=>sum+item.quantity,0)}</td><td><b>{money(order.total)}</b></td><td>{order.paymentMethod==='COD'?'Cash on Delivery':order.paymentMethod}</td><td><StatusBadge status={order.status}/></td><td><Link className="icon-btn" aria-label="View order" to={`/admin/orders/${order.id}`}><Eye/></Link></td></tr>)}</tbody></table></div></div>{!loading&&result?.pagination.pages>1&&<Pagination page={page} setPage={setPage} total={result.pagination.pages}/>}</>;
+
+ useEffect(()=>{
+  let active=true;
+  setLoading(true);
+  adminService.ordersPage({page,limit:20,...(tab!=='All'&&{status:tab})}).then(value=>{
+   if(active){setResult(value);setError('')}
+  }).catch(reason=>{
+   if(active){setError(reason.message);setResult(null)}
+  }).finally(()=>{
+   if(active)setLoading(false);
+  });
+  return()=>{active=false};
+ },[tab,page,refresh]);
+
+ return (
+  <>
+   <div className="admin-title">
+    <div>
+     <h1>Orders</h1>
+     <p>Live fulfilment queue from the database.</p>
+    </div>
+    <Button variant="outline" disabled={loading} onClick={()=>setRefresh(value=>value+1)}>Refresh</Button>
+   </div>
+   <div className="tabs admin-tabs">
+    {['All',...statuses].map(value=><button className={tab===value?'active':''} onClick={()=>{setTab(value);setPage(1)}} key={value}>{value}</button>)}
+   </div>
+   <div className="admin-card table-card">
+    <div className="table-wrap">
+     <table>
+      <thead>
+       <tr>
+        {['Order & Schedule','Customer','Mobile','Items','Total','Payment','Status','Action'].map(label=><th key={label}>{label}</th>)}
+       </tr>
+      </thead>
+      <tbody>
+       {loading?(
+        <tr><td colSpan="8">Loading orders…</td></tr>
+       ):error?(
+        <tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>
+       ):!result?.orders.length?(
+        <tr><td colSpan="8">No orders in this status.</td></tr>
+       ):result.orders.map(order=>(
+        <tr key={order.id}>
+         <td>
+          <b>#{order.orderNumber}</b>
+          <small>{date(order.date)}</small>
+          <div style={{marginTop:'5px'}}>
+           {order.deliveryType==='SCHEDULED'?(
+            <span className="schedule-badge">📅 {order.deliveryDate} · {order.deliverySlot}</span>
+           ):(
+            <span className="instant-badge">⚡ Instant</span>
+           )}
+          </div>
+         </td>
+         <td>{order.customer||'Customer unavailable'}</td>
+         <td>{order.mobile||'—'}</td>
+         <td>{order.items.reduce((sum,item)=>sum+item.quantity,0)}</td>
+         <td><b>{money(order.total)}</b></td>
+         <td>{order.paymentMethod==='COD'?'Cash on Delivery':order.paymentMethod}</td>
+         <td><StatusBadge status={order.status}/></td>
+         <td><Link className="icon-btn" aria-label="View order" to={`/admin/orders/${order.id}`}><Eye/></Link></td>
+        </tr>
+       ))}
+      </tbody>
+     </table>
+    </div>
+   </div>
+   {!loading&&result?.pagination.pages>1&&<Pagination page={page} setPage={setPage} total={result.pagination.pages}/>}
+  </>
+ );
 }
+
 export function AdminOrderDetails(){
  const {id}=useParams(),{notify,refreshProducts}=useApp();
  const [order,setOrder]=useState(null),[status,setStatus]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[saving,setSaving]=useState(false),[reload,setReload]=useState(0);
- useEffect(()=>{let active=true;setLoading(true);setOrder(null);adminService.order(id).then(value=>{if(active){setOrder(value);setStatus(value.status);setError('')}}).catch(reason=>{if(active)setError(reason.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[id,reload]);
- const save=async()=>{setSaving(true);try{const value=await adminService.updateOrderStatus(id,status);setOrder(value);setStatus(value.status);await refreshProducts();window.dispatchEvent(new Event('grocify:orders-updated'));notify('Order status saved')}catch(reason){notify(reason.message,'error')}finally{setSaving(false)}};
+
+ useEffect(()=>{
+  let active=true;
+  setLoading(true);
+  setOrder(null);
+  adminService.order(id).then(value=>{
+   if(active){setOrder(value);setStatus(value.status);setError('')}
+  }).catch(reason=>{
+   if(active)setError(reason.message);
+  }).finally(()=>{
+   if(active)setLoading(false);
+  });
+  return()=>{active=false};
+ },[id,reload]);
+
+ const save=async()=>{
+  setSaving(true);
+  try{
+   const value=await adminService.updateOrderStatus(id,status);
+   setOrder(value);
+   setStatus(value.status);
+   await refreshProducts();
+   window.dispatchEvent(new Event('grocify:orders-updated'));
+   notify('Order status saved');
+  }catch(reason){
+   notify(reason.message,'error');
+  }finally{
+   setSaving(false);
+  }
+ };
+
  if(loading)return <div className="admin-card modal-body">Loading order details…</div>;
  if(error||!order)return <div className="admin-card bulk-error"><p role="alert">{error||'Order not found'}</p><Button variant="outline" onClick={()=>setReload(value=>value+1)}>Try again</Button><Link className="back-link" to="/admin/orders">Back to orders</Link></div>;
+
  const address=addressText(order.addressSnapshot),terminal=['Delivered','Cancelled'].includes(order.status);
- return <><Link className="back-link" to="/admin/orders"><ArrowLeft/> Back to orders</Link><div className="admin-title"><div><h1>Order #{order.orderNumber}</h1><p>Placed {date(order.date)} · India time</p></div><StatusBadge status={order.status}/></div><div className="admin-order-grid"><section><div className="admin-card"><h3>Order items</h3>{order.items.map(item=><div className="admin-order-item" key={item.id}>{item.image&&<img src={item.image} alt=""/>}<span><b>{item.name}</b><small>{item.unit} · Quantity {item.quantity} · {item.sku}</small></span><strong>{money(item.price*item.quantity)}</strong></div>)}</div><div className="admin-card"><h3>Bill breakdown</h3>{[['Items at MRP',order.itemTotal],['Product savings',-order.productDiscount],['Coupon savings',-order.couponDiscount],['Delivery fee',order.deliveryFee]].map(([label,value])=><p className="between" key={label}><span>{label}</span><b>{money(value)}</b></p>)}{order.coupon&&<p>Coupon: {order.coupon.code}</p>}<p className="grand between"><span>Order total</span><b>{money(order.total)}</b></p></div><div className="admin-card"><h3>Order history</h3>{order.history.length?order.history.map(event=><div className="message-box" key={event.id}><b>{event.status.replaceAll('_',' ')}</b><small>{date(event.createdAt)}</small><p>{event.note}</p></div>):<p className="muted">No status history recorded.</p>}</div></section><aside><div className="admin-card"><h3>Update status</h3><select className="wide-select" value={status} disabled={saving||terminal} onChange={event=>setStatus(event.target.value)}>{statuses.map(value=><option key={value}>{value}</option>)}</select><Button className="wide" disabled={saving||terminal||status===order.status} onClick={save}>{saving?'Saving…':'Save status'}</Button>{terminal&&<p className="muted">This order is finalised.</p>}</div><div className="admin-card"><h3>Customer</h3><p><b>{order.customer}</b><br/>{order.mobile||'—'}<br/>{order.user?.email||'—'}</p><h3>Delivery address</h3><p>{address.line}<br/>{address.cityLine}</p><p>{order.deliveryInstruction||'No delivery instructions.'}</p><h3>Payment</h3><p>{order.paymentMethod==='COD'?'Cash on Delivery':order.paymentMethod} · {order.paymentStatus}</p></div></aside></div></>;
+ const isScheduled=order.deliveryType==='SCHEDULED';
+
+ return (
+  <>
+   <Link className="back-link" to="/admin/orders"><ArrowLeft/> Back to orders</Link>
+   <div className="admin-title">
+    <div>
+     <h1>Order #{order.orderNumber}</h1>
+     <p>Placed {date(order.date)} · India time</p>
+    </div>
+    <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+     {isScheduled?<span className="schedule-badge">📅 {order.deliveryDate} · {order.deliverySlot}</span>:<span className="instant-badge">⚡ Instant</span>}
+     <StatusBadge status={order.status}/>
+    </div>
+   </div>
+   <div className="admin-order-grid">
+    <section>
+     <div className="admin-card">
+      <h3>Order items</h3>
+      {order.items.map(item=>(
+       <div className="admin-order-item" key={item.id}>
+        {item.image&&<img src={item.image} alt=""/>}
+        <span><b>{item.name}</b><small>{item.unit} · Quantity {item.quantity} · {item.sku}</small></span>
+        <strong>{money(item.price*item.quantity)}</strong>
+       </div>
+      ))}
+     </div>
+     <div className="admin-card">
+      <h3>Bill breakdown</h3>
+      {[['Items at MRP',order.itemTotal],['Product savings',-order.productDiscount],['Coupon savings',-order.couponDiscount],['Delivery fee',order.deliveryFee]].map(([label,value])=>(
+       <p className="between" key={label}><span>{label}</span><b>{money(value)}</b></p>
+      ))}
+      {order.coupon&&<p>Coupon: {order.coupon.code}</p>}
+      <p className="grand between"><span>Order total</span><b>{money(order.total)}</b></p>
+     </div>
+     <div className="admin-card">
+      <h3>Order history</h3>
+      {order.history.length?order.history.map(event=>(
+       <div className="message-box" key={event.id}>
+        <b>{event.status.replaceAll('_',' ')}</b>
+        <small>{date(event.createdAt)}</small>
+        <p>{event.note}</p>
+       </div>
+      )):<p className="muted">No status history recorded.</p>}
+     </div>
+    </section>
+    <aside>
+     <div className="admin-card">
+      <h3>Update status</h3>
+      <select className="wide-select" value={status} disabled={saving||terminal} onChange={event=>setStatus(event.target.value)}>
+       {statuses.map(value=><option key={value}>{value}</option>)}
+      </select>
+      <Button className="wide" disabled={saving||terminal||status===order.status} onClick={save}>{saving?'Saving…':'Save status'}</Button>
+      {terminal&&<p className="muted">This order is finalised.</p>}
+     </div>
+     <div className="admin-card">
+      <h3>Delivery schedule</h3>
+      {isScheduled?(
+       <div className="schedule-badge" style={{display:'inline-flex',fontSize:'12px',padding:'6px 12px',marginBottom:'14px'}}>
+        📅 Scheduled: {order.deliveryDate} · {order.deliverySlot}
+       </div>
+      ):(
+       <div className="instant-badge" style={{display:'inline-flex',fontSize:'12px',padding:'6px 12px',marginBottom:'14px'}}>
+        ⚡ Instant Delivery
+       </div>
+      )}
+      <h3>Customer</h3>
+      <p><b>{order.customer}</b><br/>{order.mobile||'—'}<br/>{order.user?.email||'—'}</p>
+      <h3>Delivery address</h3>
+      <p>{address.line}<br/>{address.cityLine}</p>
+      <p>{order.deliveryInstruction||'No delivery instructions.'}</p>
+      <h3>Payment</h3>
+      <p>{order.paymentMethod==='COD'?'Cash on Delivery':order.paymentMethod} · {order.paymentStatus}</p>
+     </div>
+    </aside>
+   </div>
+  </>
+ );
 }
