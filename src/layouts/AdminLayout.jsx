@@ -1,10 +1,11 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import AdminNavbarActions from '../components/admin/AdminNavbarActions';
 import {NavLink,useLocation,useNavigate} from 'react-router-dom';
 import {ArrowLeft,Bell,ChevronLeft,ChevronRight,FileText,Image as ImageIcon,LayoutDashboard,Menu,Package,PanelLeftClose,Search,Settings,ShoppingBasket,Tags,Ticket,Truck,Users,X} from 'lucide-react';
 import {Logo} from './CustomerLayout';
 import {authService} from '../services/auth.service';
 import {BRAND} from '../config/brand';
+import {subscribeToPush,getNotificationPermission} from '../services/pushNotification.service';
 
 const links=[['/admin/dashboard','Dashboard',LayoutDashboard],['/admin/products','Products',ShoppingBasket],['/admin/categories','Categories',Tags],['/admin/orders','Orders',Package],['/admin/customers','Customers',Users],['/admin/inventory','Inventory',PanelLeftClose],['/admin/coupons','Coupons',Ticket],['/admin/banners','Banners',ImageIcon],['/admin/delivery','Delivery',Truck],['/admin/policies','Policies & CMS',FileText],['/admin/support','Support',Bell],['/admin/settings','Settings',Settings]];
 
@@ -22,6 +23,7 @@ function getAdminInfo(){
 
 export default function AdminLayout({children}){
  const [collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
+ const [perm,setPerm]=useState(()=>getNotificationPermission());
  const nav=useNavigate(),location=useLocation(),showBack=location.pathname!=='/admin/dashboard';
  const {name:adminName,initials:adminInitials}=getAdminInfo();
 
@@ -32,6 +34,12 @@ export default function AdminLayout({children}){
   }
  });
 
+ useEffect(()=>{
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+   subscribeToPush({role:'ADMIN'}).catch(()=>{});
+  }
+ },[]);
+
  return <div className={`admin-shell ${collapsed?'collapsed':''}`}>
   <div className={`admin-overlay ${mobile?'show':''}`} onClick={()=>setMobile(false)}/>
   <aside className={`admin-sidebar ${mobile?'mobile-show':''}`}>
@@ -41,8 +49,14 @@ export default function AdminLayout({children}){
    <div className="admin-user"><div>{adminInitials}</div><span><b>{adminName}</b><small>Store administrator</small></span><button onClick={async()=>{await authService.adminLogout();nav('/admin/login')}} aria-label="Sign out">↗</button></div>
   </aside>
   <div className="admin-content">
+   {perm!=='granted'&&perm!=='unsupported'&&(
+    <div style={{background:'linear-gradient(90deg, #148542, #0d5f2e)',color:'#fff',padding:'8px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'12px',fontWeight:500,zIndex:10}}>
+     <span>🔔 <b>Turn on Order Alerts:</b> Get instant popup & sound alerts when a customer places an order, even when your browser is minimized or closed.</span>
+     <button onClick={async()=>{const res=await subscribeToPush({role:'ADMIN'});if(res?.success)setPerm('granted')}} style={{background:'#fff',color:'#148542',border:'none',borderRadius:'6px',padding:'5px 12px',fontWeight:600,cursor:'pointer',fontSize:'12px',whiteSpace:'nowrap',marginLeft:'12px'}}>Enable Alerts</button>
+    </div>
+   )}
    <header className="admin-header"><div className="row gap"><button className="mobile-menu" onClick={()=>setMobile(true)}><Menu/></button>{showBack&&<button className="admin-back" onClick={()=>location.key!=='default'?nav(-1):nav('/admin/dashboard')} title="Go back"><ArrowLeft/></button>}<button className="collapse-btn" onClick={()=>setCollapsed(!collapsed)}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button><div><b>{BRAND.name} Admin</b><small>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</small></div></div><AdminNavbarActions/></header>
    <main className="admin-main">{children}</main>
   </div>
- </div>
+ </div>;
 }

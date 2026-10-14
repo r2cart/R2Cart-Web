@@ -21,8 +21,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'R2Cart Update';
   const options = {
     body: data.body || '',
-    icon: data.icon || '/favicon.svg',
-    badge: data.badge || '/favicon.svg',
+    icon: data.icon || '/r2cart-logo.png',
+    badge: data.badge || '/r2cart-logo.png',
     data: data.data || { url: data.url || '/' },
     tag: data.tag || `r2cart-${Date.now()}`,
     renotify: true,

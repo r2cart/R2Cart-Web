@@ -3,7 +3,7 @@ import {useNavigate} from 'react-router-dom';
 import {Bell,Search,UserRound,X} from 'lucide-react';
 import {api} from '../../services/httpClient';
 import {mediaUrl} from '../../utils/media';
-import {playNotificationSound,subscribeToPush} from '../../services/pushNotification.service';
+import {playNotificationSound,subscribeToPush,sendTestPush} from '../../services/pushNotification.service';
 import './navbar.css';
 
 export default function AdminNavbarActions(){
@@ -89,8 +89,15 @@ export default function AdminNavbarActions(){
 
     {typeof Notification!=='undefined'&&Notification.permission!=='granted'&&(
      <div style={{padding:'8px 10px',background:'rgba(20,133,66,0.08)',borderRadius:'8px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-      <span style={{fontSize:'12px',color:'#148542',fontWeight:500}}>Turn on push & chime for orders</span>
+      <span style={{fontSize:'12px',color:'#148542',fontWeight:500}}>Turn on background alerts for orders</span>
       <button style={{fontSize:'11px',padding:'4px 8px',background:'#148542',color:'#fff',borderRadius:'6px',border:'none',cursor:'pointer'}} onClick={async()=>{await subscribeToPush({role:'ADMIN'});load()}}>Enable</button>
+     </div>
+    )}
+
+    {typeof Notification!=='undefined'&&Notification.permission==='granted'&&(
+     <div style={{padding:'6px 10px',background:'rgba(20,133,66,0.06)',borderRadius:'8px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11px'}}>
+      <span style={{color:'#148542',fontWeight:500}}>🔔 Background push active</span>
+      <button style={{background:'none',border:'1px solid #148542',color:'#148542',padding:'2px 7px',borderRadius:'4px',cursor:'pointer',fontSize:'10px',fontWeight:600}} onClick={async()=>{try{await sendTestPush('ADMIN');alert('Test push notification sent! Check your Windows or phone notification banner.');}catch(e){alert('Push test error: '+e.message)}}}>Send test</button>
      </div>
     )}
 
