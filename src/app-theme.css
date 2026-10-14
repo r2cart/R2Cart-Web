@@ -228,3 +228,9 @@ footer{background:#121715!important;color:#fff;border-top:1px solid #232c28}
 .empty-address-box b{display:block;font-size:14px;color:#064e3b;margin-bottom:4px}
 .empty-address-box p{font-size:12px;color:#374151;margin:0}
 @media(max-width:600px){.empty-address-box{flex-direction:column;align-items:stretch;text-align:left}.empty-address-box .btn{width:100%}}
+.header-user-wrap{display:flex;align-items:center;gap:8px}
+.desktop-logout-btn{display:inline-flex;align-items:center;gap:6px;background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;padding:7px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .18s ease}
+.desktop-logout-btn:hover{background:#fee2e2;border-color:#fca5a5;color:#be123c}
+.mobile-logout-btn{display:inline-flex;align-items:center;gap:4px;background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s ease}
+.mobile-logout-btn:active{background:#ffe4e6;transform:scale(.96)}
+.account-logout-card button:hover{background:#fee2e2!important;border-color:#fca5a5!important}
