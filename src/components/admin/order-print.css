@@ -1,0 +1,813 @@
+/* ==========================================================================
+   ENTERPRISE ORDER PRINTING STYLES: 80mm THERMAL SLIP & A4 TAX INVOICE
+   ========================================================================== */
+
+.order-print-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(10, 15, 29, 0.82);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.order-print-container {
+  width: 100%;
+  max-width: 960px;
+  height: calc(100vh - 32px);
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Toolbar */
+.order-print-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #1e293b;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.print-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.print-mode-tabs {
+  display: inline-flex;
+  background: #0f172a;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.print-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.print-tab-btn:hover {
+  color: #f8fafc;
+}
+
+.print-tab-btn.active {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.print-info-badge {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.print-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.print-action-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600 !important;
+  background: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4) !important;
+}
+
+.print-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.print-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* Scrollable Preview Viewport */
+.order-print-preview-viewport {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: #090d16;
+}
+
+/* ==========================================================================
+   1. 80mm THERMAL SLIP STYLES (Screen Preview & Print)
+   ========================================================================== */
+.thermal-slip-view {
+  width: 80mm;
+  min-height: 120mm;
+  background: #ffffff;
+  color: #000000;
+  padding: 5mm;
+  font-family: 'Courier New', Courier, monospace, system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+
+.thermal-header {
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.thermal-brand-name {
+  font-size: 18px;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.thermal-brand-sub {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.thermal-store-contact {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.thermal-divider-double {
+  border-bottom: 2px dashed #000000;
+  margin: 6px 0;
+}
+
+.thermal-divider-dashed {
+  border-bottom: 1px dashed #444444;
+  margin: 6px 0;
+}
+
+.thermal-divider-solid {
+  border-bottom: 1px solid #000000;
+  margin: 5px 0;
+}
+
+.thermal-order-badge {
+  text-align: center;
+  padding: 4px 0;
+}
+
+.thermal-order-id {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.thermal-mode-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border: 1px solid #000000;
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+
+.thermal-mode-pill.scheduled {
+  background: #000000;
+  color: #ffffff;
+}
+
+.thermal-schedule-slot {
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.thermal-customer-box {
+  margin: 6px 0;
+  font-size: 11px;
+}
+
+.thermal-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.thermal-lbl {
+  font-weight: 600;
+  min-width: 65px;
+}
+
+.thermal-val {
+  text-align: right;
+  flex: 1;
+}
+
+.thermal-address-block {
+  margin-top: 3px;
+}
+
+.thermal-addr-text {
+  font-size: 10px;
+  line-height: 1.3;
+  margin-top: 1px;
+}
+
+.thermal-landmark {
+  font-weight: bold;
+}
+
+.thermal-instruction-box {
+  margin-top: 5px;
+  padding: 4px;
+  border: 1px solid #000000;
+  font-size: 10px;
+  background: #f4f4f4;
+}
+
+.thermal-items-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  font-size: 10px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #000;
+  margin-bottom: 4px;
+}
+
+.thermal-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.thermal-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.thermal-item-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 1;
+}
+
+.thermal-checkbox {
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.thermal-item-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.thermal-item-name {
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.thermal-item-unit {
+  font-size: 9px;
+  color: #333333;
+}
+
+.thermal-item-qty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 45px;
+}
+
+.thermal-item-qty b {
+  font-size: 13px;
+}
+
+.thermal-item-price {
+  font-size: 9px;
+}
+
+.thermal-units-summary {
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.thermal-bill-breakdown {
+  font-size: 10px;
+}
+
+.thermal-bill-breakdown .thermal-row {
+  margin-bottom: 2px;
+}
+
+.thermal-grand-total {
+  font-size: 14px;
+  font-weight: 900;
+  margin-top: 3px;
+}
+
+.thermal-payment-bar {
+  padding: 6px;
+  text-align: center;
+  border: 2px solid #000000;
+  margin: 6px 0;
+}
+
+.thermal-payment-bar.cod {
+  background: #000000;
+  color: #ffffff;
+}
+
+.thermal-pay-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 10px;
+  gap: 2px;
+}
+
+.thermal-pay-text b {
+  font-size: 11px;
+}
+
+.thermal-signoff-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+  font-size: 9px;
+}
+
+.thermal-sign-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.thermal-sign-line {
+  flex: 1;
+  border-bottom: 1px dotted #000000;
+}
+
+.thermal-footer {
+  text-align: center;
+  font-size: 9px;
+  color: #444444;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.thermal-slogan {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 9px;
+}
+
+/* ==========================================================================
+   2. A4 TAX INVOICE STYLES (Screen Preview & Print)
+   ========================================================================== */
+.a4-invoice-sheet {
+  width: 210mm;
+  min-height: 285mm;
+  background: #ffffff;
+  color: #111827;
+  padding: 12mm 15mm;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.a4-invoice-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.a4-brand-col {
+  flex: 1;
+}
+
+.a4-brand-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #064e3b;
+  margin: 0 0 2px 0;
+  letter-spacing: -0.5px;
+}
+
+.a4-company-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.a4-store-address {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.a4-store-meta {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.a4-tax-ids {
+  font-size: 11px;
+  color: #0f172a;
+  margin-top: 4px;
+  padding: 2px 6px;
+  background: #f1f5f9;
+  display: inline-block;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.a4-invoice-meta-col {
+  width: 240px;
+  text-align: right;
+}
+
+.a4-doc-type {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 2px solid #0f172a;
+  padding: 6px 12px;
+  text-align: center;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.a4-meta-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.a4-meta-cell {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.a4-meta-cell .lbl {
+  color: #64748b;
+}
+
+.a4-meta-cell .val {
+  color: #0f172a;
+}
+
+.a4-divider {
+  border-bottom: 1.5px solid #0f172a;
+  margin: 14px 0 12px 0;
+}
+
+.a4-parties-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.a4-party-box {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.a4-box-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.a4-party-name {
+  font-size: 13px;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.a4-party-row {
+  font-size: 11px;
+  color: #334155;
+  margin-top: 1px;
+}
+
+.a4-addr-details {
+  font-size: 11px;
+  color: #334155;
+  line-height: 1.35;
+}
+
+.a4-delivery-instruction {
+  margin-top: 4px;
+  padding: 3px 6px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  font-size: 10px;
+  color: #92400e;
+}
+
+/* Items Table */
+.a4-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+  font-size: 11px;
+}
+
+.a4-items-table th {
+  background: #f1f5f9;
+  color: #1e293b;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.a4-items-table td {
+  border: 1px solid #e2e8f0;
+  padding: 7px 10px;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.a4-items-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.a4-item-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.a4-sku {
+  font-size: 10px;
+  color: #64748b;
+}
+
+/* Bottom Grid */
+.a4-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.a4-bottom-left {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.a4-amount-words-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.a4-amount-words-box .lbl {
+  color: #64748b;
+  font-size: 10px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.a4-amount-words-box .val {
+  color: #064e3b;
+  font-size: 12px;
+}
+
+.a4-payment-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.a4-payment-box .lbl {
+  color: #64748b;
+  font-size: 10px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.a4-terms-box {
+  font-size: 9px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.a4-terms-box ol {
+  margin: 3px 0 0 14px;
+  padding: 0;
+}
+
+.a4-bottom-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.a4-totals-table {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.a4-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11px;
+}
+
+.a4-total-row.savings {
+  color: #047857;
+}
+
+.a4-grand-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #064e3b;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.a4-tax-note {
+  font-size: 9px;
+  color: #64748b;
+  text-align: right;
+  padding: 3px 12px;
+  background: #f8fafc;
+}
+
+.a4-signatory-box {
+  margin-top: 24px;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.a4-sign-line {
+  width: 140px;
+  border-bottom: 1px solid #0f172a;
+  margin-bottom: 6px;
+}
+
+.a4-signatory-box b {
+  font-size: 11px;
+  color: #0f172a;
+}
+
+.a4-signatory-box span {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.a4-invoice-footer {
+  margin-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #94a3b8;
+}
+
+/* ==========================================================================
+   PRINT MEDIA RULES: ISOLATE PRINTABLE DOCUMENT ONLY
+   ========================================================================== */
+@media print {
+  /* Hide all normal app UI, overlays, navbars, and toolbars */
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* Make print area and its contents visible */
+  #order-printable-content,
+  #order-printable-content * {
+    visibility: visible !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .order-print-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    inset: auto !important;
+  }
+
+  .order-print-container {
+    border: none !important;
+    box-shadow: none !important;
+    height: auto !important;
+    max-width: 100% !important;
+    background: transparent !important;
+  }
+
+  .order-print-preview-viewport {
+    padding: 0 !important;
+    background: transparent !important;
+    display: block !important;
+  }
+
+  #order-printable-content {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+  }
+
+  .thermal-slip-view {
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    width: 78mm !important;
+    padding: 2mm !important;
+  }
+
+  .a4-invoice-sheet {
+    box-shadow: none !important;
+    width: 100% !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

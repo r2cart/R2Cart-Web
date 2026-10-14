@@ -8,5 +8,9 @@ export const catalogService={
  listDelivery:()=>api.get('/delivery'),
  getStoreSettings:()=>api.get('/settings'),
  searchProducts:query=>api.get(`/products?q=${encodeURIComponent(query)}`),
- sendContactMessage:value=>api.post('/contact',value)
+ sendContactMessage:value=>api.post('/contact',value),
+ listDeliverySlots:(date)=>api.get(`/delivery-slots${date?`?date=${encodeURIComponent(date)}`:''}`),
+ getActiveMarketing:()=>api.get('/marketing/active'),
+ trackMarketing:(id,action)=>api.post(`/marketing/${id}/track`,{action})
 };
+

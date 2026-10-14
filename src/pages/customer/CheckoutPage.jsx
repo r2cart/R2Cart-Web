@@ -6,6 +6,7 @@ import {AddressForm} from '../../layouts/CustomerLayout';
 import {Badge,Button,EmptyState,Modal,money} from '../../components/ui';
 import {orderService} from '../../services/order.service';
 import {customerService} from '../../services/customer.service';
+import {catalogService} from '../../services/catalog.service';
 import {addressPayload,addressView} from '../../utils/address';
 import {PriceSummary} from '../../components/customer/PriceSummary';
 
@@ -26,25 +27,28 @@ function isSlotAvailable(slot,isToday){
  return currentHour<slot.endHour-1;
 }
 
-function getAvailableDates(){
+function getAvailableDates(holidayDates = []){
  const dates=[];
  const now=new Date();
  for(let i=0;i<4;i++){
   const d=new Date(now);
   d.setDate(now.getDate()+i);
+  const id=d.toISOString().split('T')[0];
   const isToday=i===0;
   const isTomorrow=i===1;
+  const isHoliday=Array.isArray(holidayDates) && holidayDates.includes(id);
   const dayName=isToday?'Today':isTomorrow?'Tomorrow':d.toLocaleDateString('en-IN',{weekday:'short'});
   const dateFormatted=d.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
   const label=`${dayName}, ${dateFormatted}`;
-  const hasAvailableSlot=isToday?TIME_SLOTS.some(s=>isSlotAvailable(s,true)):true;
+  const hasAvailableSlot=!isHoliday && (isToday?TIME_SLOTS.some(s=>isSlotAvailable(s,true)):true);
   dates.push({
-   id:d.toISOString().split('T')[0],
+   id,
    dayName,
    dateFormatted,
    label,
    isToday,
    isTomorrow,
+   isHoliday,
    hasAvailableSlot
   });
  }
@@ -52,7 +56,13 @@ function getAvailableDates(){
 }
 
 export function CheckoutPage(){
- const {cartItems,subtotal,mrpTotal,addressList,setAddressList,setOrderList,setCart,notify,deliveryConfig,deliveryZones,deliveryRulesFor,user,openAuthModal,refreshProducts}=useApp();
+ const {cartItems,subtotal,mrpTotal,addressList,setAddressList,setOrderList,setCart,notify,deliveryConfig,deliveryZones,deliveryRulesFor,user,openAuthModal,refreshProducts,storeSettings}=useApp();
+ const emergencyPause = storeSettings?.policies?.emergencyPause;
+ const effectiveStatus = storeSettings?.effectiveStatus;
+ const isEmergencyActive = Boolean(emergencyPause?.isPaused) || effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED';
+ const allowImmediate = effectiveStatus ? Boolean(effectiveStatus.allowImmediateOrders) : true;
+ const allowScheduled = effectiveStatus ? Boolean(effectiveStatus.allowScheduledOrders) : true;
+ const holidayDates = Array.isArray(emergencyPause?.holidayDates) ? emergencyPause.holidayDates : [];
  const nav=useNavigate();
  const [selected,setSelected]=useState();
  const [placing,setPlacing]=useState(false);
@@ -73,17 +83,56 @@ export function CheckoutPage(){
  const [showCoupons,setShowCoupons]=useState(true);
  const [coupon,setCoupon]=useState(()=>{const code=sessionStorage.getItem('grocify-coupon'),discount=Number(sessionStorage.getItem('grocify-coupon-discount')||0);return code?{code,discount}:null});
 
- const dates=getAvailableDates();
- const [deliveryType,setDeliveryType]=useState('INSTANT');
+ const dates=getAvailableDates(holidayDates);
+ const [deliveryType,setDeliveryType]=useState(()=>{
+  if(effectiveStatus && !effectiveStatus.allowImmediateOrders && effectiveStatus.allowScheduledOrders){
+   return 'SCHEDULED';
+  }
+  return 'INSTANT';
+ });
+
+ useEffect(()=>{
+  if(!allowImmediate && allowScheduled && deliveryType !== 'SCHEDULED'){
+   setDeliveryType('SCHEDULED');
+  }
+ },[allowImmediate, allowScheduled]);
+
  const [selectedDate,setSelectedDate]=useState(()=>{
   const first=dates.find(d=>d.hasAvailableSlot)||dates[1]||dates[0];
   return first;
  });
+ const [dynamicSlots,setDynamicSlots]=useState([]);
  const [selectedSlot,setSelectedSlot]=useState(()=>{
   const isToday=dates[0]?.hasAvailableSlot;
   const initialAvail=TIME_SLOTS.find(s=>isSlotAvailable(s,isToday));
   return initialAvail||TIME_SLOTS[0];
  });
+
+ useEffect(()=>{
+  let mounted=true;
+  if(selectedDate?.id){
+   catalogService.listDeliverySlots(selectedDate.id)
+    .then(slots=>{
+     if(!mounted)return;
+     if(Array.isArray(slots)&&slots.length>0){
+      setDynamicSlots(slots);
+      setSelectedSlot(curr=>{
+       const match=slots.find(s=>(s.id===curr?.id||s.label===curr?.label||s.label===curr?.time)&&s.isAvailable);
+       return match||slots.find(s=>s.isAvailable)||slots[0];
+      });
+     }
+    })
+    .catch(()=>{});
+  }
+  return()=>{mounted=false;};
+ },[selectedDate?.id]);
+
+ const slotsToRender=dynamicSlots.length>0?dynamicSlots:TIME_SLOTS.map(s=>({
+  ...s,
+  isAvailable:isSlotAvailable(s,selectedDate?.isToday),
+  isFull:false,
+  isCutoffPassed:!isSlotAvailable(s,selectedDate?.isToday)
+ }));
 
  // Request address upfront if user has no saved addresses, avoiding jumping or scrolling later
  useEffect(()=>{
@@ -114,6 +163,22 @@ export function CheckoutPage(){
  };
 
  const place=async()=>{
+  if(isEmergencyActive){
+    notify(effectiveStatus?.statusReason || emergencyPause?.message || 'Store orders are temporarily paused. Please check back shortly.', 'error');
+    return;
+  }
+  if(deliveryType==='INSTANT' && !allowImmediate){
+    notify(effectiveStatus?.statusReason || 'Store is currently closed. You can schedule your order for the next available delivery slot.', 'error');
+    return;
+  }
+  if(deliveryType==='SCHEDULED' && !allowScheduled){
+    notify('Scheduled orders are currently unavailable.', 'error');
+    return;
+  }
+  if(deliveryType==='SCHEDULED' && holidayDates.includes(selectedDate?.id)){
+    notify('Deliveries are closed on this date due to a store holiday.', 'error');
+    return;
+  }
   if(placing)return;
   if(!selected||!selectedAddress){
    notify('Please add or select a delivery address to proceed','error');
@@ -121,6 +186,7 @@ export function CheckoutPage(){
    return;
   }
   if(!deliveryRulesFor(selectedAddress.area))return notify(`Delivery is unavailable in ${selectedAddress.area}`,'error');
+  if(rules?.allowCod === false)return notify(`Cash on Delivery is currently unavailable for ${selectedAddress.area}.`,'error');
   if(minimumRemaining)return notify(`Add ${money(minimumRemaining)} more to place this order`,'error');
   if(deliveryType==='SCHEDULED'&&(!selectedDate||!selectedSlot))return notify('Select a valid delivery date and time slot','error');
 
@@ -132,8 +198,8 @@ export function CheckoutPage(){
     deliveryInstruction:instruction==='Custom note'?customNote:(instruction||null),
     paymentMethod:'COD',
     deliveryType,
-    deliveryDate:deliveryType==='SCHEDULED'?selectedDate.label:null,
-    deliverySlot:deliveryType==='SCHEDULED'?selectedSlot.time:null
+    deliveryDate:deliveryType==='SCHEDULED'?(selectedDate?.id||selectedDate?.label):null,
+    deliverySlot:deliveryType==='SCHEDULED'?(selectedSlot?.label||selectedSlot?.time):null
    });
    sessionStorage.setItem('last-order',JSON.stringify(order));
    sessionStorage.removeItem('grocify-coupon');
@@ -155,17 +221,59 @@ export function CheckoutPage(){
  const saveAddress=async value=>{try{const saved=addressView(await customerService.addAddress(addressPayload(value)));setAddressList(items=>[saved,...items]);setSelected(saved.id);setAddressModal(false);notify('Address saved to your account')}catch(error){notify(error.message,'error')}};
 
  return <div className="container page checkout-page"><PageHead eyebrow="SECURE CHECKOUT" title="Almost there" text="Review your delivery and payment details."/><div className="checkout-layout"><div className="checkout-steps">
-  <CheckoutSection n="1" title="Delivery address" done={!!selected}>{!addressList.length?<div className="empty-address-box"><div><b>No delivery address found</b><p>Please enter your delivery address to see delivery timing and place your order.</p></div><Button type="button" onClick={()=>setAddressModal(true)}>+ Add delivery address</Button></div>:<div className="address-grid">{addressList.map(address=>{const zone=deliveryRulesFor(address.area);return <button disabled={!zone} className={`address-card selectable ${selected===address.id?'selected':''} ${!zone?'unavailable':''}`} onClick={()=>zone&&setSelected(address.id)} key={address.id}><span className="address-type">{address.type}</span>{selected===address.id&&<i><Check/></i>}<b>{address.name}</b><p>{address.line}<br/>{address.cityLine||address.city}</p><small>{zone?`${zone.zoneName} · ${zone.estimatedDelivery}`:'Delivery currently unavailable'}</small></button>})}<button className="add-address" onClick={()=>setAddressModal(true)}>+ Add new address</button></div>}</CheckoutSection>
+   <CheckoutSection n="1" title="Delivery address" done={!!selected}>{!addressList.length?<div className="empty-address-box"><div><b>No delivery address found</b><p>Please enter your delivery address to see delivery timing and place your order.</p></div><Button type="button" onClick={()=>setAddressModal(true)}>+ Add delivery address</Button></div>:<><div className="address-grid">{addressList.map(address=>{const zone=deliveryRulesFor(address.area);return <button disabled={!zone} className={`address-card selectable ${selected===address.id?'selected':''} ${!zone?'unavailable':''}`} onClick={()=>zone&&setSelected(address.id)} key={address.id}><span className="address-type">{address.type}</span>{selected===address.id&&<i><Check/></i>}<b>{address.name}</b><p>{address.line}<br/>{address.cityLine||address.city}</p><small>{zone?`${zone.zoneName} · ${zone.estimatedDelivery}`:'Delivery currently unavailable'}</small></button>})}<button className="add-address" onClick={()=>setAddressModal(true)}>+ Add new address</button></div>{selectedAddress&&!deliveryRulesFor(selectedAddress.area)&&<div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'8px',padding:'10px 14px',color:'#b91c1c',fontSize:'12px',marginTop:'12px',display:'flex',alignItems:'center',gap:'8px'}}><span>⚠️</span><span>Deliveries are temporarily paused or not serviceable for <b>{selectedAddress.area}</b>. Please choose another address.</span></div>}</>}</CheckoutSection>
 
   <CheckoutSection n="2" title="Delivery schedule & timing" done={deliveryType==='INSTANT'||(deliveryType==='SCHEDULED'&&!!selectedSlot)}>
+   {!allowImmediate && (
+    <div style={{
+      background: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      borderRadius: '10px',
+      padding: '12px 16px',
+      marginBottom: '16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      color: '#1e40af',
+      fontSize: '13px'
+    }}>
+      <Clock size={20} style={{ flexShrink: 0, color: '#2563eb' }} />
+      <div>
+        <b>Store is currently closed. You can schedule your order for the next available delivery slot.</b>
+        {effectiveStatus?.nextAvailableOpening?.label && (
+          <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#3b82f6' }}>
+            Next operating session: <strong>{effectiveStatus.nextAvailableOpening.label}</strong>
+          </p>
+        )}
+      </div>
+    </div>
+   )}
+
    <div className="delivery-type-grid">
-    <div role="button" tabIndex={0} className={`delivery-type-card ${deliveryType==='INSTANT'?'selected':''}`} onClick={()=>setDeliveryType('INSTANT')}>
+    <div
+      role="button"
+      tabIndex={0}
+      className={`delivery-type-card ${deliveryType==='INSTANT'?'selected':''} ${!allowImmediate?'disabled-card':''}`}
+      onClick={()=>{
+        if(!allowImmediate){
+          notify(effectiveStatus?.statusReason || 'Store is currently closed. You can schedule your order for the next available delivery slot.', 'error');
+          return;
+        }
+        setDeliveryType('INSTANT');
+      }}
+      style={!allowImmediate ? { opacity: 0.65, cursor: 'not-allowed', filter: 'grayscale(0.2)' } : {}}
+    >
      <div className="delivery-type-icon zap"><Zap/></div>
      <div className="delivery-type-info">
-      <div className="delivery-type-head"><b>Instant Delivery</b><span className="type-badge fast">Fastest</span></div>
-      <p>Estimated in {rules.estimatedDelivery||'15–30 mins'}</p>
+      <div className="delivery-type-head">
+        <b>Instant Delivery</b>
+        <span className={`type-badge ${!allowImmediate ? 'closed' : 'fast'}`} style={!allowImmediate ? { background: '#fef2f2', color: '#dc2626' } : {}}>
+          {!allowImmediate ? 'Closed' : 'Fastest'}
+        </span>
+      </div>
+      <p>{!allowImmediate ? 'Immediate delivery closed outside store hours' : `Estimated in ${rules.estimatedDelivery||'15–30 mins'}`}</p>
      </div>
-     {deliveryType==='INSTANT'&&<i className="check-icon"><Check/></i>}
+     {deliveryType==='INSTANT'&&allowImmediate&&<i className="check-icon"><Check/></i>}
     </div>
 
     <div role="button" tabIndex={0} className={`delivery-type-card ${deliveryType==='SCHEDULED'?'selected':''}`} onClick={()=>{
@@ -195,7 +303,7 @@ export function CheckoutPage(){
         <button type="button" key={date.id} disabled={disabled} className={`date-pill ${isSelected?'selected':''} ${disabled?'disabled':''}`} onClick={()=>handleDateSelect(date)}>
          <span className="date-pill-day">{date.dayName}</span>
          <span className="date-pill-num">{date.dateFormatted}</span>
-         {disabled&&<small className="date-pill-closed">Slots closed</small>}
+         {date.isHoliday?<small className="date-pill-closed" style={{color:'#ef4444'}}>Holiday</small>:disabled?<small className="date-pill-closed">Slots closed</small>:null}
         </button>
        );
       })}
@@ -203,16 +311,22 @@ export function CheckoutPage(){
 
      <div className="schedule-subhead"><Clock size={16}/><span>2. Choose Delivery Time Slot</span></div>
      <div className="slots-grid">
-      {TIME_SLOTS.map(slot=>{
-       const available=isSlotAvailable(slot,selectedDate?.isToday);
-       const isSelected=selectedSlot?.id===slot.id&&available;
+      {slotsToRender.map(slot=>{
+       const available=Boolean(slot.isAvailable);
+       const isSelected=(selectedSlot?.id===slot.id||selectedSlot?.label===slot.label)&&available;
+       const timeText=slot.startTime&&slot.endTime?`${slot.startTime} - ${slot.endTime}`:(slot.time||'');
        return (
         <button type="button" key={slot.id} disabled={!available} className={`slot-chip ${isSelected?'selected':''} ${!available?'disabled':''}`} onClick={()=>available&&setSelectedSlot(slot)}>
          <div className="slot-chip-head">
           <b>{slot.label}</b>
-          {available?(isSelected&&<Check size={14}/>):<span className="closed-tag">Closed</span>}
+          {available?(isSelected&&<Check size={14}/>):slot.isFull?<span className="closed-tag" style={{background:'#fef2f2',color:'#dc2626'}}>Full</span>:<span className="closed-tag">Closed</span>}
          </div>
-         <span className="slot-chip-time">{slot.time}</span>
+         <span className="slot-chip-time">{timeText}</span>
+         {slot.remainingOrders!==undefined&&available&&(
+          <span style={{fontSize:'11px',color:'#16a34a',marginTop:'2px',fontWeight:600}}>
+           {slot.remainingOrders<=5?`🔥 Only ${slot.remainingOrders} left`:`${slot.remainingOrders} slots available`}
+          </span>
+         )}
         </button>
        );
       })}
@@ -223,7 +337,7 @@ export function CheckoutPage(){
        <Calendar size={18}/>
        <div>
         <b>Delivery scheduled for {selectedDate.label}</b>
-        <p>Your groceries will arrive between <strong>{selectedSlot.time}</strong></p>
+        <p>Your groceries will arrive between <strong>{selectedSlot.startTime&&selectedSlot.endTime?`${selectedSlot.startTime} - ${selectedSlot.endTime}`:(selectedSlot.time||selectedSlot.label)}</strong></p>
        </div>
       </div>
      )}
@@ -234,14 +348,46 @@ export function CheckoutPage(){
   <CheckoutSection n="3" title="Order summary"><div className="summary-products">{cartItems.map(product=><div key={product.id}><img src={product.image} alt=""/><span><b>{product.name}</b><small>{product.unit} × {product.qty}</small></span><strong>{money(product.price*product.qty)}</strong></div>)}</div></CheckoutSection>
   <CheckoutSection n="4" title="Coupon" done={!!coupon}>{coupon&&<div className="coupon-select applied"><span><Tag/></span><div><b>{coupon.code} applied</b><small>You save {money(coupon.discount)}</small></div><span className="checkout-coupon-actions"><button onClick={()=>setShowCoupons(value=>!value)}>CHANGE</button><button onClick={removeCoupon}>REMOVE</button></span></div>}{showCoupons&&(couponLoading?<p className="muted">Loading available coupons…</p>:<div className="checkout-coupon-list">{coupons.map(item=>{const enabled=item.displayStatus==='Available';return <div className={`coupon-select ${!enabled?'disabled':''}`} key={item.id}><span><Tag/></span><div><b>{item.code} · {offer(item)}</b><small>Minimum order {money(item.minimumOrder)}{item.maximumDiscount!==null?` · Max ${money(item.maximumDiscount)}`:''}</small></div><Button variant="outline" disabled={!enabled||applying===item.code} onClick={()=>applyCoupon(item)}>{applying===item.code?'Applying…':enabled?'Apply':item.displayStatus}</Button></div>})}{!coupons.length&&<p className="muted">No coupons are available right now.</p>}</div>)}</CheckoutSection>
   <CheckoutSection n="5" title="Delivery instructions"><div className="radio-cards">{['Leave at door','Call before delivery','Do not ring bell','Custom note'].map(option=><label className={instruction===option?'active':''} key={option}><input type="radio" checked={instruction===option} onChange={()=>setInstruction(option)}/>{option}</label>)}</div>{instruction==='Custom note'&&<textarea value={customNote} onChange={event=>setCustomNote(event.target.value)} placeholder="Add a note for your delivery partner"/>}</CheckoutSection>
-  <CheckoutSection n="6" title="Payment"><label className="payment-option"><input type="radio" checked readOnly/><span><Banknote/></span><div><b>Cash on Delivery</b><small>Pay when your order arrives</small></div><Badge>Available</Badge></label></CheckoutSection>
+  <CheckoutSection n="6" title="Payment">
+   <label className="payment-option">
+    <input type="radio" checked readOnly/>
+    <span><Banknote/></span>
+    <div>
+     <b>Cash on Delivery</b>
+     <small>{rules?.allowCod === false ? `Unavailable for ${selectedAddress?.area || 'selected area'}` : 'Pay when your order arrives'}</small>
+    </div>
+    <Badge variant={rules?.allowCod === false ? 'danger' : 'default'}>
+     {rules?.allowCod === false ? 'Disabled' : 'Available'}
+    </Badge>
+   </label>
+   {rules?.allowCod === false && (
+    <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '8px', fontWeight: 500 }}>
+      ⚠️ Cash on Delivery has been temporarily disabled for {selectedAddress?.area || 'this delivery village'}.
+    </p>
+   )}
+  </CheckoutSection>
  </div><aside className="bill-card checkout-bill clarified-bill">
   {rules.zoneName&&<p className="checkout-zone"><span>Delivery zone</span><b>{rules.zoneName}</b></p>}
   <div className="checkout-timing-summary">
    <span>Delivery timing</span>
    <b>{deliveryType==='SCHEDULED'?`📅 ${selectedDate?.label} (${selectedSlot?.time})`:`⚡ Instant (${rules.estimatedDelivery||'15–30 mins'})`}</b>
   </div>
-  <PriceSummary title="Final price breakdown" mrpTotal={mrpTotal} subtotal={subtotal} deliveryFee={deliveryFee} couponDiscount={coupon?.discount||0} couponCode={coupon?.code}/>{minimumRemaining&&<p className="checkout-minimum">Add {money(minimumRemaining)} more to meet this zone’s minimum order.</p>}<Button className="wide" disabled={placing} onClick={place}>{placing?'Placing order…':`Place order · Pay ${money(total)}`}</Button><small className="secure-note"><ShieldCheck/> {deliveryType==='SCHEDULED'?`Scheduled: ${selectedDate?.label}`:rules.estimatedDelivery} · Safe & secure checkout</small></aside></div>
+  <PriceSummary title="Final price breakdown" mrpTotal={mrpTotal} subtotal={subtotal} deliveryFee={deliveryFee} couponDiscount={coupon?.discount||0} couponCode={coupon?.code}/>{minimumRemaining&&<p className="checkout-minimum">Add {money(minimumRemaining)} more to meet this zone’s minimum order.</p>}{isEmergencyActive&&(
+    <div style={{background:'rgba(239, 68, 68, 0.12)',border:'1px solid rgba(239, 68, 68, 0.4)',borderRadius:'10px',padding:'12px',marginBottom:'12px',color:'#f87171',fontSize:'13px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:'6px',fontWeight:700,marginBottom:'4px'}}>
+        <span>🚨</span> Store Orders Currently Paused
+      </div>
+      <p style={{margin:0,fontSize:'12px',color:'#cbd5e1',lineHeight:1.35}}>
+        {effectiveStatus?.statusReason || emergencyPause?.message || ('Deliveries are temporarily paused due to ' + (emergencyPause?.reason || 'high volume') + '.')}
+        {emergencyPause?.resumesAt&&(
+          <span style={{display:'block',marginTop:'4px',fontWeight:600,color:'#facc15'}}>
+            Expected Resumption: {new Date(emergencyPause.resumesAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+          </span>
+        )}
+      </p>
+    </div>
+  )}
+  <Button className="wide" disabled={placing||isEmergencyActive||(deliveryType==='INSTANT'&&!allowImmediate)||(deliveryType==='SCHEDULED'&&!allowScheduled)||(rules?.allowCod===false)||(deliveryType==='SCHEDULED'&&holidayDates.includes(selectedDate?.id))} onClick={place}>{placing?'Placing order…':isEmergencyActive?'Orders Paused':(deliveryType==='INSTANT'&&!allowImmediate)?'Store Closed (Schedule Only)':rules?.allowCod===false?'COD Unavailable':`Place order · Pay ${money(total)}`}</Button><small className="secure-note"><ShieldCheck/> {deliveryType==='SCHEDULED'?`Scheduled: ${selectedDate?.label}`:rules.estimatedDelivery} · Safe & secure checkout</small></aside></div>
   <Modal open={addressModal} onClose={()=>setAddressModal(false)} title="Add delivery address" size="location-modal"><div className="modal-body"><AddressForm onCancel={()=>setAddressModal(false)} onSave={saveAddress}/></div></Modal>
  </div>;
 }

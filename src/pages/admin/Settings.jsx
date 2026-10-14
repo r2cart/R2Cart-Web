@@ -5,7 +5,7 @@ import {
  KeyRound,LoaderCircle,RefreshCcw,Save,ShieldCheck,Store,Trash2,
  Upload,ExternalLink,RotateCcw,Truck,XCircle,AlertCircle,Cookie,Phone,CheckCircle2,
  LayoutTemplate,ArrowUp,ArrowDown,Sliders,Sparkles,Layers,Grid,ShoppingBag,
- Tag,Check,MoveUp,MoveDown,Info
+ Tag,Check,MoveUp,MoveDown,Info,ShieldAlert,AlertOctagon
 } from 'lucide-react';
 import {Button} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
@@ -14,6 +14,7 @@ import {mediaUrl} from '../../utils/media';
 import {policyNav,getPolicyContent} from '../customer/StaticPage';
 import {BRAND} from '../../config/brand';
 import {defaultHomeSections,defaultHomeLayout,normalizeHomeLayout} from '../../config/homeLayout';
+import {EmergencyPauseManager} from '../../components/admin/EmergencyPauseManager';
 
 const defaultPolicies={
  legalName:'R2Cart Retail Pvt. Ltd.',
@@ -452,6 +453,10 @@ export function AdminSettings(){
     <KeyRound size={16}/>
     <span>Admin Security</span>
    </button>
+   <button type="button" className={activeTab==='emergency'?'active':''} onClick={()=>setActiveTab('emergency')} style={{color: settings.policies?.emergencyPause?.isPaused ? '#ef4444' : undefined}}>
+    <ShieldAlert size={16}/>
+    <span>Emergency Pause & Holidays {settings.policies?.emergencyPause?.isPaused ? '🔴' : ''}</span>
+   </button>
   </div>
 
   <form className="settings-form proper-settings" onSubmit={submit}>
@@ -510,8 +515,8 @@ export function AdminSettings(){
     <>
      {/* Control Center Banner */}
      <section className="admin-card storefront-hero-card">
-      <div className="between" style={{alignItems:'flex-start',flexWrap:'wrap',gap:'14px'}}>
-       <div>
+      <div className="between" style={{alignItems:'flex-start',flexWrap:'wrap',gap:'14px',width:'100%'}}>
+       <div style={{flex:'1 1 320px',minWidth:0}}>
         <div style={{display:'inline-flex',alignItems:'center',gap:'8px',background:'rgba(16,185,129,0.12)',color:'#10b981',padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:700,marginBottom:'8px'}}>
          <Sparkles size={14}/> STOREFRONT HOMEPAGE CONTROLLER
         </div>
@@ -520,7 +525,7 @@ export function AdminSettings(){
          Admin has full control over what appears on the customer's screen: turn sections on or off, set their top-to-bottom order numbering, rename sections (like “Offers picked for you”), and designate which banners appear in the top Hero Carousel vs the horizontal campaign rail.
         </p>
        </div>
-       <Button type="button" variant="outline" onClick={resetToDefaultLayout} style={{gap:'6px'}}>
+       <Button type="button" variant="outline" onClick={resetToDefaultLayout} style={{gap:'6px',flexShrink:0}}>
         <RotateCcw size={15}/> Reset to default layout
        </Button>
       </div>
@@ -938,7 +943,7 @@ export function AdminSettings(){
      <SectionTitle icon={FileText} title="Legal Policy Pages CMS (9 Complete Pages)" text="Customize the exact wording, header meta pills, and custom clauses across all 9 statutory store policies."/>
 
      {/* Policy Selector Pills */}
-     <div className="cms-nav-grid" style={{marginBottom:'24px'}}>
+     <div className="cms-nav-grid" style={{display:'flex',flexWrap:'wrap',gap:'10px 12px',marginBottom:'24px'}}>
       {policyNav.map(navItem=>{
        const isCurrent=navItem.type===policyKey;
        return (
@@ -1057,6 +1062,21 @@ export function AdminSettings(){
      </Button>
     </div>
    </div>
+     {/* TAB 5: EMERGENCY STORE PAUSE */}
+   {activeTab==='emergency'&&(
+    <section className="admin-card" style={{ padding: '36px 24px', textAlign: 'center' }}>
+      <ShieldAlert size={48} style={{ color: '#ef4444', margin: '0 auto 16px' }} />
+      <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Emergency Management has its own Dedicated Module</h2>
+      <p style={{ color: 'var(--muted)', maxWidth: '540px', margin: '0 auto 24px', fontSize: '14px', lineHeight: 1.6 }}>
+        To ensure clear separation between regular store operations and urgent crisis pauses, Emergency Management is now accessed via its own dedicated section with real-time controls, multi-village suspensions, auto-expiration, and activity audit logs.
+      </p>
+      <Link to="/admin/emergency">
+        <Button style={{ background: '#ef4444', color: '#fff' }}>
+          Open Emergency Management Dashboard →
+        </Button>
+      </Link>
+    </section>
+   )}
   </form>
  </>;
 }

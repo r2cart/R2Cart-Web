@@ -63,15 +63,39 @@ export function AppProvider({children}){
   if(!online())return;
   const localCart=storage.get('cart',{});
   const syncPromises=Object.entries(localCart).filter(([,q])=>q>0).map(([id,q])=>customerService.setCartItem(id,q).catch(()=>{}));
-  Promise.all(syncPromises).then(()=>Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()])).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView();return null}const addresses=remoteAddresses.map(addressView);setUser(profile);setCart(remoteCart.cart);setFavorites(remoteFavorites.map(p=>p.id));setAddressList(addresses);const savedLocation=storage.get(`location-${profile.id}`,'');const defaultAddress=addresses.find(address=>address.default)||addresses[0];setLocation(savedLocation||formatLocation(defaultAddress));return orderService.list()}).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{if(error?.status===401||error?.status===403){localStorage.removeItem('grocify-access-token');clearCustomerView()}});
+  Promise.all(syncPromises).then(()=>Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()])).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView();return null}const addresses=remoteAddresses.map(addressView);setUser(profile);setCart(remoteCart.cart);setFavorites(remoteFavorites.map(p=>p.id));setAddressList(addresses);const savedLocation=storage.get(`location-${profile.id}`,'');const defaultAddress=addresses.find(address=>address.default)||addresses[0];setLocation(savedLocation||formatLocation(defaultAddress));return orderService.list()}).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{
+    // Only clear session if genuinely unauthenticated (and not during server restart/deployment)
+    if((error?.status===401||error?.status===403)&&error?.message?.toLowerCase().includes('invalid')){
+      localStorage.removeItem('grocify-access-token');
+      localStorage.removeItem('grocify-refresh-token');
+      clearCustomerView();
+    }
+  });
  },[user?.id]);
- const notify=(message,type='success')=>{setToast({message,type});setTimeout(()=>setToast(null),2600)};
+ const notify=(message,type='success')=>{
+  if(!message)return;
+  const lower=String(message).toLowerCase();
+  if(
+   lower.includes('access token')||
+   lower.includes('token is refreshed')||
+   lower.includes('session refreshed')||
+   lower.includes('session active')||
+   lower.includes('token refreshed')||
+   lower.includes('refresh token')||
+   lower.includes('jwt')||
+   lower.includes('your session has expired')
+  ){
+   return;
+  }
+  setToast({message,type});
+  setTimeout(()=>setToast(null),2600);
+ };
  const refreshOrders=async()=>{if(!online())return;try{setOrderList(await orderService.list())}catch(error){if(error.status!==401)notify(error.message,'error')}};
  useEffect(()=>{if(!user?.id)return;window.addEventListener('focus',refreshOrders);window.addEventListener('grocify:orders-updated',refreshOrders);return()=>{window.removeEventListener('focus',refreshOrders);window.removeEventListener('grocify:orders-updated',refreshOrders)}},[user?.id]);
  const refreshCategories=async()=>{try{const rows=await catalogService.listCategories();setCategories(rows.map(category=>({...category,image:mediaUrl(category.image)||grocifyLogo})));catalogResult('categories');return rows}catch(error){catalogResult('categories',error.message);return []}};
  const refreshProducts=async()=>{try{const rows=await catalogService.listProducts();setProducts(rows.map(product=>({...product,image:mediaUrl(product.image)||grocifyLogo,images:(product.images||[]).map(mediaUrl)})));catalogResult('products');return rows}catch(error){catalogResult('products',error.message);return []}};
  const refreshBanners=async()=>{try{const rows=await catalogService.listBanners();setBanners(rows.map(banner=>({...banner,image:mediaUrl(banner.image)})));catalogResult('banners');return rows}catch(error){catalogResult('banners',error.message);return []}};
- const refreshDelivery=async()=>{try{const [settings,zones]=await Promise.all([catalogService.getStoreSettings(),catalogService.listDelivery()]);setStoreSettings(settings);setDeliveryZones(zones.map(zone=>({...zone,localities:zone.localities||zone.pincodes||[]})));catalogResult('delivery');return zones}catch(error){catalogResult('delivery',error.message);return []}};
+ const refreshDelivery=async()=>{try{const [settings,deliveryData]=await Promise.all([catalogService.getStoreSettings(),catalogService.listDelivery()]);setStoreSettings(settings);const rawZones=Array.isArray(deliveryData)?deliveryData:[...(deliveryData?.areas||[]),...(deliveryData?.villages||[]).map(v=>({id:v.id,name:v.name,localities:[v.name],deliveryFee:Number(v.deliveryFee),minimumOrder:Number(v.minimumOrder),freeDeliveryThreshold:Number(v.freeDeliveryThreshold),estimatedMinutes:30,radiusKm:Number(v.radiusKm||5),isVillage:true}))];setDeliveryZones(rawZones.map(zone=>({...zone,localities:zone.localities||zone.pincodes||[zone.name]})));catalogResult('delivery');return rawZones}catch(error){catalogResult('delivery',error.message);return []}};
  useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('focus',refresh);window.addEventListener('grocify:categories-updated',refresh);window.addEventListener('grocify:products-updated',refresh);window.addEventListener('grocify:banners-updated',refresh);window.addEventListener('grocify:delivery-updated',refresh);window.addEventListener('grocify:settings-updated',refresh);return()=>{window.removeEventListener('focus',refresh);window.removeEventListener('grocify:categories-updated',refresh);window.removeEventListener('grocify:products-updated',refresh);window.removeEventListener('grocify:banners-updated',refresh);window.removeEventListener('grocify:delivery-updated',refresh);window.removeEventListener('grocify:settings-updated',refresh)}},[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
  const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};

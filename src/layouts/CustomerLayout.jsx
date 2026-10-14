@@ -4,7 +4,9 @@ import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,m
 import brandWordmark from '../assets/r2cart-logo.png';
 import {BRAND} from '../config/brand';
 import {customerService} from '../services/customer.service';
+import {catalogService} from '../services/catalog.service';
 import {addressPayload,addressView} from '../utils/address';
+
 import {ItemPrice,PriceSummary} from '../components/customer/PriceSummary';
 export function Logo(){return <Link className="logo" to="/" aria-label={`${BRAND.name} home`}><span className="brand-wordmark"><img src={brandWordmark} alt={BRAND.name}/></span></Link>}
 function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();const [q,setQ]=useState('');const [open,setOpen]=useState(false);const [history,setHistory]=useState([]);const load=async()=>{setOpen(true);try{setHistory(user?await customerService.searchHistory():JSON.parse(localStorage.getItem('grocify-search-history')||'[]'))}catch(error){notify(error.message,'error')}};const go=value=>{const query=value.trim();if(!query)return;setOpen(false);nav(`/search?q=${encodeURIComponent(query)}`)};const remove=async value=>{try{const next=history.filter(item=>item!==value);if(user)await customerService.removeSearch(value);else localStorage.setItem('grocify-search-history',JSON.stringify(next));setHistory(next);notify('Search removed')}catch(error){notify(error.message,'error')}};const clear=async()=>{try{if(user)await customerService.clearSearchHistory();else localStorage.removeItem('grocify-search-history');setHistory([]);notify('Search history cleared')}catch(error){notify(error.message,'error')}};return <div className="header-search"><SearchInput value={q} onChange={setQ} onSubmit={()=>go(q)} onFocus={load} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&<div className="header-search-history" onMouseDown={event=>event.preventDefault()}><div className="row between"><b>Recent searches</b>{history.length>0&&<button type="button" onClick={clear}>Clear all</button>}</div>{history.length?<div>{history.map(item=><span className="header-history-row" key={item}><button type="button" onClick={()=>go(item)}><History/><span>{item}</span></button><button type="button" className="remove-history" onClick={()=>remove(item)} aria-label={`Remove ${item}`}>×</button></span>)}</div>:<p>No recent searches yet.</p>}</div>}</div>}
@@ -27,9 +29,38 @@ import {AuthPromptModal} from '../components/customer/AuthPromptModal';
 import {subscribeToPush,playNotificationSound} from '../services/pushNotification.service';
 
 export default function CustomerLayout({children}){
- const {user}=useApp();
+ const {user,storeSettings}=useApp();
  const nav=useNavigate();
  const [customerAlert,setCustomerAlert]=useState(null);
+ const [announcement,setAnnouncement]=useState(null);
+ const [announcementDismissed,setAnnouncementDismissed]=useState(false);
+ const [promoPopup,setPromoPopup]=useState(null);
+ const [showPromoModal,setShowPromoModal]=useState(false);
+
+ useEffect(()=>{
+  let mounted=true;
+  catalogService.getActiveMarketing()
+   .then(data=>{
+    if(!mounted||!data)return;
+    if(data.announcement){
+     const dismissed=sessionStorage.getItem(`r2cart-dismissed-announcement-${data.announcement.id}`);
+     if(!dismissed){
+      setAnnouncement(data.announcement);
+      catalogService.trackMarketing(data.announcement.id,'view').catch(()=>{});
+     }
+    }
+    if(data.popup){
+     const dismissed=sessionStorage.getItem(`r2cart-dismissed-popup-${data.popup.id}`);
+     if(!dismissed){
+      setPromoPopup(data.popup);
+      setShowPromoModal(true);
+      catalogService.trackMarketing(data.popup.id,'view').catch(()=>{});
+     }
+    }
+   })
+   .catch(()=>{});
+  return()=>{mounted=false;};
+ },[]);
 
  useEffect(()=>{
   if(user&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
@@ -68,6 +99,143 @@ export default function CustomerLayout({children}){
  },[]);
 
  return <>
+  {/* Emergency Store Pause Top Alert Banner */}
+  {(storeSettings?.policies?.emergencyPause?.isPaused || storeSettings?.effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED') && (
+    <aside
+      role="alert"
+      className="emergency-store-alert"
+      style={{
+        background: 'linear-gradient(90deg, #991b1b 0%, #b91c1c 50%, #991b1b 100%)',
+        color: '#ffffff',
+        padding: '10px 16px',
+        textAlign: 'center',
+        fontSize: '13px',
+        fontWeight: 600,
+        boxShadow: '0 4px 14px rgba(185, 28, 28, 0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 99999
+      }}
+    >
+      <span style={{ fontSize: '15px' }}>🚨</span>
+      <span>
+        <b>Store Orders Temporarily Paused:</b>{' '}
+        {storeSettings?.effectiveStatus?.statusReason ||
+          storeSettings?.policies?.emergencyPause?.message ||
+          ('We are temporarily not taking new orders due to ' + (storeSettings?.policies?.emergencyPause?.reason || 'high volume') + '.')}
+        {storeSettings?.policies?.emergencyPause?.resumesAt && (
+          <span style={{ marginLeft: '6px', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
+            Expected Resumption: {new Date(storeSettings.policies.emergencyPause.resumesAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+      </span>
+    </aside>
+  )}
+
+  {/* Scheduled-Only / Outside Operating Hours Notice */}
+  {!storeSettings?.policies?.emergencyPause?.isPaused && 
+   storeSettings?.effectiveStatus?.storeStatus !== 'EMERGENCY_PAUSED' &&
+   (storeSettings?.effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' || storeSettings?.effectiveStatus?.allowImmediateOrders === false) && (
+    <aside
+      role="status"
+      className="store-status-bar"
+      style={{
+        background: 'linear-gradient(90deg, #1e3a8a 0%, #1e40af 50%, #1e3a8a 100%)',
+        color: '#ffffff',
+        padding: '8px 16px',
+        textAlign: 'center',
+        fontSize: '13px',
+        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 99998,
+        boxShadow: '0 2px 8px rgba(30, 64, 175, 0.25)'
+      }}
+    >
+      <span style={{ fontSize: '14px' }}>🌙</span>
+      <span>
+        <b>Store is currently closed:</b> You can schedule your order for the next available delivery slot.
+        {storeSettings?.effectiveStatus?.nextAvailableOpening?.label && (
+          <span style={{ marginLeft: '6px', background: 'rgba(255,255,255,0.18)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>
+            Reopens {storeSettings.effectiveStatus.nextAvailableOpening.label}
+          </span>
+        )}
+      </span>
+    </aside>
+  )}
+
+  {/* Marketing Announcement Bar */}
+  {announcement && !announcementDismissed && (
+    <aside
+      role="complementary"
+      className="marketing-announcement-bar"
+      style={{
+        background: announcement.bgColor || '#15803d',
+        color: announcement.textColor || '#ffffff',
+        padding: '8px 16px',
+        textAlign: 'center',
+        fontSize: '13px',
+        fontWeight: 600,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px',
+        position: 'sticky',
+        top: storeSettings?.policies?.emergencyPause?.isPaused ? '40px' : 0,
+        zIndex: 99990,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}
+    >
+      {announcement.badgeText && (
+        <span style={{ background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 700 }}>
+          {announcement.badgeText}
+        </span>
+      )}
+      <span>{announcement.content}</span>
+      {announcement.ctaUrl && (
+        <a
+          href={announcement.ctaUrl}
+          onClick={() => catalogService.trackMarketing(announcement.id, 'click').catch(() => {})}
+          style={{
+            color: announcement.textColor || '#ffffff',
+            textDecoration: 'underline',
+            fontWeight: 700,
+            marginLeft: '4px'
+          }}
+        >
+          {announcement.ctaText || 'Learn More →'}
+        </a>
+      )}
+      <button
+        onClick={() => {
+          sessionStorage.setItem(`r2cart-dismissed-announcement-${announcement.id}`, 'true');
+          setAnnouncementDismissed(true);
+        }}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: announcement.textColor || '#ffffff',
+          opacity: 0.8,
+          cursor: 'pointer',
+          fontSize: '16px',
+          marginLeft: 'auto',
+          padding: '2px 6px',
+          lineHeight: 1
+        }}
+        aria-label="Dismiss announcement"
+      >
+        ✕
+      </button>
+    </aside>
+  )}
   {/* In-App Heads-up Notification Banner (Sliding down from top on mobile & website) */}
   {customerAlert&&(
    <aside
@@ -151,5 +319,58 @@ export default function CustomerLayout({children}){
   <LocationModal/>
   <CartDrawer/>
   <AuthPromptModal/>
+
+  {/* Promotional Popup Modal */}
+  {promoPopup && showPromoModal && (
+    <Modal
+      open={showPromoModal}
+      onClose={() => {
+        sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}`, 'true');
+        setShowPromoModal(false);
+      }}
+      title={promoPopup.name || 'Special Offer'}
+      size="promo-popup-modal"
+    >
+      <div className="modal-body promo-modal-content" style={{ textAlign: 'center', padding: '16px 20px 24px' }}>
+        {promoPopup.imageUrl && (
+          <img
+            src={promoPopup.imageUrl}
+            alt={promoPopup.name}
+            style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px' }}
+          />
+        )}
+        <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 8px', color: 'var(--text, #111827)' }}>
+          {promoPopup.name}
+        </h3>
+        <p style={{ fontSize: '14px', color: 'var(--muted, #64748b)', margin: '0 0 20px', lineHeight: 1.5 }}>
+          {promoPopup.content}
+        </p>
+        {promoPopup.ctaUrl ? (
+          <a
+            href={promoPopup.ctaUrl}
+            onClick={() => {
+              catalogService.trackMarketing(promoPopup.id, 'click').catch(() => {});
+              sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}`, 'true');
+              setShowPromoModal(false);
+            }}
+            className="btn btn-primary"
+            style={{ display: 'inline-block', width: '100%', padding: '12px', fontWeight: 700, borderRadius: '10px', textAlign: 'center' }}
+          >
+            {promoPopup.ctaText || 'Claim Offer Now'}
+          </a>
+        ) : (
+          <Button
+            className="wide"
+            onClick={() => {
+              sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}`, 'true');
+              setShowPromoModal(false);
+            }}
+          >
+            Got It!
+          </Button>
+        )}
+      </div>
+    </Modal>
+  )}
  </>;
 }

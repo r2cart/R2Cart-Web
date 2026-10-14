@@ -1,7 +1,7 @@
 import {useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Area,AreaChart,CartesianGrid,Cell,Pie,PieChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
-import {ArrowUpRight,Eye,Package,Plus,ShoppingBasket,Users,Wallet,AlertTriangle,RefreshCw} from 'lucide-react';
+import {ArrowUpRight,Eye,Package,Plus,ShoppingBasket,Users,Wallet,AlertTriangle,RefreshCw,Truck} from 'lucide-react';
 import {Badge,Button,StatusBadge,money} from '../../components/ui';
 import {adminService} from '../../services/admin.service';
 
@@ -15,12 +15,14 @@ export function Dashboard(){
  const stats=s?[
   ['Today’s orders',s.todayOrders,'Placed today · India time',Package,'green'],
   ['Pending orders',s.pending,'New through out for delivery',AlertTriangle,'amber'],
-  ['Total orders',s.totalOrders,'All order statuses',Package,'blue'],
-  ['Today’s revenue',money(s.todayRevenue),'Delivered orders placed today',Wallet,'green'],
+  ['Unassigned orders',s.unassignedOrders ?? 0,'Awaiting delivery assignment',Truck,'amber'],
   ['Total revenue',money(s.totalRevenue),'Delivered orders · all time',Wallet,'blue'],
+  ['COD Collected',money(s.codCollected ?? 0),'Doorstep cash collections',Wallet,'green'],
+  ['COD Pending Settlement',money(s.codPendingSettlement ?? 0),'With delivery personnel',AlertTriangle,'amber'],
+  ['Delivery Staff',`${s.availableDeliveryStaff ?? 0} on duty / ${s.totalDeliveryStaff ?? 0} total`,'Field staff availability',Users,'teal'],
+  ['POD Verification Queue',s.verificationQueueCount ?? 0,'Proofs awaiting audit',Eye,'purple'],
   ['Total customers',s.totalCustomers,'Registered customer accounts',Users,'purple'],
-  ['Total products',s.totalProducts,'Non-deleted sellable packs',ShoppingBasket,'teal'],
-  ['Low stock products',s.lowStock,'At or below their stock threshold',AlertTriangle,'amber'],
+  ['Low stock products',s.lowStock,'At or below stock threshold',AlertTriangle,'amber'],
   ['Out of stock',s.outOfStock,'Packs with zero available stock',ShoppingBasket,'purple']
  ]:[];
  const totalStatus=data?.orderStatus.reduce((sum,row)=>sum+row.value,0)||0;

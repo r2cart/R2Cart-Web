@@ -21,9 +21,10 @@ export function AdminLogin(){
   const password=data.get('password')?.trim();
 
   try{
-   await authService.adminLogin({email,password});
-   sessionStorage.setItem('r2cart-auth-prompt','ADMIN');
-   window.location.assign('/admin/dashboard');
+   const session = await authService.adminLogin({email,password});
+    sessionStorage.setItem('r2cart-auth-prompt','ADMIN');
+    const isSuper = session?.user?.role === 'SUPER_ADMIN' || session?.user?.staffRole === 'SUPER_ADMIN';
+    window.location.assign(isSuper ? '/super-admin/dashboard' : '/admin/dashboard');
   }catch(reason){
    console.error('Admin login error:', reason);
    setError(reason.message||'Invalid admin credentials');

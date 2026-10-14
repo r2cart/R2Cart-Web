@@ -1,23 +1,41 @@
 import {useEffect,useState} from 'react';
 import AdminNavbarActions from '../components/admin/AdminNavbarActions';
 import {NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,Bell,ChevronLeft,ChevronRight,FileText,Image as ImageIcon,LayoutDashboard,LayoutTemplate,Menu,Package,PanelLeftClose,Search,Settings,ShoppingBasket,Tags,Ticket,Truck,Users,X} from 'lucide-react';
+import {ArrowLeft,Bell,Boxes,CalendarClock,ChevronLeft,ChevronRight,FileText,Image as ImageIcon,LayoutDashboard,LayoutTemplate,Megaphone,Menu,Package,PanelLeftClose,Search,Settings,ShieldAlert,ShieldCheck,ShoppingBasket,Tags,Ticket,Truck,Users,X} from 'lucide-react';
 import {Logo} from './CustomerLayout';
 import {authService} from '../services/auth.service';
 import {BRAND} from '../config/brand';
 import {subscribeToPush,getNotificationPermission} from '../services/pushNotification.service';
 
-const links=[['/admin/dashboard','Dashboard',LayoutDashboard],['/admin/products','Products',ShoppingBasket],['/admin/categories','Categories',Tags],['/admin/orders','Orders',Package],['/admin/customers','Customers',Users],['/admin/inventory','Inventory',PanelLeftClose],['/admin/coupons','Coupons',Ticket],['/admin/banners','Banners',ImageIcon],['/admin/storefront','Storefront Layout',LayoutTemplate],['/admin/delivery','Delivery',Truck],['/admin/policies','Policies & CMS',FileText],['/admin/support','Support',Bell],['/admin/settings','Settings',Settings]];
+const links=[
+  ['/dashboard','Dashboard',LayoutDashboard],
+  ['/products','Products',ShoppingBasket],
+  ['/categories','Categories',Tags],
+  ['/orders','Orders',Package],
+  ['/customers','Customers',Users],
+  ['/delivery','Delivery Hub',Truck],
+  ['/inventory','Smart Inventory',Boxes],
+  ['/scheduling','Store Operations',CalendarClock],
+  ['/emergency','Emergency Pause',ShieldAlert],
+  ['/marketing','Marketing & Promos',Megaphone],
+  ['/security','Security & Audit',ShieldCheck],
+  ['/banners','Banners',ImageIcon],
+  ['/policies','Policies & CMS',FileText],
+  ['/support','Support',Bell],
+  ['/settings','Settings',Settings]
+];
 
 function getAdminInfo(){
  try{
   const raw=localStorage.getItem('grocify-admin-user');
   const user=raw?JSON.parse(raw):null;
   const name=user?.name||'Store administrator';
+  const role=user?.role==='SUPER_ADMIN'||user?.staffRole==='SUPER_ADMIN'?'SUPER_ADMIN':(user?.role||'ADMIN');
+  const roleLabel=role==='SUPER_ADMIN'?'Super Administrator':'Store administrator';
   const initials=(user?.name||'Admin').trim().split(/\s+/).map(x=>x[0]).filter(Boolean).join('').slice(0,2).toUpperCase()||'AD';
-  return {name,initials};
+  return {name,role,roleLabel,initials};
  }catch{
-  return {name:'Store administrator',initials:'AD'};
+  return {name:'Store administrator',role:'ADMIN',roleLabel:'Store administrator',initials:'AD'};
  }
 }
 
@@ -25,8 +43,17 @@ export default function AdminLayout({children}){
  const [collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
  const [perm,setPerm]=useState(()=>getNotificationPermission());
  const [orderAlert,setOrderAlert]=useState(null);
- const nav=useNavigate(),location=useLocation(),showBack=location.pathname!=='/admin/dashboard';
- const {name:adminName,initials:adminInitials}=getAdminInfo();
+ const nav=useNavigate(),location=useLocation();
+ const {name:adminName,role:adminRole,roleLabel,initials:adminInitials}=getAdminInfo();
+ const isSuperPath=location.pathname.startsWith('/super-admin')||adminRole==='SUPER_ADMIN';
+ const basePath=isSuperPath?'/super-admin':'/admin';
+ const showBack=location.pathname!==`${basePath}/dashboard`;
+
+ useEffect(()=>{
+  if(adminRole==='SUPER_ADMIN'&&location.pathname.startsWith('/admin/')){
+   nav(location.pathname.replace(/^\/admin/,'/super-admin'),{replace:true});
+  }
+ },[adminRole,location.pathname,nav]);
 
  useState(()=>{
   const token=localStorage.getItem('grocify-admin-access-token');
@@ -54,9 +81,18 @@ export default function AdminLayout({children}){
   <div className={`admin-overlay ${mobile?'show':''}`} onClick={()=>setMobile(false)}/>
   <aside className={`admin-sidebar ${mobile?'mobile-show':''}`}>
    <div className="admin-brand"><Logo/><button onClick={()=>setMobile(false)}><X/></button></div>
-   <div className="workspace-label">STORE MANAGEMENT</div>
-   <nav>{links.map(([to,label,Icon])=><NavLink to={to} key={to} onClick={()=>setMobile(false)}><Icon/><span>{label}</span></NavLink>)}</nav>
-   <div className="admin-user"><div>{adminInitials}</div><span><b>{adminName}</b><small>Store administrator</small></span><button onClick={async()=>{await authService.adminLogout();nav('/admin/login')}} aria-label="Sign out">↗</button></div>
+   <div className="workspace-label">{adminRole==='SUPER_ADMIN'?'SUPER ADMIN WORKSPACE':'STORE MANAGEMENT'}</div>
+   <nav>{links.map(([subPath,label,Icon])=><NavLink to={`${basePath}${subPath}`} key={subPath} onClick={()=>setMobile(false)}><Icon/><span>{label}</span></NavLink>)}</nav>
+   <div className="admin-user">
+    <div>{adminInitials}</div>
+    <span>
+     <b>{adminName}</b>
+     <small style={{color:adminRole==='SUPER_ADMIN'?'#f87171':'#89a494',fontWeight:adminRole==='SUPER_ADMIN'?700:400}}>
+      {adminRole==='SUPER_ADMIN'?'★ Super Administrator':'Store administrator'}
+     </small>
+    </span>
+    <button onClick={async()=>{await authService.adminLogout();nav('/admin/login')}} aria-label="Sign out">↗</button>
+   </div>
   </aside>
   <div className="admin-content">
    {/* In-App Floating New Order Banner */}
@@ -131,7 +167,25 @@ export default function AdminLayout({children}){
      <button onClick={async()=>{const res=await subscribeToPush({role:'ADMIN'});if(res?.success)setPerm('granted')}} style={{background:'#fff',color:'#148542',border:'none',borderRadius:'6px',padding:'5px 12px',fontWeight:600,cursor:'pointer',fontSize:'12px',whiteSpace:'nowrap',marginLeft:'12px'}}>Enable Alerts</button>
     </div>
    )}
-   <header className="admin-header"><div className="row gap"><button className="mobile-menu" onClick={()=>setMobile(true)}><Menu/></button>{showBack&&<button className="admin-back" onClick={()=>location.key!=='default'?nav(-1):nav('/admin/dashboard')} title="Go back"><ArrowLeft/></button>}<button className="collapse-btn" onClick={()=>setCollapsed(!collapsed)}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button><div><b>{BRAND.name} Admin</b><small>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</small></div></div><AdminNavbarActions/></header>
+   <header className="admin-header">
+    <div className="row gap">
+     <button className="mobile-menu" onClick={()=>setMobile(true)}><Menu/></button>
+     {showBack&&<button className="admin-back" onClick={()=>location.key!=='default'?nav(-1):nav(`${basePath}/dashboard`)} title="Go back"><ArrowLeft/></button>}
+     <button className="collapse-btn" onClick={()=>setCollapsed(!collapsed)}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button>
+     <div>
+      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+       <b>{BRAND.name} {adminRole==='SUPER_ADMIN'?'Super Admin':'Admin'}</b>
+       {adminRole==='SUPER_ADMIN'&&(
+        <span style={{fontSize:'10px',fontWeight:800,background:'#fee2e2',color:'#b91c1c',border:'1px solid #fecaca',padding:'1px 6px',borderRadius:'4px',letterSpacing:'0.5px'}}>
+         SUPER ADMIN
+        </span>
+       )}
+      </div>
+      <small>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</small>
+     </div>
+    </div>
+    <AdminNavbarActions/>
+   </header>
    <main className="admin-main">{children}</main>
   </div>
  </div>;
