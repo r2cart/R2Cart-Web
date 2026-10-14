@@ -21,13 +21,14 @@ export function LoginPage({signup=false}){
   if(signup&&form.password!==form.confirmPassword)return notify('Passwords do not match','error');
   setLoading(true);
   try{
+   const email=form.email.trim().toLowerCase();
    if(signup){
-    const result=await authService.requestOtp({name:form.name,email:form.email,mobile:form.mobile,password:form.password,mode:'signup'});
-    sessionStorage.setItem('grocify-auth',JSON.stringify({email:form.email,mode:'signup',redirect}));
+    const result=await authService.requestOtp({name:form.name.trim(),email,mobile:form.mobile.trim(),password:form.password,mode:'signup'});
+    sessionStorage.setItem('grocify-auth',JSON.stringify({email,mode:'signup',redirect}));
     notify('OTP sent to your email');
     nav('/verify-otp');
    }else{
-    const user=await authService.login({email:form.email,password:form.password});
+    const user=await authService.login({email,password:form.password});
     setUser(user);
     sessionStorage.removeItem('grocify-auth-redirect');
     sessionStorage.setItem('r2cart-auth-prompt','CUSTOMER');
