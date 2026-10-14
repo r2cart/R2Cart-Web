@@ -3,7 +3,9 @@ import {useLocation,useNavigate,Link} from 'react-router-dom';
 import {
  BellRing,Building2,Clock3,Eye,EyeOff,FileText,Image as ImageIcon,
  KeyRound,LoaderCircle,RefreshCcw,Save,ShieldCheck,Store,Trash2,
- Upload,ExternalLink,RotateCcw,Truck,XCircle,AlertCircle,Cookie,Phone,CheckCircle2
+ Upload,ExternalLink,RotateCcw,Truck,XCircle,AlertCircle,Cookie,Phone,CheckCircle2,
+ LayoutTemplate,ArrowUp,ArrowDown,Sliders,Sparkles,Layers,Grid,ShoppingBag,
+ Tag,Check,MoveUp,MoveDown,Info
 } from 'lucide-react';
 import {Button} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
@@ -11,6 +13,7 @@ import {adminService} from '../../services/admin.service';
 import {mediaUrl} from '../../utils/media';
 import {policyNav,getPolicyContent} from '../customer/StaticPage';
 import {BRAND} from '../../config/brand';
+import {defaultHomeSections,defaultHomeLayout,normalizeHomeLayout} from '../../config/homeLayout';
 
 const defaultPolicies={
  legalName:'R2Cart Retail Pvt. Ltd.',
@@ -88,7 +91,8 @@ const defaultPolicies={
    metaTags:'Hyper-Local Delivery, Farm Fresh Quality, Zero Food Waste Initiative',
    customText:''
   }
- }
+ },
+ homeLayout:defaultHomeLayout
 };
 
 const blank={
@@ -111,6 +115,7 @@ const blank={
 const normalize=value=>{
  const rawPol=value?.policies&&typeof value.policies==='object'?value.policies:{};
  const rawCustom=rawPol.customPages&&typeof rawPol.customPages==='object'?rawPol.customPages:{};
+ const rawLayout=rawPol.homeLayout&&typeof rawPol.homeLayout==='object'?rawPol.homeLayout:{};
  return {
   ...blank,
   ...value,
@@ -136,7 +141,8 @@ const normalize=value=>{
    customPages:{
     ...defaultPolicies.customPages,
     ...rawCustom
-   }
+   },
+   homeLayout:normalizeHomeLayout(rawLayout)
   }
  };
 };
@@ -148,7 +154,11 @@ const SectionTitle=({icon:Icon,title,text})=><div className="settings-section-ti
 export function AdminSettings(){
  const {notify}=useApp();
  const location=useLocation();
- const [activeTab,setActiveTab]=useState(()=>location.pathname.includes('/policies')?'policies':'general');
+ const [activeTab,setActiveTab]=useState(()=>{
+  if(location.pathname.includes('/storefront'))return 'storefront';
+  if(location.pathname.includes('/policies'))return 'policies';
+  return 'general';
+ });
  const [policyKey,setPolicyKey]=useState('privacy');
 
  const [settings,setSettings]=useState(null);
@@ -156,6 +166,9 @@ export function AdminSettings(){
  const [loading,setLoading]=useState(true);
  const [saving,setSaving]=useState(false);
  const [uploading,setUploading]=useState(false);
+
+ const [bannersList,setBannersList]=useState([]);
+ const [categoriesList,setCategoriesList]=useState([]);
 
  const [adminEmail,setAdminEmail]=useState('r2cartsupport@gmail.com');
  const [currentPassword,setCurrentPassword]=useState('');
@@ -168,15 +181,22 @@ export function AdminSettings(){
  const fileRef=useRef(null);
 
  useEffect(()=>{
-  if(location.pathname.includes('/policies'))setActiveTab('policies');
+  if(location.pathname.includes('/storefront'))setActiveTab('storefront');
+  else if(location.pathname.includes('/policies'))setActiveTab('policies');
  },[location.pathname]);
 
  const load=async()=>{
   setLoading(true);
   try{
-   const data=normalize(await adminService.settings());
+   const [data,bans,cats]=await Promise.all([
+    adminService.settings().then(normalize),
+    adminService.banners().catch(()=>[]),
+    adminService.categories().catch(()=>[])
+   ]);
    setSettings(data);
    setSaved(data);
+   setBannersList(bans);
+   setCategoriesList(cats);
    try{
     const prof=await adminService.getProfile();
     if(prof?.email)setAdminEmail(prof.email);
@@ -273,6 +293,87 @@ export function AdminSettings(){
   notify(`Reset ${pKey} page to verified legal template`);
  };
 
+ // Storefront & Home Layout Modifiers
+ const changeHomeLayout=updater=>{
+  setSettings(curr=>{
+   const currentLayout=curr.policies?.homeLayout||defaultHomeLayout;
+   const nextLayout=typeof updater==='function'?updater(currentLayout):updater;
+   return {
+    ...curr,
+    policies:{
+     ...curr.policies,
+     homeLayout:nextLayout
+    }
+   };
+  });
+ };
+
+ const moveSection=(index,direction)=>{
+  const sections=[...(settings.policies?.homeLayout?.sections||defaultHomeSections)];
+  const target=index+direction;
+  if(target<0||target>=sections.length)return;
+  const temp=sections[index];
+  sections[index]=sections[target];
+  sections[target]=temp;
+  sections.forEach((s,idx)=>{s.order=idx+1});
+  changeHomeLayout(layout=>({...layout,sections}));
+ };
+
+ const setSectionOrder=(id,newOrder)=>{
+  const num=Math.max(1,parseInt(newOrder,10)||1);
+  const sections=[...(settings.policies?.homeLayout?.sections||defaultHomeSections)];
+  const sec=sections.find(s=>s.id===id);
+  if(!sec)return;
+  sec.order=num;
+  sections.sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+  sections.forEach((s,idx)=>{s.order=idx+1});
+  changeHomeLayout(layout=>({...layout,sections}));
+ };
+
+ const toggleSection=id=>{
+  const sections=(settings.policies?.homeLayout?.sections||defaultHomeSections).map(s=>{
+   if(s.id!==id)return s;
+   return {...s,enabled:!s.enabled};
+  });
+  changeHomeLayout(layout=>({...layout,sections}));
+ };
+
+ const updateSectionField=(id,field,value)=>{
+  const sections=(settings.policies?.homeLayout?.sections||defaultHomeSections).map(s=>{
+   if(s.id!==id)return s;
+   return {...s,[field]:value};
+  });
+  changeHomeLayout(layout=>({...layout,sections}));
+ };
+
+ const setBannerPlacement=(bannerId,placement)=>{
+  changeHomeLayout(layout=>({
+   ...layout,
+   bannerPlacements:{
+    ...(layout.bannerPlacements||{}),
+    [bannerId]:placement
+   }
+  }));
+ };
+
+ const moveCategory=(index,direction)=>{
+  const currentCats=categoriesList.length?categoriesList:[];
+  const currentOrder=settings.policies?.homeLayout?.categoryOrder?.length
+   ?[...settings.policies.homeLayout.categoryOrder]
+   :currentCats.map(c=>c.slug);
+  const target=index+direction;
+  if(target<0||target>=currentOrder.length)return;
+  const temp=currentOrder[index];
+  currentOrder[index]=currentOrder[target];
+  currentOrder[target]=temp;
+  changeHomeLayout(layout=>({...layout,categoryOrder:currentOrder}));
+ };
+
+ const resetToDefaultLayout=()=>{
+  changeHomeLayout(defaultHomeLayout);
+  notify('Reset storefront homepage layout to default sequence');
+ };
+
  const uploadLogo=async event=>{
   const file=event.target.files?.[0];
   if(!file)return;
@@ -309,7 +410,7 @@ export function AdminSettings(){
    setSettings(data);
    setSaved(data);
    window.dispatchEvent(new Event('grocify:settings-updated'));
-   notify('Store settings and legal policy CMS saved to database');
+   notify('Store settings, storefront layout and policy CMS saved');
   }catch(error){
    notify(error.message,'error');
   }finally{
@@ -322,6 +423,9 @@ export function AdminSettings(){
 
  const currentPolicyPage=settings.policies.customPages?.[policyKey]||defaultPolicies.customPages[policyKey];
  const selectedNavItem=policyNav.find(p=>p.type===policyKey)||policyNav[0];
+ const currentHomeLayout=settings.policies?.homeLayout||defaultHomeLayout;
+ const sectionsList=currentHomeLayout.sections||defaultHomeSections;
+ const bannerPlacements=currentHomeLayout.bannerPlacements||{};
 
  return <>
   <Header action={<span className={`settings-sync ${dirty?'pending':'saved'}`}>{dirty?'Unsaved changes':'Synced with database'}</span>}/>
@@ -331,6 +435,10 @@ export function AdminSettings(){
    <button type="button" className={activeTab==='general'?'active':''} onClick={()=>setActiveTab('general')}>
     <Store size={16}/>
     <span>Store Identity & Operations</span>
+   </button>
+   <button type="button" className={activeTab==='storefront'?'active':''} onClick={()=>setActiveTab('storefront')}>
+    <LayoutTemplate size={16}/>
+    <span>Storefront & Home Layout</span>
    </button>
    <button type="button" className={activeTab==='legal'?'active':''} onClick={()=>setActiveTab('legal')}>
     <Building2 size={16}/>
@@ -381,77 +489,457 @@ export function AdminSettings(){
      </section>
 
      <section className="admin-card">
-      <SectionTitle icon={Clock3} title="Store operations" text="Control store timing and storefront currency. Delivery pricing is managed under Delivery."/>
+      <SectionTitle icon={Clock3} title="Operating schedule" text="Opening and closing hours displayed to shoppers."/>
       <div className="form-grid">
        <Field required type="time" label="Opening time" value={settings.openingTime} onChange={e=>change('openingTime',e.target.value)}/>
        <Field required type="time" label="Closing time" value={settings.closingTime} onChange={e=>change('closingTime',e.target.value)}/>
-       <label>
-        <span>Currency</span>
-        <select value={settings.currency} onChange={e=>change('currency',e.target.value)}>
-         <option value="INR">INR — Indian Rupee (₹)</option>
-        </select>
-        <small>Used for prices and order totals.</small>
-       </label>
       </div>
      </section>
 
      <section className="admin-card">
-      <SectionTitle icon={BellRing} title="Admin notifications" text="Choose which operational events should notify the admin team."/>
-      <Notification checked={settings.notifications.orders} onChange={()=>toggle('orders')} title="New order notifications" text="Notify admins whenever a customer places an order."/>
-      <Notification checked={settings.notifications.stock} onChange={()=>toggle('stock')} title="Low stock alerts" text="Warn the team when inventory reaches its threshold."/>
-      <Notification checked={settings.notifications.customers} onChange={()=>toggle('customers')} title="Customer activity notifications" text="Receive important customer account and support updates."/>
+      <SectionTitle icon={BellRing} title="Admin notification preferences" text="Select what store events trigger administrator alerts."/>
+      <Notification checked={settings.notifications.orders} onChange={()=>toggle('orders')} title="New customer orders" text="Receive instant sound and push notifications when a new order is placed."/>
+      <Notification checked={settings.notifications.stock} onChange={()=>toggle('stock')} title="Low stock warnings" text="Be alerted when inventory falls below minimum reorder thresholds."/>
+      <Notification checked={settings.notifications.customers} onChange={()=>toggle('customers')} title="Customer registrations" text="Get notified when new verified customer accounts register."/>
      </section>
     </>
    )}
 
-   {/* TAB 2: COMPANY & GRIEVANCE REDRESSAL DETAILS */}
-   {activeTab==='legal'&&(
+   {/* TAB 2: STOREFRONT & HOME LAYOUT (ADMIN CONTROLS) */}
+   {activeTab==='storefront'&&(
     <>
-     <section className="admin-card">
-      <SectionTitle icon={Building2} title="Corporate & Legal Entity Details" text="This information is displayed on official invoices, Contact Us, and statutory compliance sections across all 9 policy pages."/>
-      <div className="form-grid">
-       <Field required label="Corporate Legal Entity Name" value={settings.policies.legalName} onChange={e=>changePolicyTop('legalName',e.target.value)} placeholder="e.g. R2Cart Retail Pvt. Ltd." hint="Official registered company / LLP name under the Companies Act"/>
-       <Field required label="Customer Helpline Number" value={settings.policies.supportPhone} onChange={e=>changePolicyTop('supportPhone',e.target.value)} placeholder="+91 80000 10001" hint="Appears on Contact Us helpline and policy headers"/>
-       <Field required type="email" label="Official Support Email" value={settings.policies.supportEmail} onChange={e=>changePolicyTop('supportEmail',e.target.value)} placeholder="support@r2cart.in" hint="Customer care and grievance Level 1 contact"/>
-       <Field required label="Support Helpline Operating Hours" value={settings.policies.supportHours} onChange={e=>changePolicyTop('supportHours',e.target.value)} placeholder="07:00 AM – 11:00 PM IST (Daily)" hint="Timings displayed on the Contact Us cards"/>
-       <label className="full">
-        <span>Registered Corporate Office Address</span>
-        <textarea required value={settings.policies.officeAddress} onChange={e=>changePolicyTop('officeAddress',e.target.value)} placeholder="Bailey Road, Patna, Bihar — 800001, India" style={{minHeight:'70px'}}/>
-        <small>Displayed on statutory consumer disclosures, Grievance Officer card, and website footer.</small>
-       </label>
-       <label className="full">
-        <span>Fulfillment Hubs & Service Localities</span>
-        <input required value={settings.policies.fulfillmentHub} onChange={e=>changePolicyTop('fulfillmentHub',e.target.value)} placeholder="Hathua Service Zone & Patna Central Hub"/>
-        <small>Referenced in Shipping & Delivery and Contact Us pages.</small>
-       </label>
+     {/* Control Center Banner */}
+     <section className="admin-card storefront-hero-card">
+      <div className="between" style={{alignItems:'flex-start',flexWrap:'wrap',gap:'14px'}}>
+       <div>
+        <div style={{display:'inline-flex',alignItems:'center',gap:'8px',background:'rgba(16,185,129,0.12)',color:'#10b981',padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:700,marginBottom:'8px'}}>
+         <Sparkles size={14}/> STOREFRONT HOMEPAGE CONTROLLER
+        </div>
+        <h2 style={{fontSize:'1.35rem',fontWeight:800,color:'var(--ink)',margin:'0 0 6px'}}>Customer Homepage Layout & Placements</h2>
+        <p style={{margin:0,color:'var(--muted)',fontSize:'13.5px',maxWidth:'780px',lineHeight:1.5}}>
+         Admin has full control over what appears on the customer's screen: turn sections on or off, set their top-to-bottom order numbering, rename sections (like “Offers picked for you”), and designate which banners appear in the top Hero Carousel vs the horizontal campaign rail.
+        </p>
+       </div>
+       <Button type="button" variant="outline" onClick={resetToDefaultLayout} style={{gap:'6px'}}>
+        <RotateCcw size={15}/> Reset to default layout
+       </Button>
+      </div>
+
+      {/* Live Order Visual Strip */}
+      <div style={{marginTop:'20px',paddingTop:'18px',borderTop:'1px solid var(--line)'}}>
+       <span style={{fontSize:'11.5px',fontWeight:700,letterSpacing:'0.05em',textTransform:'uppercase',color:'var(--muted)',display:'block',marginBottom:'10px'}}>
+        Live Storefront Section Sequence:
+       </span>
+       <div className="layout-preview-strip">
+        {sectionsList.map((sec,idx)=>(
+         <span key={sec.id} className={`layout-chip ${sec.enabled?'is-enabled':'is-disabled'}`} title={sec.description}>
+          <b className="chip-num">#{sec.order}</b>
+          <span className="chip-name">{sec.title||sec.label}</span>
+          <i className="chip-status">{sec.enabled?'ON':'OFF'}</i>
+         </span>
+        ))}
+       </div>
       </div>
      </section>
 
+     {/* SECTIONS NUMBERING, REORDERING & VISIBILITY */}
      <section className="admin-card">
-      <SectionTitle icon={ShieldCheck} title="Designated Grievance Redressal Officer" text="Statutory requirement under Information Technology Act, 2000 and Consumer Protection (E-Commerce) Rules, 2020."/>
-      <div className="form-grid">
-       <Field required label="Officer Full Name" value={settings.policies.grievanceOfficerName} onChange={e=>changePolicyTop('grievanceOfficerName',e.target.value)} placeholder="e.g. Mr. Nadeem Ahmad"/>
-       <Field required label="Designation / Role" value={settings.policies.grievanceOfficerRole} onChange={e=>changePolicyTop('grievanceOfficerRole',e.target.value)} placeholder="Grievance Redressal Officer & Operations Lead"/>
-       <Field required type="email" label="Grievance Redressal Email" value={settings.policies.grievanceOfficerEmail} onChange={e=>changePolicyTop('grievanceOfficerEmail',e.target.value)} placeholder="grievance@r2cart.in"/>
-       <Field required label="Officer Phone / Helpline" value={settings.policies.grievanceOfficerPhone} onChange={e=>changePolicyTop('grievanceOfficerPhone',e.target.value)} placeholder="+91 80000 10001"/>
-       <label className="full">
-        <span>Officer Physical Office Address</span>
-        <textarea required value={settings.policies.grievanceOfficerAddress} onChange={e=>changePolicyTop('grievanceOfficerAddress',e.target.value)} placeholder="Bailey Road, Patna, Bihar — 800001, India" style={{minHeight:'70px'}}/>
-       </label>
+      <SectionTitle icon={Layers} title="Homepage Sections Ordering & Visibility" text="Reorder sections using Up/Down arrows or direct sequence numbering. Toggle visibility to show or hide sections from the storefront."/>
+
+      <div className="layout-sections-list">
+       {sectionsList.map((sec,index)=>(
+        <article key={sec.id} className={`layout-section-item ${sec.enabled?'active':'disabled'}`}>
+         <div className="layout-item-header">
+          <div className="layout-order-tools">
+           <span className="layout-order-badge">#{sec.order}</span>
+           <div className="layout-arrow-btns">
+            <button
+             type="button"
+             disabled={index===0}
+             onClick={()=>moveSection(index,-1)}
+             aria-label={`Move ${sec.label} up`}
+             className="layout-btn-arrow"
+            >
+             <ArrowUp size={14}/>
+            </button>
+            <button
+             type="button"
+             disabled={index===sectionsList.length-1}
+             onClick={()=>moveSection(index,1)}
+             aria-label={`Move ${sec.label} down`}
+             className="layout-btn-arrow"
+            >
+             <ArrowDown size={14}/>
+            </button>
+           </div>
+           <label className="layout-seq-label" title="Direct sequence order">
+            <span>Seq:</span>
+            <input
+             type="number"
+             min="1"
+             max="20"
+             value={sec.order}
+             onChange={e=>setSectionOrder(sec.id,e.target.value)}
+             className="layout-seq-input"
+            />
+           </label>
+          </div>
+
+          <div className="layout-item-info">
+           <div className="layout-item-title-row">
+            <h4>{sec.label}</h4>
+            <span className={`layout-badge-pill ${sec.enabled?'badge-on':'badge-off'}`}>
+             {sec.enabled?'● Active on screen':'○ Hidden from screen'}
+            </span>
+           </div>
+           <p className="layout-item-desc">{sec.description}</p>
+          </div>
+
+          <div className="layout-item-actions">
+           <Button
+            type="button"
+            variant={sec.enabled?'outline':'ghost'}
+            className={sec.enabled?'':'text-muted'}
+            onClick={()=>toggleSection(sec.id)}
+            style={{gap:'6px',fontSize:'13px'}}
+           >
+            {sec.enabled?<EyeOff size={15}/>:<Eye size={15}/>}
+            {sec.enabled?'Hide section':'Show section'}
+           </Button>
+          </div>
+         </div>
+
+         {/* Editable Parameters for this section */}
+         {sec.enabled&&(
+          <div className="layout-item-controls">
+           {/* Section Custom Title & Subtitle */}
+           {sec.id==='campaignOffers'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              label="Section Heading"
+              value={sec.title||'Offers picked for you'}
+              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+              placeholder="Offers picked for you"
+             />
+             <Field
+              label="Section Subtitle"
+              value={sec.subtitle||'Fresh deals, updated from R2Cart'}
+              onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
+              placeholder="Fresh deals, updated from R2Cart"
+             />
+            </div>
+           )}
+
+           {sec.id==='shopCategories'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              label="Section Heading"
+              value={sec.title||'Shop by category'}
+              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+              placeholder="Shop by category"
+             />
+             <Field
+              label="Section Subtitle"
+              value={sec.subtitle||'Everything your home needs'}
+              onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
+              placeholder="Everything your home needs"
+             />
+            </div>
+           )}
+
+           {sec.id==='bestSellers'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              label="Section Heading"
+              value={sec.title||'Best sellers'}
+              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+              placeholder="Best sellers"
+             />
+             <Field
+              type="number"
+              min="2"
+              max="30"
+              label="Display Product Count"
+              value={sec.count||10}
+              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
+              hint="Maximum products to show in this rail"
+             />
+            </div>
+           )}
+
+           {sec.id==='recommended'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              label="Section Heading"
+              value={sec.title||'Recommended for you'}
+              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+              placeholder="Recommended for you"
+             />
+             <Field
+              type="number"
+              min="2"
+              max="30"
+              label="Display Product Count"
+              value={sec.count||10}
+              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
+              hint="Maximum recommended products to show"
+             />
+            </div>
+           )}
+
+           {sec.id==='promoStrip'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              label="Eyebrow Tag"
+              value={sec.tag||'YOUR SAVINGS'}
+              onChange={e=>updateSectionField(sec.id,'tag',e.target.value)}
+              placeholder="YOUR SAVINGS"
+             />
+             <Field
+              label="Main Heading"
+              value={sec.title||'Stock up. Save more.'}
+              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+              placeholder="Stock up. Save more."
+             />
+             <Field
+              className="full"
+              label="Description Subtitle"
+              value={sec.subtitle||'Explore the current offers available for your basket.'}
+              onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
+              placeholder="Explore the current offers available for your basket."
+             />
+             <Field
+              label="Button Label"
+              value={sec.buttonText||'Explore offers'}
+              onChange={e=>updateSectionField(sec.id,'buttonText',e.target.value)}
+              placeholder="Explore offers"
+             />
+             <Field
+              label="Button Destination"
+              value={sec.buttonLink||'/coupons'}
+              onChange={e=>updateSectionField(sec.id,'buttonLink',e.target.value)}
+              placeholder="/coupons"
+             />
+            </div>
+           )}
+
+           {sec.id==='categoryRails'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              type="number"
+              min="1"
+              max="20"
+              label="Maximum Category Rails"
+              value={sec.maxCategories||8}
+              onChange={e=>updateSectionField(sec.id,'maxCategories',Number(e.target.value))}
+              hint="How many categories to show as full horizontal product rails"
+             />
+            </div>
+           )}
+
+           {sec.id==='specialOffers'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              label="Section Heading"
+              value={sec.title||'Special offers'}
+              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+              placeholder="Special offers"
+             />
+             <Field
+              type="number"
+              min="2"
+              max="30"
+              label="Display Product Count"
+              value={sec.count||10}
+              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
+             />
+            </div>
+           )}
+
+           {sec.id==='recentlyViewed'&&(
+            <div className="form-grid" style={{marginTop:'12px'}}>
+             <Field
+              label="Section Heading"
+              value={sec.title||'Recently viewed'}
+              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+              placeholder="Recently viewed"
+             />
+             <Field
+              type="number"
+              min="2"
+              max="20"
+              label="Display Product Count"
+              value={sec.count||8}
+              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
+             />
+            </div>
+           )}
+          </div>
+         )}
+        </article>
+       ))}
       </div>
+     </section>
+
+     {/* BANNERS PLACEMENT CONTROLLER ("kon sa banner ko sa carasoul") */}
+     <section className="admin-card">
+      <div className="between" style={{marginBottom:'14px',flexWrap:'wrap',gap:'10px'}}>
+       <SectionTitle icon={ImageIcon} title="Storefront Banner Placements" text="Designate where each banner appears: Hero Banner Carousel (Top) vs “Offers picked for you” horizontal campaign rail."/>
+       <Link to="/admin/banners" style={{fontSize:'13px',fontWeight:700,color:'var(--green)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'4px'}}>
+        Manage Banners & Images →
+       </Link>
+      </div>
+
+      {!bannersList.length?(
+       <div style={{padding:'20px',background:'rgba(0,0,0,0.02)',borderRadius:'10px',textAlign:'center',color:'var(--muted)'}}>
+        No storefront banners found. <Link to="/admin/banners" style={{color:'var(--green)',fontWeight:700}}>Create your first banner here</Link>.
+       </div>
+      ):(
+       <div className="layout-banners-grid">
+        {bannersList.map((banner,idx)=>{
+         const currentPlacement=bannerPlacements[banner.id]||(idx<2?'HERO':'CAMPAIGN');
+         return (
+          <div key={banner.id} className="layout-banner-card">
+           <div
+            className="layout-banner-preview"
+            style={banner.image?{backgroundImage:`linear-gradient(90deg,rgba(6,46,31,.88),rgba(6,46,31,.2)),url(${banner.image})`}:undefined}
+           >
+            <span className="layout-banner-kicker">{banner.kicker||'OFFER'}</span>
+            <h4>{banner.heading}</h4>
+            <p>{banner.subtitle}</p>
+            <small>{banner.destination||'/'}</small>
+           </div>
+
+           <div className="layout-banner-controls">
+            <span style={{fontSize:'12px',fontWeight:700,color:'var(--ink)',display:'block',marginBottom:'6px'}}>
+             Placement on Storefront:
+            </span>
+            <div className="placement-options">
+             <button
+              type="button"
+              className={`placement-pill ${currentPlacement==='HERO'?'active':''}`}
+              onClick={()=>setBannerPlacement(banner.id,'HERO')}
+             >
+              👑 Top Hero Carousel
+             </button>
+             <button
+              type="button"
+              className={`placement-pill ${currentPlacement==='CAMPAIGN'?'active':''}`}
+              onClick={()=>setBannerPlacement(banner.id,'CAMPAIGN')}
+             >
+              🏷️ Offers Picked For You Rail
+             </button>
+             <button
+              type="button"
+              className={`placement-pill ${currentPlacement==='BOTH'?'active':''}`}
+              onClick={()=>setBannerPlacement(banner.id,'BOTH')}
+             >
+              🌟 Both Placements
+             </button>
+            </div>
+           </div>
+          </div>
+         );
+        })}
+       </div>
+      )}
+     </section>
+
+     {/* CATEGORY ORDERING & NUMBERING ("kis numbering me category") */}
+     <section className="admin-card">
+      <div className="between" style={{marginBottom:'14px',flexWrap:'wrap',gap:'10px'}}>
+       <SectionTitle icon={Grid} title="Homepage Category Sequence & Numbering" text="Control the display order of categories in the “Shop by category” capsules and product rails."/>
+       <Link to="/admin/categories" style={{fontSize:'13px',fontWeight:700,color:'var(--green)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'4px'}}>
+        Manage Categories & Subcategories →
+       </Link>
+      </div>
+
+      {(()=>{
+       const orderMap=new Map((currentHomeLayout.categoryOrder||[]).map((slug,idx)=>[slug,idx]));
+       const sortedCats=[...categoriesList].sort((a,b)=>{
+        const posA=orderMap.has(a.slug)?orderMap.get(a.slug):999;
+        const posB=orderMap.has(b.slug)?orderMap.get(b.slug):999;
+        return posA-posB;
+       });
+
+       return (
+        <div className="layout-cats-list">
+         {sortedCats.map((cat,cIdx)=>(
+          <div key={cat.id||cat.slug} className="layout-cat-row">
+           <div className="cat-order-num">#{cIdx+1}</div>
+           <div className="cat-icon-box" style={{background:cat.color||'rgba(16,185,129,0.1)'}}>
+            {cat.image?<img src={cat.image} alt={cat.name}/>:<Tag size={16}/>}
+           </div>
+           <div className="cat-info">
+            <b>{cat.name}</b>
+            <small>/{cat.slug}</small>
+           </div>
+           <div className="cat-actions">
+            <button
+             type="button"
+             disabled={cIdx===0}
+             onClick={()=>moveCategory(cIdx,-1)}
+             className="layout-btn-arrow"
+             aria-label={`Move ${cat.name} up`}
+            >
+             <ArrowUp size={14}/>
+            </button>
+            <button
+             type="button"
+             disabled={cIdx===sortedCats.length-1}
+             onClick={()=>moveCategory(cIdx,1)}
+             className="layout-btn-arrow"
+             aria-label={`Move ${cat.name} down`}
+            >
+             <ArrowDown size={14}/>
+            </button>
+           </div>
+          </div>
+         ))}
+        </div>
+       );
+      })()}
      </section>
     </>
    )}
 
-   {/* TAB 3: POLICY PAGES CMS (9 PAGES) */}
+   {/* TAB 3: LEGAL & GRIEVANCE */}
+   {activeTab==='legal'&&(
+    <section className="admin-card">
+     <SectionTitle icon={Building2} title="Legal corporate entity & statutory details" text="Required by Ministry of Consumer Affairs under Consumer Protection (E-Commerce) Rules, 2020."/>
+     <div className="form-grid">
+      <Field required label="Registered corporate entity name" value={settings.policies.legalName} onChange={e=>changePolicyTop('legalName',e.target.value)} placeholder="e.g. R2Cart Retail Pvt. Ltd."/>
+      <Field required label="Statutory support hotline" value={settings.policies.supportPhone} onChange={e=>changePolicyTop('supportPhone',e.target.value)} placeholder="+91 80000 10001"/>
+      <Field required type="email" label="Customer support email" value={settings.policies.supportEmail} onChange={e=>changePolicyTop('supportEmail',e.target.value)} placeholder="support@r2cart.in"/>
+      <Field required label="Support operational hours" value={settings.policies.supportHours} onChange={e=>changePolicyTop('supportHours',e.target.value)} placeholder="07:00 AM – 11:00 PM IST (Daily)"/>
+      <Field required label="Registered corporate office address" value={settings.policies.officeAddress} onChange={e=>changePolicyTop('officeAddress',e.target.value)} placeholder="Bailey Road, Patna, Bihar — 800001, India"/>
+      <Field required label="Primary dark store fulfillment hub" value={settings.policies.fulfillmentHub} onChange={e=>changePolicyTop('fulfillmentHub',e.target.value)} placeholder="Hathua Service Zone & Patna Central Hub"/>
+     </div>
+
+     <div style={{marginTop:'1.75rem',paddingTop:'1.5rem',borderTop:'1px solid var(--line)'}}>
+      <SectionTitle icon={ShieldCheck} title="Statutory Grievance Redressal Officer" text="Appointed officer responsible for resolving consumer disputes under Rule 5(6) of E-Commerce Rules, 2020."/>
+      <div className="form-grid">
+       <Field required label="Officer full name" value={settings.policies.grievanceOfficerName} onChange={e=>changePolicyTop('grievanceOfficerName',e.target.value)} placeholder="Mr. Nadeem Ahmad"/>
+       <Field required label="Officer designation & role" value={settings.policies.grievanceOfficerRole} onChange={e=>changePolicyTop('grievanceOfficerRole',e.target.value)} placeholder="Grievance Redressal Officer & Operations Lead"/>
+       <Field required type="email" label="Direct grievance email" value={settings.policies.grievanceOfficerEmail} onChange={e=>changePolicyTop('grievanceOfficerEmail',e.target.value)} placeholder="grievance@r2cart.in"/>
+       <Field required label="Direct grievance contact number" value={settings.policies.grievanceOfficerPhone} onChange={e=>changePolicyTop('grievanceOfficerPhone',e.target.value)} placeholder="+91 80000 10001"/>
+       <label className="full">
+        <span>Grievance redressal physical correspondence address</span>
+        <textarea required value={settings.policies.grievanceOfficerAddress} onChange={e=>changePolicyTop('grievanceOfficerAddress',e.target.value)} placeholder="Physical address where statutory legal notices may be served."/>
+       </label>
+      </div>
+     </div>
+    </section>
+   )}
+
+   {/* TAB 4: POLICY PAGES CMS (9 PAGES) */}
    {activeTab==='policies'&&(
     <section className="admin-card">
-     <SectionTitle icon={FileText} title="Static & Legal Policies CMS (9 Pages)" text="Customize the titles, introductions, meta badges, and custom clauses for all policy pages. Any changes take effect immediately on your storefront."/>
+     <SectionTitle icon={FileText} title="Legal Policy Pages CMS (9 Complete Pages)" text="Customize the exact wording, header meta pills, and custom clauses across all 9 statutory store policies."/>
 
-     {/* 9 Pages Pill Strip */}
-     <div className="cms-nav-tabs">
+     {/* Policy Selector Pills */}
+     <div className="cms-nav-grid" style={{marginBottom:'24px'}}>
       {policyNav.map(navItem=>{
-       const Icon=navItem.icon;
        const isCurrent=navItem.type===policyKey;
        return (
         <button
@@ -460,39 +948,34 @@ export function AdminSettings(){
          className={`cms-nav-btn ${isCurrent?'active':''}`}
          onClick={()=>setPolicyKey(navItem.type)}
         >
-         <Icon size={14}/>
          <span>{navItem.label}</span>
+         <small>{navItem.path}</small>
         </button>
        );
       })}
      </div>
 
-     {/* Active Policy Header & Preview Link */}
+     {/* Active Policy Header & Reset */}
      <div className="cms-policy-header">
-      <div className="row gap">
-       <span className="badge badge-green">Editing: {selectedNavItem.label}</span>
-       <b>Route: <code>{selectedNavItem.path}</code></b>
+      <div>
+       <b>Currently Editing: {selectedNavItem.label}</b>
+       <small style={{display:'block',color:'var(--muted)'}}>Publishes live at {selectedNavItem.path}</small>
       </div>
-      <div className="row gap">
-       <Button
-        type="button"
-        variant="ghost"
-        onClick={()=>resetPolicyPage(policyKey)}
-        title="Restore default legally verified template"
-       >
-        <RotateCcw size={13}/> Reset template
+      <div className="row gap" style={{alignItems:'center'}}>
+       <Button type="button" variant="ghost" onClick={()=>resetPolicyPage(policyKey)} title="Restore statutory baseline template">
+        <RotateCcw size={15}/> Reset to verified template
        </Button>
-       <a href={selectedNavItem.path} target="_blank" rel="noopener noreferrer">
-        Preview live page <ExternalLink size={13}/>
-       </a>
+       <Link to={selectedNavItem.path} target="_blank" rel="noopener noreferrer">
+        Live preview <ExternalLink size={13}/>
+       </Link>
       </div>
      </div>
 
-     {/* Editable Form for Selected Page */}
+     {/* Policy Fields */}
      <div className="form-grid">
       <Field
        required
-       label="Page Title"
+       label="Page Main Headline (H1)"
        value={currentPolicyPage.title}
        onChange={e=>changePolicyPage(policyKey,'title',e.target.value)}
        placeholder="e.g. Privacy Policy"
@@ -537,7 +1020,7 @@ export function AdminSettings(){
     </section>
    )}
 
-   {/* TAB 4: ADMIN SECURITY */}
+   {/* TAB 5: ADMIN SECURITY */}
    {activeTab==='security'&&(
     <section className="admin-card">
      <SectionTitle icon={KeyRound} title="Admin login & security" text="Manage your administrator password and login credentials."/>
@@ -578,5 +1061,5 @@ export function AdminSettings(){
  </>;
 }
 
-const Header=({action})=><div className="admin-title"><div><h1>Store Settings & Legal CMS</h1><p>Manage storefront identity, business operations, grievance redressal, and all 9 legal policy pages.</p></div>{action}</div>;
+const Header=({action})=><div className="admin-title"><div><h1>Store Settings & Storefront Layout</h1><p>Manage storefront homepage layout, banner placements, store identity, operations, and statutory legal CMS.</p></div>{action}</div>;
 const Notification=({checked,onChange,title,text})=><label className="switch-row"><span><b>{title}</b><small>{text}</small></span><input type="checkbox" checked={checked} onChange={onChange}/><i/></label>;
