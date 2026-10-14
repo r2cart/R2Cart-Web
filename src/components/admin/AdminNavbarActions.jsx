@@ -3,20 +3,37 @@ import {useNavigate} from 'react-router-dom';
 import {Bell,Search,UserRound,X} from 'lucide-react';
 import {api} from '../../services/httpClient';
 import {mediaUrl} from '../../utils/media';
-import {playNotificationSound,subscribeToPush,sendTestPush} from '../../services/pushNotification.service';
+import {playNotificationSound,subscribeToPush,sendTestPush,triggerSystemNotification} from '../../services/pushNotification.service';
 import './navbar.css';
 
 export default function AdminNavbarActions(){
  const nav=useNavigate(),root=useRef(null),prevNoticesRef=useRef([]);
  const [q,setQ]=useState(''),[results,setResults]=useState([]),[menu,setMenu]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[data,setData]=useState(null),[noticeError,setNoticeError]=useState('');
+ const [testStatus,setTestStatus]=useState('idle');
  const [read,setRead]=useState(()=>{try{return JSON.parse(localStorage.getItem('r2cart-admin-read-notifications')||'[]')}catch{return []}});
 
  const load=()=>api.get('/admin/notifications').then(value=>{
   const nextNotices=value?.notifications||[];
   const prevIds=new Set(prevNoticesRef.current.map(n=>n.id));
-  const hasNewOrder=nextNotices.some(n=>n.id.startsWith('order-')&&!prevIds.has(n.id));
-  if(prevNoticesRef.current.length>0&&hasNewOrder){
+  const newOrderNotices=nextNotices.filter(n=>n.id.startsWith('order-')&&!prevIds.has(n.id));
+  if(prevNoticesRef.current.length>0&&newOrderNotices.length>0){
+   const latest=newOrderNotices[0];
    playNotificationSound();
+   triggerSystemNotification({
+    title:'🚨 New Order Received! · R2Cart',
+    body:`${latest.title} (${latest.text})`,
+    url:latest.path||'/admin/orders',
+    tag:latest.id,
+   });
+   window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
+    detail:{
+     orderNumber:latest.title.replace(/^New order\s*/i,''),
+     customerName:'Customer',
+     total:'',
+     itemsCount:1,
+     url:latest.path||'/admin/orders',
+    }
+   }));
   }
   prevNoticesRef.current=nextNotices;
   setData(value);
@@ -34,6 +51,15 @@ export default function AdminNavbarActions(){
    if(event.data?.type==='R2CART_PUSH_RECEIVED'){
     playNotificationSound();
     load();
+    const p=event.data.payload||{};
+    window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
+     detail:{
+      orderNumber:p.data?.orderNumber||p.title||'New Order',
+      customerName:p.body||'A customer',
+      total:p.data?.total||'',
+      url:p.data?.url||p.url||'/admin/orders',
+     }
+    }));
    }
   };
   if('serviceWorker' in navigator){
@@ -96,8 +122,34 @@ export default function AdminNavbarActions(){
 
     {typeof Notification!=='undefined'&&Notification.permission==='granted'&&(
      <div style={{padding:'6px 10px',background:'rgba(20,133,66,0.06)',borderRadius:'8px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11px'}}>
-      <span style={{color:'#148542',fontWeight:500}}>🔔 Background push active</span>
-      <button style={{background:'none',border:'1px solid #148542',color:'#148542',padding:'2px 7px',borderRadius:'4px',cursor:'pointer',fontSize:'10px',fontWeight:600}} onClick={async()=>{try{await sendTestPush('ADMIN');alert('Test push notification sent! Check your Windows or phone notification banner.');}catch(e){alert('Push test error: '+e.message)}}}>Send test</button>
+      <span style={{color:'#148542',fontWeight:500}}>🔔 Windows & push alerts active</span>
+      <button
+        style={{
+          background: testStatus==='sent'?'#148542':'none',
+          border:'1px solid #148542',
+          color: testStatus==='sent'?'#fff':'#148542',
+          padding:'3px 8px',
+          borderRadius:'4px',
+          cursor: testStatus==='sending'?'wait':'pointer',
+          fontSize:'10px',
+          fontWeight:600,
+          transition:'all 0.2s ease'
+        }}
+        disabled={testStatus==='sending'}
+        onClick={async()=>{
+          setTestStatus('sending');
+          try {
+            await sendTestPush('ADMIN');
+            setTestStatus('sent');
+            setTimeout(()=>setTestStatus('idle'), 3500);
+          } catch(e) {
+            console.error('Test push error:', e);
+            setTestStatus('idle');
+          }
+        }}
+      >
+        {testStatus==='sending'?'Sending…':testStatus==='sent'?'✓ Sent to Windows!':'Send test'}
+      </button>
      </div>
     )}
 

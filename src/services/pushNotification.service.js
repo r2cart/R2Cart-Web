@@ -125,15 +125,107 @@ export async function unsubscribeFromPush() {
   }
 }
 
-export async function sendTestPush(role = 'CUSTOMER') {
-  const subscription = await getCurrentPushSubscription();
-  if (!subscription) {
-    throw new Error('No active push subscription found on this device');
+// Trigger native operating system desktop toast & notification tray (Windows Action Center / mobile tray)
+export async function triggerSystemNotification({
+  title = '🚨 New Order Received! · R2Cart',
+  body = 'A new order has been placed on R2Cart.',
+  url = '/admin/orders',
+  tag,
+} = {}) {
+  if (typeof window === 'undefined') return false;
+
+  playNotificationSound();
+
+  if (typeof Notification === 'undefined') return false;
+
+  if (Notification.permission !== 'granted') {
+    try {
+      const p = await Notification.requestPermission();
+      if (p !== 'granted') return false;
+    } catch {
+      return false;
+    }
   }
-  return api.post('/notifications/test', {
-    subscription: subscription.toJSON(),
-    role,
+
+  const iconUrl = `${window.location.origin}/r2cart-logo.png`;
+  const options = {
+    body,
+    icon: iconUrl,
+    badge: iconUrl,
+    tag: tag || `r2cart-order-${Date.now()}`,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [300, 150, 300, 150, 300],
+    data: { url: url || '/admin/orders' },
+  };
+
+  // 1. Try ServiceWorker Registration showNotification (supported by Windows Toast & Action Center)
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, options);
+        return true;
+      }
+    } catch (e) {
+      console.warn('SW showNotification fallback:', e);
+    }
+  }
+
+  // 2. Direct Window Notification fallback
+  try {
+    const notif = new Notification(title, options);
+    notif.onclick = () => {
+      window.focus();
+      if (url) window.location.href = url;
+    };
+    return true;
+  } catch (err) {
+    console.warn('Direct Notification fallback error:', err);
+    return false;
+  }
+}
+
+export async function sendTestPush(role = 'ADMIN') {
+  // 1. Trigger local OS Windows desktop toast and taskbar notification center immediately
+  await triggerSystemNotification({
+    title: '🚨 Test Order Alert · R2Cart',
+    body: 'Order #GR-TEST received for ₹599 by Nadeem Ahmad. Tap to view and accept.',
+    url: '/admin/orders',
+    tag: `test-order-${Date.now()}`,
   });
+
+  // 2. Dispatch custom event so the Admin Floating Order Banner appears inside the dashboard
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('r2cart:new-order-alert', {
+        detail: {
+          orderNumber: 'GR-TEST',
+          total: '599',
+          customerName: 'Nadeem Ahmad',
+          itemsCount: 2,
+          url: '/admin/orders',
+        },
+      })
+    );
+  }
+
+  // 3. Send to backend push service to deliver background Web Push and ensure subscription is registered
+  try {
+    let subscription = await getCurrentPushSubscription();
+    if (!subscription) {
+      const res = await subscribeToPush({ role });
+      subscription = res?.subscription;
+    }
+    if (subscription) {
+      await api.post('/notifications/test', {
+        subscription: subscription.toJSON(),
+        role,
+      });
+    }
+  } catch (err) {
+    console.warn('Backend push test error:', err.message);
+  }
 }
 
 // Crisp, pleasant melodic audio chime for incoming order alert

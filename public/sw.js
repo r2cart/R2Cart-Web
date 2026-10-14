@@ -14,33 +14,40 @@ self.addEventListener('push', (event) => {
     try {
       data = event.data.json();
     } catch {
-      data = { title: 'R2Cart Notification', body: event.data.text() };
+      data = { title: '🚨 New Order Alert · R2Cart', body: event.data.text() };
     }
   }
 
-  const title = data.title || 'R2Cart Update';
+  const title = data.title || '🚨 New Order Alert · R2Cart';
+  const iconUrl = new URL(data.icon || '/r2cart-logo.png', self.location.origin).href;
+  const badgeUrl = new URL(data.badge || '/r2cart-logo.png', self.location.origin).href;
+
   const options = {
-    body: data.body || '',
-    icon: data.icon || '/r2cart-logo.png',
-    badge: data.badge || '/r2cart-logo.png',
-    data: data.data || { url: data.url || '/' },
-    tag: data.tag || `r2cart-${Date.now()}`,
+    body: data.body || 'A new order has been received.',
+    icon: iconUrl,
+    badge: badgeUrl,
+    data: data.data || { url: data.url || '/admin/orders' },
+    tag: data.tag || `r2cart-order-${Date.now()}`,
     renotify: true,
     requireInteraction: true,
-    vibrate: [250, 100, 250, 100, 250],
+    vibrate: [300, 150, 300, 150, 300],
+    actions: [
+      { action: 'open', title: '👁 View Order' },
+      { action: 'close', title: '✕ Dismiss' }
+    ]
   };
 
   event.waitUntil(
     (async () => {
-      // Show native OS notification
+      // Show native OS notification (Windows Action Center & Desktop Toast popup)
       await self.registration.showNotification(title, options);
 
-      // Notify any currently open browser windows/tabs
+      // Notify any currently open browser windows/tabs for in-app banner update
       const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clientList) {
         client.postMessage({
           type: 'R2CART_PUSH_RECEIVED',
-          payload: data,
+          payload: { ...data, title, body: options.body, url: options.data.url },
         });
       }
     })()
@@ -50,7 +57,9 @@ self.addEventListener('push', (event) => {
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = (event.notification.data && event.notification.data.url) || '/';
+  if (event.action === 'close') return;
+
+  const urlToOpen = (event.notification.data && event.notification.data.url) || '/admin/orders';
 
   event.waitUntil(
     (async () => {

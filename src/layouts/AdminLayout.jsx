@@ -24,6 +24,7 @@ function getAdminInfo(){
 export default function AdminLayout({children}){
  const [collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
  const [perm,setPerm]=useState(()=>getNotificationPermission());
+ const [orderAlert,setOrderAlert]=useState(null);
  const nav=useNavigate(),location=useLocation(),showBack=location.pathname!=='/admin/dashboard';
  const {name:adminName,initials:adminInitials}=getAdminInfo();
 
@@ -38,6 +39,15 @@ export default function AdminLayout({children}){
   if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
    subscribeToPush({role:'ADMIN'}).catch(()=>{});
   }
+
+  // Listen for new order alerts dispatched from SW push or polling
+  const handleOrderAlert=(e)=>{
+   if(e.detail){
+    setOrderAlert(e.detail);
+   }
+  };
+  window.addEventListener('r2cart:new-order-alert',handleOrderAlert);
+  return()=>window.removeEventListener('r2cart:new-order-alert',handleOrderAlert);
  },[]);
 
  return <div className={`admin-shell ${collapsed?'collapsed':''}`}>
@@ -49,9 +59,75 @@ export default function AdminLayout({children}){
    <div className="admin-user"><div>{adminInitials}</div><span><b>{adminName}</b><small>Store administrator</small></span><button onClick={async()=>{await authService.adminLogout();nav('/admin/login')}} aria-label="Sign out">↗</button></div>
   </aside>
   <div className="admin-content">
+   {/* In-App Floating New Order Banner */}
+   {orderAlert&&(
+    <aside
+     role="alert"
+     aria-live="assertive"
+     style={{
+      position:'fixed',
+      top:'18px',
+      right:'24px',
+      zIndex:99999,
+      maxWidth:'460px',
+      width:'calc(100vw - 48px)',
+      background:'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
+      border:'2px solid #10b981',
+      boxShadow:'0 20px 40px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(16, 185, 129, 0.45)',
+      borderRadius:'14px',
+      padding:'16px 18px',
+      color:'#fff'
+     }}
+    >
+     <div style={{display:'flex',alignItems:'flex-start',gap:'12px'}}>
+      <div style={{width:'40px',height:'40px',borderRadius:'10px',background:'rgba(16, 185, 129, 0.25)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',flexShrink:0}}>
+       🚨
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
+        <strong style={{fontSize:'13px',color:'#6ee7b7',letterSpacing:'0.5px',textTransform:'uppercase'}}>
+         New Order Received!
+        </strong>
+        <button
+         onClick={()=>setOrderAlert(null)}
+         style={{background:'none',border:'none',color:'#9ca3af',cursor:'pointer',padding:'2px 4px',fontSize:'16px',lineHeight:1}}
+         aria-label="Dismiss banner"
+        >
+         ✕
+        </button>
+       </div>
+       <div style={{fontSize:'13px',marginTop:'4px',color:'#f3f4f6',lineHeight:1.4}}>
+        Order <b>#{orderAlert.orderNumber}</b>
+        {orderAlert.total?` · ₹${orderAlert.total}`:''}
+        {orderAlert.customerName?` by ${orderAlert.customerName}`:''}
+       </div>
+       <div style={{marginTop:'12px',display:'flex',gap:'8px'}}>
+        <button
+         onClick={()=>{
+          const url=orderAlert.url||'/admin/orders';
+          setOrderAlert(null);
+          nav(url);
+         }}
+         style={{background:'#10b981',color:'#022c22',fontWeight:700,fontSize:'12px',padding:'7px 14px',borderRadius:'8px',border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'6px'}}
+        >
+         <span>View Order</span>
+         <span>→</span>
+        </button>
+        <button
+         onClick={()=>setOrderAlert(null)}
+         style={{background:'rgba(255, 255, 255, 0.1)',color:'#e5e7eb',fontWeight:500,fontSize:'12px',padding:'7px 12px',borderRadius:'8px',border:'1px solid rgba(255, 255, 255, 0.15)',cursor:'pointer'}}
+        >
+         Dismiss
+        </button>
+       </div>
+      </div>
+     </div>
+    </aside>
+   )}
+
    {perm!=='granted'&&perm!=='unsupported'&&(
     <div style={{background:'linear-gradient(90deg, #148542, #0d5f2e)',color:'#fff',padding:'8px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'12px',fontWeight:500,zIndex:10}}>
-     <span>🔔 <b>Turn on Order Alerts:</b> Get instant popup & sound alerts when a customer places an order, even when your browser is minimized or closed.</span>
+     <span>🔔 <b>Turn on Order Alerts:</b> Get instant Windows notifications and sound alerts when a customer places an order, even when your browser is minimized or closed.</span>
      <button onClick={async()=>{const res=await subscribeToPush({role:'ADMIN'});if(res?.success)setPerm('granted')}} style={{background:'#fff',color:'#148542',border:'none',borderRadius:'6px',padding:'5px 12px',fontWeight:600,cursor:'pointer',fontSize:'12px',whiteSpace:'nowrap',marginLeft:'12px'}}>Enable Alerts</button>
     </div>
    )}
