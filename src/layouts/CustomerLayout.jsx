@@ -1,4 +1,4 @@
-import {useState} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
+import {useEffect,useState} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
 import {ArrowLeft,Briefcase,Camera,ChevronDown,Clock3,Heart,History,Home,MapPin,Menu,Package,Search,Share2,ShoppingBag,UserRound,X} from 'lucide-react';
 import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,money} from '../components/ui';
 import brandWordmark from '../assets/r2cart-logo.png';
@@ -24,4 +24,132 @@ function CustomerBack(){const location=useLocation();const nav=useNavigate();if(
 function DesktopNav(){const {categories}=useApp();return <nav className="desktop-category-nav"><div className="container"><div className="desktop-category-links">{categories.slice(0,7).map(category=><Link to={`/category/${category.slug}`} key={category.slug}>{category.name}</Link>)}</div><Link className="nav-offer" to="/coupons">Offers <span>NEW</span></Link></div></nav>}
 function BackendNotice(){const {catalogErrors,refreshCategories,refreshProducts,refreshBanners,refreshDelivery}=useApp();const retry={categories:refreshCategories,products:refreshProducts,banners:refreshBanners,delivery:refreshDelivery};return Object.entries(catalogErrors).filter(([,error])=>error).map(([key,error])=><div className="container" role="status" key={key}><p className="row between">Unable to refresh {key}: {error}<Button variant="outline" onClick={retry[key]}>Try again</Button></p></div>)}
 import {AuthPromptModal} from '../components/customer/AuthPromptModal';
-export default function CustomerLayout({children}){return <><Header/><DesktopNav/><CustomerBack/><main><BackendNotice/>{children}</main><Footer/><MobileBottomNav/><LocationModal/><CartDrawer/><AuthPromptModal/></>}
+import {subscribeToPush,playNotificationSound} from '../services/pushNotification.service';
+
+export default function CustomerLayout({children}){
+ const {user}=useApp();
+ const nav=useNavigate();
+ const [customerAlert,setCustomerAlert]=useState(null);
+
+ useEffect(()=>{
+  if(user&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
+   subscribeToPush({role:'CUSTOMER'}).catch(()=>{});
+  }
+ },[user]);
+
+ useEffect(()=>{
+  const onSwPush=event=>{
+   if(event.data?.type==='R2CART_PUSH_RECEIVED'){
+    playNotificationSound();
+    const p=event.data.payload||{};
+    setCustomerAlert({
+     title:p.title||'🎉 Order Update · R2Cart',
+     body:p.body||'Your order status has been updated.',
+     url:p.data?.url||p.url||'/orders'
+    });
+   }
+  };
+  const onCustomAlert=event=>{
+   if(event.detail){
+    playNotificationSound();
+    setCustomerAlert(event.detail);
+   }
+  };
+  if('serviceWorker' in navigator){
+   navigator.serviceWorker.addEventListener('message',onSwPush);
+  }
+  window.addEventListener('r2cart:customer-order-alert',onCustomAlert);
+  return()=>{
+   if('serviceWorker' in navigator){
+    navigator.serviceWorker.removeEventListener('message',onSwPush);
+   }
+   window.removeEventListener('r2cart:customer-order-alert',onCustomAlert);
+  };
+ },[]);
+
+ return <>
+  {/* In-App Heads-up Notification Banner (Sliding down from top on mobile & website) */}
+  {customerAlert&&(
+   <aside
+    role="alert"
+    aria-live="assertive"
+    style={{
+     position:'fixed',
+     top:'12px',
+     left:'50%',
+     transform:'translateX(-50%)',
+     zIndex:999999,
+     maxWidth:'480px',
+     width:'calc(100vw - 24px)',
+     background:'linear-gradient(135deg, #148542 0%, #0d5f2e 100%)',
+     color:'#fff',
+     padding:'12px 16px',
+     borderRadius:'14px',
+     boxShadow:'0 16px 36px rgba(0, 0, 0, 0.4), 0 0 20px rgba(20, 133, 66, 0.35)',
+     display:'flex',
+     alignItems:'center',
+     justifyContent:'space-between',
+     gap:'12px',
+     border:'1px solid rgba(255, 255, 255, 0.2)'
+    }}
+   >
+    <div style={{flex:1,minWidth:0}}>
+     <strong style={{display:'block',fontSize:'13px',fontWeight:700,letterSpacing:'0.2px'}}>
+      {customerAlert.title}
+     </strong>
+     <p style={{margin:'2px 0 0',fontSize:'12px',opacity:0.95,lineHeight:1.35}}>
+      {customerAlert.body}
+     </p>
+    </div>
+    <div style={{display:'flex',alignItems:'center',gap:'8px',flexShrink:0}}>
+     {customerAlert.url&&(
+      <button
+       onClick={()=>{
+        const u=customerAlert.url;
+        setCustomerAlert(null);
+        nav(u);
+       }}
+       style={{
+        background:'#fff',
+        color:'#148542',
+        border:'none',
+        borderRadius:'8px',
+        padding:'6px 12px',
+        fontSize:'12px',
+        fontWeight:700,
+        cursor:'pointer',
+        whiteSpace:'nowrap'
+       }}
+      >
+       View
+      </button>
+     )}
+     <button
+      onClick={()=>setCustomerAlert(null)}
+      style={{
+       background:'none',
+       border:'none',
+       color:'rgba(255, 255, 255, 0.8)',
+       fontSize:'18px',
+       cursor:'pointer',
+       padding:'2px 6px',
+       lineHeight:1
+      }}
+      aria-label="Close notification"
+     >
+      ✕
+     </button>
+    </div>
+   </aside>
+  )}
+  <Header/>
+  <DesktopNav/>
+  <CustomerBack/>
+  <main><BackendNotice/>{children}</main>
+  <Footer/>
+  <MobileBottomNav/>
+  <LocationModal/>
+  <CartDrawer/>
+  <AuthPromptModal/>
+ </>;
+}

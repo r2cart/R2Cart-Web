@@ -1,15 +1,30 @@
 import {Check,Calendar,Zap,Bell,Smartphone} from 'lucide-react';
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {EmptyState,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {addressText} from '../../utils/address';
-import {subscribeToPush,isIOS,isStandalone,isPushSupported} from '../../services/pushNotification.service';
+import {subscribeToPush,triggerSystemNotification,isIOS,isStandalone,isPushSupported} from '../../services/pushNotification.service';
 
 export function OrderSuccessPage(){
  const {deliveryConfig}=useApp();
  const [subscribed,setSubscribed]=useState(typeof Notification!=='undefined'&&Notification.permission==='granted');
  const last=JSON.parse(sessionStorage.getItem('last-order')||'null');
+
+ useEffect(()=>{
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+   subscribeToPush({role:'CUSTOMER'}).then(()=>setSubscribed(true)).catch(()=>{});
+   if(last){
+    triggerSystemNotification({
+     title:'🎉 Order Confirmed · R2Cart',
+     body:`Order #${last.orderNumber||last.id} placed for ${money(last.total??last.grandTotal)}. Groceries are being prepared!`,
+     url:`/orders/${last.id}`,
+     tag:`order-placed-${last.id}`
+    });
+   }
+  }
+ },[]);
+
  if(!last)return <div className="container page"><EmptyState icon="package" title="No recent order" text="Place an order to see its confirmation here." action="Continue shopping"/></div>;
  const snapshot=last.address||last.addressSnapshot,address=addressText(snapshot),eta=snapshot?.deliveryZone?.estimatedDelivery||deliveryConfig.estimatedDelivery;
  const isScheduled=last.deliveryType==='SCHEDULED';
