@@ -1,14 +1,31 @@
-import {useMemo} from 'react';
+import {useMemo, useState, useEffect} from 'react';
 import {Link} from 'react-router-dom';
 import {ArrowRight,Leaf,ShieldCheck,Sparkles,Zap} from 'lucide-react';
 import {ProductRail} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {normalizeHomeLayout} from '../../config/homeLayout';
+import {catalogService} from '../../services/catalog.service';
 
 export function HomePage(){
  const {categories,products,banners,deliveryConfig,storeSettings}=useApp();
  const homeLayout=useMemo(()=>normalizeHomeLayout(storeSettings?.policies?.homeLayout),[storeSettings?.policies?.homeLayout]);
  const bannerPlacements=homeLayout.bannerPlacements||{};
+
+ const [bestSellersData, setBestSellersData] = useState(null);
+ const [topPicksData, setTopPicksData] = useState(null);
+
+ useEffect(() => {
+  let mounted = true;
+  Promise.all([
+   catalogService.getBestSellers().catch(() => null),
+   catalogService.getTopPicks().catch(() => null)
+  ]).then(([bs, tp]) => {
+   if (!mounted) return;
+   if (bs) setBestSellersData(bs);
+   if (tp) setTopPicksData(tp);
+  });
+  return () => { mounted = false; };
+ }, []);
 
  const liveBanners=useMemo(()=>banners.filter(banner=>!banner.status||banner.status==='ACTIVE'),[banners]);
 
@@ -108,14 +125,36 @@ export function HomePage(){
      );
 
     case 'bestSellers':{
-     const items=products.filter(p=>p.bestSeller).slice(0,Number(section.count)||10);
-     if(!items.length)return null;
+     if(bestSellersData&&bestSellersData.visible===false)return null;
+     const items=bestSellersData?.products||products.filter(p=>p.bestSeller);
+     const count=Number(section.count)||10;
+     const displayItems=items.slice(0,count);
+     if(!displayItems.length)return null;
      return (
       <div className="container" key="bestSellers">
        <ProductRail
-        title={section.title||'Best sellers'}
+        title={bestSellersData?.title||section.title||'Best sellers'}
+        subtitle={bestSellersData?.subtitle||'Most popular grocery items bought by our customers'}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
-        items={items}
+        items={displayItems}
+       />
+      </div>
+     );
+    }
+
+    case 'topPicks':{
+     if(topPicksData&&topPicksData.visible===false)return null;
+     const items=topPicksData?.products||[];
+     const count=Number(section.count)||10;
+     const displayItems=items.slice(0,count);
+     if(!displayItems.length)return null;
+     return (
+      <div className="container" key="topPicks">
+       <ProductRail
+        title={topPicksData?.title||section.title||'Top picks'}
+        subtitle={topPicksData?.subtitle||'Daily essentials, seasonal favorites, and great value'}
+        to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
+        items={displayItems}
        />
       </div>
      );

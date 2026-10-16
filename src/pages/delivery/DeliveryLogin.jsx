@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, Lock, Phone, Mail, LoaderCircle, AlertCircle, ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui';
-import { authService } from '../../services/auth.service';
+import { authService, resolveRoleRedirect } from '../../services/auth.service';
 import { BRAND } from '../../config/brand';
 import brandMark from '../../assets/r2cart-mark.svg';
 
@@ -18,12 +18,16 @@ export function DeliveryLogin() {
     setError('');
     setLoading(true);
     try {
+      const rawId = identifier.trim();
       const user = await authService.deliveryLogin({
-        email: identifier.trim(),
+        identifier: rawId,
+        email: rawId,
         password
       });
       if (user) {
-        navigate('/delivery/dashboard', { replace: true });
+        sessionStorage.setItem('r2cart-auth-prompt', 'DELIVERY');
+        const target = resolveRoleRedirect(user, '/delivery/dashboard');
+        window.location.assign(target);
       }
     } catch (err) {
       setError(err.message || 'Invalid delivery credentials. Please check your login details.');
@@ -92,7 +96,7 @@ export function DeliveryLogin() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-              Email or Mobile Number
+              Delivery Staff ID, Email or Mobile Number
             </label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <div style={{ position: 'absolute', left: '12px', color: '#94a3b8' }}>
@@ -102,7 +106,7 @@ export function DeliveryLogin() {
                 type="text"
                 required
                 autoCapitalize="none"
-                placeholder="rider@r2cart.com or 9876543210"
+                placeholder="e.g. R2D-1001, rider@r2cart.com or phone"
                 value={identifier}
                 onChange={e => setIdentifier(e.target.value)}
                 style={{

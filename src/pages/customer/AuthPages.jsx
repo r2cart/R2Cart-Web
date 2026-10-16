@@ -3,7 +3,7 @@ import {Link,useNavigate} from 'react-router-dom';
 import {ArrowLeft,CheckCircle2,Eye,EyeOff} from 'lucide-react';
 import {useApp} from '../../context/AppContext';
 import {Button} from '../../components/ui';
-import {authService} from '../../services/auth.service';
+import {authService,resolveRoleRedirect} from '../../services/auth.service';
 import {BRAND} from '../../config/brand';
 import {Logo} from '../../layouts/CustomerLayout';
 export function LoginPage({signup=false}){
@@ -21,18 +21,21 @@ export function LoginPage({signup=false}){
   if(signup&&form.password!==form.confirmPassword)return notify('Passwords do not match','error');
   setLoading(true);
   try{
-   const email=form.email.trim().toLowerCase();
    if(signup){
+    const email=form.email.trim().toLowerCase();
     const result=await authService.requestOtp({name:form.name.trim(),email,mobile:form.mobile.trim(),password:form.password,mode:'signup'});
     sessionStorage.setItem('grocify-auth',JSON.stringify({email,mode:'signup',redirect}));
     notify('OTP sent to your email');
     nav('/verify-otp');
    }else{
-    const user=await authService.login({email,password:form.password});
+    const identifier=form.email.trim();
+    const user=await authService.login({identifier,password:form.password});
     setUser(user);
     sessionStorage.removeItem('grocify-auth-redirect');
-    sessionStorage.setItem('r2cart-auth-prompt','CUSTOMER');
-    window.location.replace(redirect);
+    const rolePrompt = (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'MANAGER') ? 'ADMIN' : (user.role === 'DELIVERY_PERSON' ? 'DELIVERY' : 'CUSTOMER');
+    sessionStorage.setItem('r2cart-auth-prompt', rolePrompt);
+    const targetPath = resolveRoleRedirect(user, redirect);
+    window.location.replace(targetPath);
    }
   }catch(error){
    notify(error.message,'error');
@@ -42,12 +45,16 @@ export function LoginPage({signup=false}){
  };
 
  return (
-  <AuthShell title={signup?'Create your account':`Welcome to ${BRAND.name}`} text={signup?'Create a password, then verify your email with OTP.':'Sign in securely with your email and password.'}>
+  <AuthShell title={signup?'Create your account':`Welcome to ${BRAND.name}`} text={signup?'Create a password, then verify your email with OTP.':'Sign in with your email, mobile, or assigned Delivery Staff ID.'}>
    <form className="auth-form" onSubmit={submit}>
     {signup&&<label>Full name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your full name"/></label>}
-    <label>Email address<input type="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="you@example.com"/></label>
+    {signup?(
+      <label>Email address<input type="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="you@example.com"/></label>
+    ):(
+      <label>Email, Mobile, or Delivery Staff ID<input type="text" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="Email, phone, or Staff ID (e.g. R2D-1001)"/></label>
+    )}
     {signup&&<label>Mobile number<input required pattern="[0-9]{10}" value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="10-digit mobile number"/></label>}
-    <PasswordField label="Password" required minLength="8" maxLength="72" autoComplete={signup?'new-password':'current-password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Minimum 8 characters"/>
+    <PasswordField label="Password" required minLength={signup ? "8" : "6"} maxLength="72" autoComplete={signup?'new-password':'current-password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder={signup ? "Minimum 8 characters" : "Enter your password"}/>
     {!signup&&<div className="auth-help-row"><Link to="/forgot-password">Forgot password?</Link></div>}
     {signup&&<PasswordField label="Confirm password" required minLength="8" maxLength="72" autoComplete="new-password" value={form.confirmPassword} onChange={e=>setForm({...form,confirmPassword:e.target.value})} placeholder="Enter password again"/>}
     <Button className="wide" type="submit" disabled={loading}>{loading?(signup?'Sending OTP…':'Signing in…'):(signup?'Create account':'Sign in')}</Button>

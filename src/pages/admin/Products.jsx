@@ -1,3 +1,11 @@
+function getAdminUser() {
+  try {
+    return JSON.parse(localStorage.getItem('grocify-admin-user')) || null;
+  } catch {
+    return null;
+  }
+}
+import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useNavigate,useParams} from 'react-router-dom';
 import {ArrowLeft,Edit2,Eye,ImagePlus,Plus,Search,Trash2} from 'lucide-react';
@@ -14,6 +22,12 @@ const payload=product=>({name:product.name,category:product.category,unit:produc
 
 export function AdminProducts(){
  const {notify,refreshProducts}=useApp();
+ const currentUser = getAdminUser();
+ const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN';
+ const basePath = isSuper ? '/super-admin' : '/admin';
+ const canCreate = isSuper || hasPermission(currentUser, 'products.create');
+ const canEdit = isSuper || hasPermission(currentUser, 'products.edit');
+ const canDelete = isSuper || hasPermission(currentUser, 'products.edit');
  const {categories,categoryError,reloadCategories}=useAdminCategories();
  const [q,setQ]=useState('');
  const [cat,setCat]=useState('all');
@@ -36,7 +50,7 @@ export function AdminProducts(){
  const inspect=async id=>{setBusy(id);try{setView(await adminService.product(id))}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
 
  return <>
-  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${totalProducts} sellable packs · ${pagination.total} matching your filters`} action={<div className="bulk-upload-actions">{totalProducts>0&&<Button variant="danger" disabled={!!busy} onClick={()=>setDeleteAllConfirm(true)}><Trash2 size={16}/> Delete all</Button>}<Link className="btn btn-outline" to="/admin/products/import">Bulk import</Link><Link className="btn btn-primary" to="/admin/products/new"><Plus/> Add product</Link></div>}/>
+  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${totalProducts} sellable packs · ${pagination.total} matching your filters`} action={<div className="bulk-upload-actions">{isSuper && totalProducts>0&&<Button variant="danger" disabled={!!busy} onClick={()=>setDeleteAllConfirm(true)}><Trash2 size={16}/> Delete all</Button>}{canCreate && <Link className="btn btn-outline" to={`${basePath}/products/import`}>Bulk import</Link>}{canCreate && <Link className="btn btn-primary" to={`${basePath}/products/new`}><Plus/> Add product</Link>}</div>}/>
   {categoryError&&<div className="admin-card bulk-error">{categoryError}<Button variant="outline" onClick={reloadCategories}>Retry categories</Button></div>}
   <FilterBar q={q} setQ={changeFilter(setQ)}>
    <select value={cat} onChange={event=>changeFilter(setCat)(event.target.value)}><option value="all">All categories</option>{categories.map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select>

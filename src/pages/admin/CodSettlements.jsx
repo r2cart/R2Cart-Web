@@ -250,9 +250,24 @@ export function CodSettlementsView() {
                   {staffWithPending.map(staff => (
                     <tr key={staff.id}>
                       <td>
-                        <b style={{ fontSize: '14px', color: '#1e293b' }}>{staff.name}</b>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <b style={{ fontSize: '14px', color: '#1e293b' }}>{staff.name}</b>
+                          {staff.deliveryStaffId && (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: '#ecfdf5',
+                              color: '#065f46',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid #a7f3d0'
+                            }}>
+                              {staff.deliveryStaffId}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: '12px', color: '#64748b' }}>
-                          {staff.mobile || staff.email}
+                          {staff.deliveryStaffId ? `${staff.deliveryStaffId} · ` : ''}{staff.mobile || staff.email}
                         </div>
                       </td>
                       <td>

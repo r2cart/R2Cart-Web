@@ -75,6 +75,17 @@ export function DeliveryDashboard() {
   };
 
   useEffect(() => {
+    const deliveryToken = localStorage.getItem('grocify-delivery-access-token') || localStorage.getItem('grocify-access-token');
+    const raw = localStorage.getItem('grocify-delivery-user') || localStorage.getItem('grocify-user');
+    let u = null;
+    try { u = raw ? JSON.parse(raw) : null; } catch {}
+    if (!deliveryToken || !u || u.role === 'CUSTOMER') {
+      navigate('/delivery/login', { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
     loadDashboardData();
   }, [activeTab]);
 
@@ -143,11 +154,27 @@ export function DeliveryDashboard() {
               <Truck size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
-                {profile?.name || 'Delivery Partner'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  {profile?.name || 'Delivery Partner'}
+                </span>
+                {profile?.deliveryStaffId && (
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    background: '#dcfce7',
+                    color: '#15803d',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    border: '1px solid #bbf7d0',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {profile.deliveryStaffId}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: '11px', color: '#64748b' }}>
-                {profile?.vehicleType || 'Bike'} {profile?.vehicleNumber ? `· ${profile?.vehicleNumber}` : ''}
+                {profile?.deliveryStaffId ? `${profile.deliveryStaffId} · ` : ''}{profile?.vehicleType || 'Bike'} {profile?.vehicleNumber ? `· ${profile?.vehicleNumber}` : ''}
               </div>
             </div>
           </div>

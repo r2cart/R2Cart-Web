@@ -10,7 +10,10 @@ export const catalogService={
  searchProducts:query=>api.get(`/products?q=${encodeURIComponent(query)}`),
  sendContactMessage:value=>api.post('/contact',value),
  listDeliverySlots:(date)=>api.get(`/delivery-slots${date?`?date=${encodeURIComponent(date)}`:''}`),
+ listActiveMarketing:()=>api.get('/marketing/active'),
  getActiveMarketing:()=>api.get('/marketing/active'),
- trackMarketing:(id,action)=>api.post(`/marketing/${id}/track`,{action})
+ trackMarketing:(id,action)=>api.post(`/marketing/${id}/track`,{action}),
+ getBestSellers:()=>api.get('/homepage/best-sellers'),
+ getTopPicks:()=>api.get('/homepage/top-picks')
 };
 

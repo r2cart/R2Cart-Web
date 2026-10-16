@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {Eye,EyeOff} from 'lucide-react';
 import {Button} from '../../components/ui';
-import {authService} from '../../services/auth.service';
+import {authService,resolveRoleRedirect} from '../../services/auth.service';
 import {BRAND} from '../../config/brand';
 import {Logo} from '../../layouts/CustomerLayout';
 
@@ -17,14 +17,15 @@ export function AdminLogin(){
   setLoading(true);
   setError('');
   const data=new FormData(event.currentTarget);
-  const email=data.get('email')?.trim();
+  const identifier=data.get('email')?.trim();
   const password=data.get('password')?.trim();
 
   try{
-   const session = await authService.adminLogin({email,password});
-    sessionStorage.setItem('r2cart-auth-prompt','ADMIN');
-    const isSuper = session?.user?.role === 'SUPER_ADMIN' || session?.user?.staffRole === 'SUPER_ADMIN';
-    window.location.assign(isSuper ? '/super-admin/dashboard' : '/admin/dashboard');
+   const user = await authService.adminLogin({identifier,email:identifier,password});
+   const rolePrompt = (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER') ? 'ADMIN' : (user?.role === 'DELIVERY_PERSON' ? 'DELIVERY' : 'CUSTOMER');
+   sessionStorage.setItem('r2cart-auth-prompt',rolePrompt);
+   const target = resolveRoleRedirect(user, '/admin/dashboard');
+   window.location.assign(target);
   }catch(reason){
    console.error('Admin login error:', reason);
    setError(reason.message||'Invalid admin credentials');
@@ -48,13 +49,13 @@ export function AdminLogin(){
    <p>Sign in to manage your store.</p>
    {error&&<p className="form-error">{error}</p>}
    <label>
-    Email address
-    <input name="email" type="email" defaultValue="admin@r2cart.in" required/>
+    Email, Mobile or Staff ID
+    <input name="email" type="text" placeholder="admin@gmail.com or Staff ID" defaultValue="admin@gmail.com" required/>
    </label>
    <label>
     Password
     <div className="password">
-     <input name="password" type={show?'text':'password'} defaultValue="Admin@R2Cart" required/>
+     <input name="password" type={show?'text':'password'} defaultValue="Admin@123" required/>
      <button type="button" onClick={()=>setShow(!show)} aria-label={show?'Hide password':'Show password'} title={show?'Hide password':'Show password'}>
       {show?<EyeOff/>:<Eye/>}
      </button>

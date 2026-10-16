@@ -4,6 +4,24 @@ const save=session=>{
  localStorage.setItem('grocify-access-token',session.accessToken);
  if(session.refreshToken)localStorage.setItem('grocify-refresh-token',session.refreshToken);
  localStorage.setItem('grocify-user',JSON.stringify(session.user));
+
+ const isDelivery = session.user?.role === 'DELIVERY_PERSON' || session.user?.staffRole === 'DELIVERY_PERSON';
+ const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(session.user?.role) || ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(session.user?.staffRole);
+
+ if (isDelivery) {
+  localStorage.setItem('grocify-delivery-access-token', session.accessToken);
+  if (session.refreshToken) localStorage.setItem('grocify-delivery-refresh-token', session.refreshToken);
+  localStorage.setItem('grocify-delivery-user', JSON.stringify(session.user));
+  localStorage.setItem('grocify-delivery', 'true');
+ }
+
+ if (isAdmin) {
+  localStorage.setItem('grocify-admin-access-token', session.accessToken);
+  if (session.refreshToken) localStorage.setItem('grocify-admin-refresh-token', session.refreshToken);
+  localStorage.setItem('grocify-admin-user', JSON.stringify(session.user));
+  localStorage.setItem('grocify-admin', 'true');
+ }
+
  return session.user;
 };
 
@@ -11,6 +29,20 @@ const saveAdmin=session=>{
  localStorage.setItem('grocify-admin-access-token',session.accessToken);
  if(session.refreshToken)localStorage.setItem('grocify-admin-refresh-token',session.refreshToken);
  localStorage.setItem('grocify-admin-user',JSON.stringify(session.user));
+ localStorage.setItem('grocify-admin','true');
+
+ // Also save generic user session
+ localStorage.setItem('grocify-access-token',session.accessToken);
+ if(session.refreshToken)localStorage.setItem('grocify-refresh-token',session.refreshToken);
+ localStorage.setItem('grocify-user',JSON.stringify(session.user));
+
+ if (session.user?.role === 'DELIVERY_PERSON' || session.user?.staffRole === 'DELIVERY_PERSON') {
+  localStorage.setItem('grocify-delivery-access-token', session.accessToken);
+  if (session.refreshToken) localStorage.setItem('grocify-delivery-refresh-token', session.refreshToken);
+  localStorage.setItem('grocify-delivery-user', JSON.stringify(session.user));
+  localStorage.setItem('grocify-delivery', 'true');
+ }
+
  return session.user;
 };
 
@@ -19,7 +51,22 @@ const saveDelivery=session=>{
  if(session.refreshToken)localStorage.setItem('grocify-delivery-refresh-token',session.refreshToken);
  localStorage.setItem('grocify-delivery-user',JSON.stringify(session.user));
  localStorage.setItem('grocify-delivery','true');
+
+ // Also save generic user session
+ localStorage.setItem('grocify-access-token',session.accessToken);
+ if(session.refreshToken)localStorage.setItem('grocify-refresh-token',session.refreshToken);
+ localStorage.setItem('grocify-user',JSON.stringify(session.user));
+
  return session.user;
+};
+
+export const resolveRoleRedirect = (user, defaultPath = '/') => {
+  if (!user) return defaultPath;
+  const role = user.role || user.staffRole;
+  if (role === 'SUPER_ADMIN') return '/super-admin/dashboard';
+  if (role === 'ADMIN' || role === 'MANAGER') return '/admin/dashboard';
+  if (role === 'DELIVERY_PERSON') return '/delivery/dashboard';
+  return defaultPath;
 };
 
 export const authService={
@@ -28,8 +75,8 @@ export const authService={
  verifyOtp:payload=>api.post('/auth/verify-otp',payload).then(save),
  requestPasswordReset:email=>api.post('/auth/forgot-password',{email}),
  resetPassword:payload=>api.post('/auth/reset-password',payload),
- adminLogin:credentials=>api.post('/admin/auth/login',credentials).then(session=>{const user=saveAdmin(session);localStorage.setItem('grocify-admin','true');return user}),
- deliveryLogin:credentials=>api.post('/delivery/auth/login',credentials).then(session=>{const user=saveDelivery(session);return user}),
+ adminLogin:credentials=>api.post('/admin/auth/login',credentials).then(saveAdmin),
+ deliveryLogin:credentials=>api.post('/delivery/auth/login',credentials).then(saveDelivery),
  me:()=>api.get('/auth/me'),
  async logout(){
   try{

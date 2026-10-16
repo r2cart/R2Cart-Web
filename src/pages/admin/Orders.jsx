@@ -1,3 +1,10 @@
+function getAdminUser() {
+  try {
+    return JSON.parse(localStorage.getItem('grocify-admin-user')) || null;
+  } catch {
+    return null;
+  }
+}
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Eye, Printer, AlertTriangle, FileText, Receipt, Truck, Camera, ExternalLink } from 'lucide-react';
@@ -8,6 +15,7 @@ import { addressText } from '../../utils/address';
 import { OrderPrintModal } from '../../components/admin/OrderPrintView';
 import { ModifyOrderItemModal } from '../../components/admin/ModifyOrderItemModal';
 import '../../components/admin/order-print.css';
+import { hasPermission } from '../../utils/permissions';
 
 const statuses = ['New', 'Confirmed', 'Packing', 'Out for Delivery', 'Delivered', 'Cancelled'];
 const date = value => new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
@@ -177,6 +185,18 @@ export function AdminOrderDetails() {
   const address = addressText(order.addressSnapshot);
   const terminal = ['Delivered', 'Cancelled'].includes(order.status);
   const isScheduled = order.deliveryType === 'SCHEDULED';
+  const currentUser = getAdminUser();
+  const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN';
+  const canUpdateStatus = isSuper || hasPermission(currentUser, 'orders.update_status');
+  const canCancel = isSuper || hasPermission(currentUser, 'orders.cancel');
+  const isOutForDelivery = order.status === 'Out for Delivery';
+  const allowedStatuses = statuses.filter(s => {
+    if (s === 'Cancelled') {
+      if (['Out for Delivery', 'Delivered'].includes(order.status)) return false;
+      return canCancel;
+    }
+    return canUpdateStatus;
+  });
 
   return (
     <>
@@ -227,7 +247,7 @@ export function AdminOrderDetails() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <strong>{money(item.price * item.quantity)}</strong>
-                  {!terminal && (
+                  {!terminal && !isOutForDelivery && canUpdateStatus && (
                     <button
                       type="button"
                       onClick={() => setModifyItemModal(item)}
@@ -305,21 +325,34 @@ export function AdminOrderDetails() {
             </div>
 
             <h3>Update status</h3>
-            <select
-              className="wide-select"
-              value={status}
-              disabled={saving || terminal}
-              onChange={event => setStatus(event.target.value)}
-            >
-              {statuses.map(value => <option key={value}>{value}</option>)}
-            </select>
-            <Button
-              className="wide"
-              disabled={saving || terminal || status === order.status}
-              onClick={save}
-            >
-              {saving ? 'Saving…' : 'Save status'}
-            </Button>
+            {canUpdateStatus || canCancel ? (
+              <>
+                <select
+                  className="wide-select"
+                  value={status}
+                  disabled={saving || terminal}
+                  onChange={event => setStatus(event.target.value)}
+                >
+                  {allowedStatuses.map(value => <option key={value}>{value}</option>)}
+                </select>
+                <Button
+                  className="wide"
+                  disabled={saving || terminal || status === order.status}
+                  onClick={save}
+                >
+                  {saving ? 'Saving…' : 'Save status'}
+                </Button>
+              </>
+            ) : (
+              <p className="muted" style={{ fontSize: '13px', color: '#94a3b8' }}>
+                Your staff account lacks permission to change order fulfillment status.
+              </p>
+            )}
+            {isOutForDelivery && (
+              <p className="muted" style={{ fontSize: '12px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '8px 12px', borderRadius: '8px', marginTop: '10px' }}>
+                🚚 <b>Out for Delivery:</b> Order is currently in transit. Cancellation and item adjustments are disabled.
+              </p>
+            )}
             {terminal && <p className="muted">This order is finalised.</p>}
           </div>
 

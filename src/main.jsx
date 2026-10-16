@@ -7,6 +7,7 @@ import './styles.css';
 import './responsive.css';
 import './app-theme.css';
 import './upload.css';
+import './account.css';
 import { registerServiceWorker } from './services/pushNotification.service.js';
 
 registerServiceWorker();

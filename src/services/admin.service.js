@@ -149,7 +149,7 @@ export const adminService = {
   // ==========================================
   // 5. ADMIN SECURITY & AUDIT TRAIL
   // ==========================================
-  getStaff: () => api.get('/admin/security/staff'),
+  getStaff: (query = {}) => api.get(`/admin/security/staff?${new URLSearchParams(query)}`),
   createStaff: value => api.post('/admin/security/staff', value),
   updateStaff: (id, value) => api.patch(`/admin/security/staff/${id}`, value),
   deleteStaff: id => api.delete(`/admin/security/staff/${id}`),
@@ -181,5 +181,14 @@ export const adminService = {
   setEmergencyPause: payload => api.post('/admin/store/emergency-pause', payload),
   getProfile: () => api.get('/admin/profile'),
   updateProfile: value => api.patch('/admin/profile', value),
-  changePassword: (currentPassword, password) => api.patch('/admin/profile/password', { currentPassword, password })
+  changePassword: (currentPassword, password) => api.patch('/admin/profile/password', { currentPassword, password }),
+
+  // Homepage Product Ranking (Super Admin)
+  getHomepageRankingConfig: () => api.get('/admin/homepage-ranking'),
+  saveHomepageRankingDraft: value => api.put('/admin/homepage-ranking/draft', value),
+  previewHomepageRanking: (target = 'draft') => api.get(`/admin/homepage-ranking/preview?target=${target}`),
+  publishHomepageRanking: payload => api.post('/admin/homepage-ranking/publish', payload),
+  getHomepageRankingHistory: () => api.get('/admin/homepage-ranking/history'),
+  rollbackHomepageRanking: payload => api.post('/admin/homepage-ranking/rollback', payload),
+  refreshHomepageRankingCache: () => api.post('/admin/homepage-ranking/refresh-cache')
 };

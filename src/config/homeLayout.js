@@ -25,28 +25,37 @@ export const defaultHomeSections = [
   description: 'Icon capsules allowing customers to quickly navigate into specific aisles.'
  },
  {
-  id: 'bestSellers',
-  label: 'Best Sellers Rail',
-  enabled: true,
-  order: 4,
-  title: 'Best sellers',
-  count: 10,
-  description: 'Top trending and highest-velocity products across your catalog.'
- },
- {
   id: 'recommended',
   label: 'Recommended For You Rail',
   enabled: true,
-  order: 5,
+  order: 4,
   title: 'Recommended for you',
   count: 10,
   description: 'Personalized product recommendations tailored for customer shopping baskets.'
  },
  {
+  id: 'bestSellers',
+  label: 'Best Sellers Rail',
+  enabled: true,
+  order: 5,
+  title: 'Best sellers',
+  count: 10,
+  description: 'Top trending and highest-velocity products across your catalog.'
+ },
+ {
+  id: 'topPicks',
+  label: 'Top Picks Rail',
+  enabled: true,
+  order: 6,
+  title: 'Top picks',
+  count: 10,
+  description: 'Curated, algorithmic, and hybrid grocery recommendations.'
+ },
+ {
   id: 'promoStrip',
   label: 'Savings Promo Strip',
   enabled: true,
-  order: 6,
+  order: 7,
   tag: 'YOUR SAVINGS',
   title: 'Stock up. Save more.',
   subtitle: 'Explore the current offers available for your basket.',
@@ -58,7 +67,7 @@ export const defaultHomeSections = [
   id: 'categoryRails',
   label: 'Category Product Rails',
   enabled: true,
-  order: 7,
+  order: 8,
   maxCategories: 8,
   description: 'Individual horizontal product rails grouped by category (e.g. Fruits, Dairy, Snacks).'
  },
@@ -66,7 +75,7 @@ export const defaultHomeSections = [
   id: 'specialOffers',
   label: 'Special Offers Rail',
   enabled: true,
-  order: 8,
+  order: 9,
   title: 'Special offers',
   count: 10,
   description: 'Deals with significant price markdowns and high savings for shoppers.'
@@ -75,7 +84,7 @@ export const defaultHomeSections = [
   id: 'recentlyViewed',
   label: 'Recently Viewed Rail',
   enabled: true,
-  order: 9,
+  order: 10,
   title: 'Recently viewed',
   count: 8,
   description: 'Products recently opened or explored by shoppers to boost repeat orders.'
@@ -84,7 +93,7 @@ export const defaultHomeSections = [
   id: 'promise',
   label: 'Delivery & Quality Promise',
   enabled: true,
-  order: 10,
+  order: 11,
   description: 'Bottom trust banner highlighting delivery speed, freshness guarantee & customer support.'
  }
 ];

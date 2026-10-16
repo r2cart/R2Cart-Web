@@ -1,192 +1,454 @@
-import {useEffect,useState} from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminNavbarActions from '../components/admin/AdminNavbarActions';
-import {NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,Bell,Boxes,CalendarClock,ChevronLeft,ChevronRight,FileText,Image as ImageIcon,LayoutDashboard,LayoutTemplate,Megaphone,Menu,Package,PanelLeftClose,Search,Settings,ShieldAlert,ShieldCheck,ShoppingBasket,Tags,Ticket,Truck,Users,X} from 'lucide-react';
-import {Logo} from './CustomerLayout';
-import {authService} from '../services/auth.service';
-import {BRAND} from '../config/brand';
-import {subscribeToPush,getNotificationPermission} from '../services/pushNotification.service';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Bell,
+  Boxes,
+  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Image as ImageIcon,
+  LayoutDashboard,
+  Megaphone,
+  Menu,
+  Package,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  ShoppingBasket,
+  Sparkles,
+  Tags,
+  Truck,
+  Users,
+  X
+} from 'lucide-react';
+import { Logo } from './CustomerLayout';
+import { authService } from '../services/auth.service';
+import { BRAND } from '../config/brand';
+import { subscribeToPush, getNotificationPermission } from '../services/pushNotification.service';
+import { hasPermission } from '../utils/permissions';
+import { Button } from '../components/ui';
 
-const links=[
-  ['/dashboard','Dashboard',LayoutDashboard],
-  ['/products','Products',ShoppingBasket],
-  ['/categories','Categories',Tags],
-  ['/orders','Orders',Package],
-  ['/customers','Customers',Users],
-  ['/delivery','Delivery Hub',Truck],
-  ['/inventory','Smart Inventory',Boxes],
-  ['/scheduling','Store Operations',CalendarClock],
-  ['/emergency','Emergency Pause',ShieldAlert],
-  ['/marketing','Marketing & Promos',Megaphone],
-  ['/security','Security & Audit',ShieldCheck],
-  ['/banners','Banners',ImageIcon],
-  ['/policies','Policies & CMS',FileText],
-  ['/support','Support',Bell],
-  ['/settings','Settings',Settings]
+const NAV_LINKS = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: ['reports.view_basic', 'reports.view_financial'] },
+  { path: '/products', label: 'Products', icon: ShoppingBasket, perm: 'products.view' },
+  { path: '/categories', label: 'Categories', icon: Tags, perm: ['categories.manage', 'products.view'] },
+  { path: '/orders', label: 'Orders', icon: Package, perm: 'orders.view' },
+  { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view_limited' },
+  { path: '/delivery', label: 'Delivery Hub', icon: Truck, perm: ['delivery.view', 'delivery.assign'] },
+  { path: '/inventory', label: 'Smart Inventory', icon: Boxes, perm: 'inventory.view' },
+  { path: '/scheduling', label: 'Store Operations', icon: CalendarClock, perm: 'scheduling.manage' },
+  { path: '/emergency', label: 'Emergency Pause', icon: ShieldAlert, superOnly: true },
+  { path: '/marketing', label: 'Marketing & Promos', icon: Megaphone, perm: 'coupons.manage' },
+  { path: '/ranking', label: 'Product Ranking', icon: Sparkles, superOnly: true },
+  { path: '/security', label: 'Security & Staff', icon: ShieldCheck, superOnly: true },
+  { path: '/banners', label: 'Banners', icon: ImageIcon, perm: 'banners.manage' },
+  { path: '/policies', label: 'Policies & CMS', icon: FileText, superOnly: true },
+  { path: '/support', label: 'Support', icon: Bell, perm: 'support.manage' },
+  { path: '/settings', label: 'Settings', icon: Settings, superOnly: true }
 ];
 
-function getAdminInfo(){
- try{
-  const raw=localStorage.getItem('grocify-admin-user');
-  const user=raw?JSON.parse(raw):null;
-  const name=user?.name||'Store administrator';
-  const role=user?.role==='SUPER_ADMIN'||user?.staffRole==='SUPER_ADMIN'?'SUPER_ADMIN':(user?.role||'ADMIN');
-  const roleLabel=role==='SUPER_ADMIN'?'Super Administrator':'Store administrator';
-  const initials=(user?.name||'Admin').trim().split(/\s+/).map(x=>x[0]).filter(Boolean).join('').slice(0,2).toUpperCase()||'AD';
-  return {name,role,roleLabel,initials};
- }catch{
-  return {name:'Store administrator',role:'ADMIN',roleLabel:'Store administrator',initials:'AD'};
- }
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('grocify-admin-user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
-export default function AdminLayout({children}){
- const [collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
- const [perm,setPerm]=useState(()=>getNotificationPermission());
- const [orderAlert,setOrderAlert]=useState(null);
- const nav=useNavigate(),location=useLocation();
- const {name:adminName,role:adminRole,roleLabel,initials:adminInitials}=getAdminInfo();
- const isSuperPath=location.pathname.startsWith('/super-admin')||adminRole==='SUPER_ADMIN';
- const basePath=isSuperPath?'/super-admin':'/admin';
- const showBack=location.pathname!==`${basePath}/dashboard`;
-
- useEffect(()=>{
-  if(adminRole==='SUPER_ADMIN'&&location.pathname.startsWith('/admin/')){
-   nav(location.pathname.replace(/^\/admin/,'/super-admin'),{replace:true});
+function getRoutePermissionRequirement(pathname, basePath) {
+  const sub = pathname.replace(basePath, '');
+  if (
+    sub.startsWith('/ranking') ||
+    sub.startsWith('/security') ||
+    sub.startsWith('/settings') ||
+    sub.startsWith('/emergency') ||
+    sub.startsWith('/policies')
+  ) {
+    return { superOnly: true, label: 'Super Admin Security & System Settings' };
   }
- },[adminRole,location.pathname,nav]);
+  if (sub.startsWith('/products')) return { perm: 'products.view', label: 'Products Management' };
+  if (sub.startsWith('/categories')) return { perm: 'categories.manage', label: 'Categories Management' };
+  if (sub.startsWith('/orders')) return { perm: 'orders.view', label: 'Orders Fulfillment' };
+  if (sub.startsWith('/customers')) return { perm: 'customers.view_limited', label: 'Customer Relations' };
+  if (sub.startsWith('/delivery')) return { perm: ['delivery.view', 'delivery.assign'], label: 'Delivery Hub' };
+  if (sub.startsWith('/inventory')) return { perm: 'inventory.view', label: 'Smart Inventory' };
+  if (sub.startsWith('/scheduling') || sub.startsWith('/operations')) return { perm: 'scheduling.manage', label: 'Store Scheduling' };
+  if (sub.startsWith('/marketing') || sub.startsWith('/coupons')) return { perm: 'coupons.manage', label: 'Marketing & Promos' };
+  if (sub.startsWith('/banners')) return { perm: 'banners.manage', label: 'Store Banners' };
+  if (sub.startsWith('/support')) return { perm: 'support.manage', label: 'Customer Support' };
+  if (sub.startsWith('/dashboard')) return { perm: ['reports.view_basic', 'reports.view_financial'], label: 'Dashboard & Reports' };
+  return null;
+}
 
- useState(()=>{
-  const token=localStorage.getItem('grocify-admin-access-token');
-  if(!token){
-   window.location.replace('/admin/login');
-  }
- });
+export default function AdminLayout({ children }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const [perm, setPerm] = useState(() => getNotificationPermission());
+  const [orderAlert, setOrderAlert] = useState(null);
+  const [user, setUser] = useState(getStoredUser);
+  const [authRefreshing, setAuthRefreshing] = useState(true);
 
- useEffect(()=>{
-  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
-   subscribeToPush({role:'ADMIN'}).catch(()=>{});
-  }
+  const nav = useNavigate();
+  const location = useLocation();
 
-  // Listen for new order alerts dispatched from SW push or polling
-  const handleOrderAlert=(e)=>{
-   if(e.detail){
-    setOrderAlert(e.detail);
-   }
-  };
-  window.addEventListener('r2cart:new-order-alert',handleOrderAlert);
-  return()=>window.removeEventListener('r2cart:new-order-alert',handleOrderAlert);
- },[]);
+  const isSuperUser = user?.role === 'SUPER_ADMIN' || user?.staffRole === 'SUPER_ADMIN';
+  const basePath = isSuperUser ? '/super-admin' : '/admin';
+  const showBack = location.pathname !== `${basePath}/dashboard`;
 
- return <div className={`admin-shell ${collapsed?'collapsed':''}`}>
-  <div className={`admin-overlay ${mobile?'show':''}`} onClick={()=>setMobile(false)}/>
-  <aside className={`admin-sidebar ${mobile?'mobile-show':''}`}>
-   <div className="admin-brand"><Logo/><button onClick={()=>setMobile(false)}><X/></button></div>
-   <div className="workspace-label">{adminRole==='SUPER_ADMIN'?'SUPER ADMIN WORKSPACE':'STORE MANAGEMENT'}</div>
-   <nav>{links.map(([subPath,label,Icon])=><NavLink to={`${basePath}${subPath}`} key={subPath} onClick={()=>setMobile(false)}><Icon/><span>{label}</span></NavLink>)}</nav>
-   <div className="admin-user">
-    <div>{adminInitials}</div>
-    <span>
-     <b>{adminName}</b>
-     <small style={{color:adminRole==='SUPER_ADMIN'?'#f87171':'#89a494',fontWeight:adminRole==='SUPER_ADMIN'?700:400}}>
-      {adminRole==='SUPER_ADMIN'?'★ Super Administrator':'Store administrator'}
-     </small>
-    </span>
-    <button onClick={async()=>{await authService.adminLogout();nav('/admin/login')}} aria-label="Sign out">↗</button>
-   </div>
-  </aside>
-  <div className="admin-content">
-   {/* In-App Floating New Order Banner */}
-   {orderAlert&&(
-    <aside
-     role="alert"
-     aria-live="assertive"
-     style={{
-      position:'fixed',
-      top:'18px',
-      right:'24px',
-      zIndex:99999,
-      maxWidth:'460px',
-      width:'calc(100vw - 48px)',
-      background:'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
-      border:'2px solid #10b981',
-      boxShadow:'0 20px 40px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(16, 185, 129, 0.45)',
-      borderRadius:'14px',
-      padding:'16px 18px',
-      color:'#fff'
-     }}
-    >
-     <div style={{display:'flex',alignItems:'flex-start',gap:'12px'}}>
-      <div style={{width:'40px',height:'40px',borderRadius:'10px',background:'rgba(16, 185, 129, 0.25)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',flexShrink:0}}>
-       🚨
+  // Always refresh permissions and active status from authenticated backend source
+  useEffect(() => {
+    let mounted = true;
+    const token = localStorage.getItem('grocify-admin-access-token');
+    if (!token) {
+      window.location.replace('/admin/login');
+      return;
+    }
+
+    authService
+      .me()
+      .then(freshUser => {
+        if (!mounted) return;
+        if (!freshUser || freshUser.status !== 'ACTIVE' || freshUser.isStaffActive === false) {
+          authService.adminLogout().finally(() => {
+            window.location.replace('/admin/login?error=deactivated');
+          });
+          return;
+        }
+
+        if (freshUser.role === 'DELIVERY_PERSON' || freshUser.staffRole === 'DELIVERY_PERSON') {
+          window.location.replace('/delivery/dashboard');
+          return;
+        }
+        if (freshUser.role === 'CUSTOMER') {
+          window.location.replace('/');
+          return;
+        }
+
+        setUser(freshUser);
+        localStorage.setItem('grocify-admin-user', JSON.stringify(freshUser));
+        setAuthRefreshing(false);
+      })
+      .catch(err => {
+        if (!mounted) return;
+        // If 401 or 403, immediately clear session
+        if (err.status === 401 || err.status === 403) {
+          authService.adminLogout().finally(() => {
+            window.location.replace('/admin/login');
+          });
+        } else {
+          setAuthRefreshing(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Handle URL syncing between /super-admin and /admin prefixes based on verified role
+  useEffect(() => {
+    if (isSuperUser && location.pathname.startsWith('/admin/')) {
+      nav(location.pathname.replace(/^\/admin/, '/super-admin'), { replace: true });
+    } else if (!isSuperUser && location.pathname.startsWith('/super-admin')) {
+      nav(location.pathname.replace(/^\/super-admin/, '/admin'), { replace: true });
+    }
+  }, [isSuperUser, location.pathname, nav]);
+
+  // Notifications and Order Alerts
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      subscribeToPush({ role: 'ADMIN' }).catch(() => {});
+    }
+
+    const handleOrderAlert = e => {
+      if (e.detail) {
+        setOrderAlert(e.detail);
+      }
+    };
+    window.addEventListener('r2cart:new-order-alert', handleOrderAlert);
+    return () => window.removeEventListener('r2cart:new-order-alert', handleOrderAlert);
+  }, []);
+
+  // Check if current user is authorized to access the active page
+  const pageAuthorization = useMemo(() => {
+    if (!user) return { allowed: true };
+    if (isSuperUser) return { allowed: true };
+
+    const req = getRoutePermissionRequirement(location.pathname, basePath);
+    if (!req) return { allowed: true };
+
+    if (req.superOnly) {
+      return {
+        allowed: false,
+        reason: 'This section is strictly reserved for the Platform Super Admin (Store Owner).'
+      };
+    }
+
+    const perms = Array.isArray(req.perm) ? req.perm : [req.perm];
+    const hasAny = perms.some(p => hasPermission(user, p));
+    if (!hasAny) {
+      return {
+        allowed: false,
+        reason: `Your staff account lacks permission to view ${req.label} (${perms.join(' or ')}). Contact Super Admin to request access.`
+      };
+    }
+
+    return { allowed: true };
+  }, [user, isSuperUser, location.pathname, basePath]);
+
+  // Filter visible links according to authorized permissions
+  const visibleLinks = useMemo(() => {
+    return NAV_LINKS.filter(link => {
+      if (isSuperUser) return true;
+      if (link.superOnly) return false;
+      if (!link.perm) return true;
+      const perms = Array.isArray(link.perm) ? link.perm : [link.perm];
+      return perms.some(p => hasPermission(user, p));
+    });
+  }, [user, isSuperUser]);
+
+  const adminName = user?.name || 'Administrator';
+  const adminRole = user?.role === 'SUPER_ADMIN' || user?.staffRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
+  const adminInitials =
+    (user?.name || 'Admin')
+      .trim()
+      .split(/\s+/)
+      .map(x => x[0])
+      .filter(Boolean)
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'AD';
+
+  return (
+    <div className={`admin-shell ${collapsed ? 'collapsed' : ''}`}>
+      <div className={`admin-overlay ${mobile ? 'show' : ''}`} onClick={() => setMobile(false)} />
+      <aside className={`admin-sidebar ${mobile ? 'mobile-show' : ''}`}>
+        <div className="admin-brand">
+          <Logo />
+          <button onClick={() => setMobile(false)}>
+            <X />
+          </button>
+        </div>
+        <div className="workspace-label">
+          {adminRole === 'SUPER_ADMIN' ? 'SUPER ADMIN WORKSPACE' : 'RESTRICTED ADMIN WORKSPACE'}
+        </div>
+        <nav>
+          {visibleLinks.map(({ path: subPath, label, icon: Icon }) => (
+            <NavLink
+              to={`${basePath}${subPath}`}
+              key={subPath}
+              onClick={() => setMobile(false)}
+            >
+              <Icon />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+        </nav>
+        <div className="admin-user">
+          <div>{adminInitials}</div>
+          <span>
+            <b>{adminName}</b>
+            <small
+              style={{
+                color: adminRole === 'SUPER_ADMIN' ? '#f87171' : '#89a494',
+                fontWeight: adminRole === 'SUPER_ADMIN' ? 700 : 400
+              }}
+            >
+              {adminRole === 'SUPER_ADMIN' ? '★ Super Administrator' : 'Staff Administrator'}
+            </small>
+          </span>
+          <button
+            onClick={async () => {
+              await authService.adminLogout();
+              nav('/admin/login');
+            }}
+            aria-label="Sign out"
+          >
+            ↗
+          </button>
+        </div>
+      </aside>
+
+      <div className="admin-content">
+        {/* Floating Order Banner */}
+        {orderAlert && (
+          <aside
+            role="alert"
+            aria-live="assertive"
+            style={{
+              position: 'fixed',
+              top: '18px',
+              right: '24px',
+              zIndex: 99999,
+              maxWidth: '460px',
+              width: 'calc(100vw - 48px)',
+              background: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
+              border: '2px solid #10b981',
+              boxShadow: '0 20px 40px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(16, 185, 129, 0.45)',
+              borderRadius: '14px',
+              padding: '16px 18px',
+              color: '#fff'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: 'rgba(16, 185, 129, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '22px',
+                  flexShrink: 0
+                }}
+              >
+                🚨
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <strong style={{ fontSize: '13px', color: '#6ee7b7', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                    New Order Received!
+                  </strong>
+                  <button
+                    onClick={() => setOrderAlert(null)}
+                    style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '2px 4px', fontSize: '16px', lineHeight: 1 }}
+                    aria-label="Dismiss banner"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div style={{ fontSize: '13px', marginTop: '4px', color: '#f3f4f6', lineHeight: 1.4 }}>
+                  Order <b>#{orderAlert.orderNumber}</b>
+                  {orderAlert.total ? ` · ₹${orderAlert.total}` : ''}
+                  {orderAlert.customerName ? ` by ${orderAlert.customerName}` : ''}
+                </div>
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      const url = orderAlert.url || `${basePath}/orders`;
+                      setOrderAlert(null);
+                      nav(url);
+                    }}
+                    style={{ background: '#10b981', color: '#022c22', fontWeight: 700, fontSize: '12px', padding: '7px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span>View Order</span>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => setOrderAlert(null)}
+                    style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#e5e7eb', fontWeight: 500, fontSize: '12px', padding: '7px 12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.15)', cursor: 'pointer' }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {perm !== 'granted' && perm !== 'unsupported' && (
+          <div style={{ background: 'linear-gradient(90deg, #148542, #0d5f2e)', color: '#fff', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 500, zIndex: 10 }}>
+            <span>🔔 <b>Turn on Order Alerts:</b> Get instant sound alerts and notifications when customer orders arrive.</span>
+            <button
+              onClick={async () => {
+                const res = await subscribeToPush({ role: 'ADMIN' });
+                if (res?.success) setPerm('granted');
+              }}
+              style={{ background: '#fff', color: '#148542', border: 'none', borderRadius: '6px', padding: '5px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap', marginLeft: '12px' }}
+            >
+              Enable Alerts
+            </button>
+          </div>
+        )}
+
+        <header className="admin-header">
+          <div className="row gap">
+            <button className="mobile-menu" onClick={() => setMobile(true)}>
+              <Menu />
+            </button>
+            {showBack && (
+              <button
+                className="admin-back"
+                onClick={() => (location.key !== 'default' ? nav(-1) : nav(`${basePath}/dashboard`))}
+                title="Go back"
+              >
+                <ArrowLeft />
+              </button>
+            )}
+            <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)}>
+              {collapsed ? <ChevronRight /> : <ChevronLeft />}
+            </button>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <b>
+                  {BRAND.name} {adminRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
+                </b>
+                {adminRole === 'SUPER_ADMIN' ? (
+                  <span style={{ fontSize: '10px', fontWeight: 800, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', padding: '1px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>
+                    SUPER ADMIN
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '10px', fontWeight: 700, background: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb', padding: '1px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>
+                    RESTRICTED STAFF
+                  </span>
+                )}
+              </div>
+              <small>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</small>
+            </div>
+          </div>
+          <AdminNavbarActions />
+        </header>
+
+        <main className="admin-main">
+          {pageAuthorization.allowed ? (
+            children
+          ) : (
+            <div
+              className="admin-card"
+              style={{
+                textAlign: 'center',
+                padding: '60px 24px',
+                maxWidth: '540px',
+                margin: '40px auto',
+                background: '#fff',
+                borderRadius: '16px',
+                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.06)'
+              }}
+            >
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px'
+                }}
+              >
+                <ShieldAlert size={36} />
+              </div>
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#111827', marginBottom: '8px' }}>
+                Access Restricted
+              </h2>
+              <p style={{ color: '#4b5563', fontSize: '14.5px', lineHeight: 1.6, marginBottom: '24px' }}>
+                {pageAuthorization.reason}
+              </p>
+              <Button onClick={() => nav(`${basePath}/dashboard`)}>
+                Return to Dashboard
+              </Button>
+            </div>
+          )}
+        </main>
       </div>
-      <div style={{flex:1,minWidth:0}}>
-       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
-        <strong style={{fontSize:'13px',color:'#6ee7b7',letterSpacing:'0.5px',textTransform:'uppercase'}}>
-         New Order Received!
-        </strong>
-        <button
-         onClick={()=>setOrderAlert(null)}
-         style={{background:'none',border:'none',color:'#9ca3af',cursor:'pointer',padding:'2px 4px',fontSize:'16px',lineHeight:1}}
-         aria-label="Dismiss banner"
-        >
-         ✕
-        </button>
-       </div>
-       <div style={{fontSize:'13px',marginTop:'4px',color:'#f3f4f6',lineHeight:1.4}}>
-        Order <b>#{orderAlert.orderNumber}</b>
-        {orderAlert.total?` · ₹${orderAlert.total}`:''}
-        {orderAlert.customerName?` by ${orderAlert.customerName}`:''}
-       </div>
-       <div style={{marginTop:'12px',display:'flex',gap:'8px'}}>
-        <button
-         onClick={()=>{
-          const url=orderAlert.url||'/admin/orders';
-          setOrderAlert(null);
-          nav(url);
-         }}
-         style={{background:'#10b981',color:'#022c22',fontWeight:700,fontSize:'12px',padding:'7px 14px',borderRadius:'8px',border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'6px'}}
-        >
-         <span>View Order</span>
-         <span>→</span>
-        </button>
-        <button
-         onClick={()=>setOrderAlert(null)}
-         style={{background:'rgba(255, 255, 255, 0.1)',color:'#e5e7eb',fontWeight:500,fontSize:'12px',padding:'7px 12px',borderRadius:'8px',border:'1px solid rgba(255, 255, 255, 0.15)',cursor:'pointer'}}
-        >
-         Dismiss
-        </button>
-       </div>
-      </div>
-     </div>
-    </aside>
-   )}
-
-   {perm!=='granted'&&perm!=='unsupported'&&(
-    <div style={{background:'linear-gradient(90deg, #148542, #0d5f2e)',color:'#fff',padding:'8px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'12px',fontWeight:500,zIndex:10}}>
-     <span>🔔 <b>Turn on Order Alerts:</b> Get instant Windows notifications and sound alerts when a customer places an order, even when your browser is minimized or closed.</span>
-     <button onClick={async()=>{const res=await subscribeToPush({role:'ADMIN'});if(res?.success)setPerm('granted')}} style={{background:'#fff',color:'#148542',border:'none',borderRadius:'6px',padding:'5px 12px',fontWeight:600,cursor:'pointer',fontSize:'12px',whiteSpace:'nowrap',marginLeft:'12px'}}>Enable Alerts</button>
     </div>
-   )}
-   <header className="admin-header">
-    <div className="row gap">
-     <button className="mobile-menu" onClick={()=>setMobile(true)}><Menu/></button>
-     {showBack&&<button className="admin-back" onClick={()=>location.key!=='default'?nav(-1):nav(`${basePath}/dashboard`)} title="Go back"><ArrowLeft/></button>}
-     <button className="collapse-btn" onClick={()=>setCollapsed(!collapsed)}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button>
-     <div>
-      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-       <b>{BRAND.name} {adminRole==='SUPER_ADMIN'?'Super Admin':'Admin'}</b>
-       {adminRole==='SUPER_ADMIN'&&(
-        <span style={{fontSize:'10px',fontWeight:800,background:'#fee2e2',color:'#b91c1c',border:'1px solid #fecaca',padding:'1px 6px',borderRadius:'4px',letterSpacing:'0.5px'}}>
-         SUPER ADMIN
-        </span>
-       )}
-      </div>
-      <small>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</small>
-     </div>
-    </div>
-    <AdminNavbarActions/>
-   </header>
-   <main className="admin-main">{children}</main>
-  </div>
- </div>;
+  );
 }

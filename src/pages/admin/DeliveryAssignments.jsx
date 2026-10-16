@@ -520,9 +520,24 @@ export function DeliveryAssignmentsView() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '15px', color: '#1e293b' }}>{staff.name}</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <h4 style={{ margin: 0, fontSize: '15px', color: '#1e293b' }}>{staff.name}</h4>
+                    {staff.deliveryStaffId && (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        background: '#ecfdf5',
+                        color: '#065f46',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid #a7f3d0'
+                      }}>
+                        {staff.deliveryStaffId}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                    {staff.mobile || staff.email}
+                    {staff.deliveryStaffId ? `${staff.deliveryStaffId} · ` : ''}{staff.mobile || staff.email}
                   </div>
                 </div>
                 <span style={{
@@ -739,7 +754,7 @@ export function DeliveryAssignmentsView() {
                       const activeCount = s.activeAssignmentsCount || 0;
                       return (
                         <option key={s.id} value={s.id}>
-                          {isDuty ? '🟢' : '⚪'} {s.name} ({isDuty ? 'ON DUTY' : 'OFF DUTY'}) · {activeCount} active · {s.vehicleType || 'Bike'}
+                          {isDuty ? '🟢' : '⚪'} {s.deliveryStaffId ? `[${s.deliveryStaffId}] ` : ''}{s.name} ({isDuty ? 'ON DUTY' : 'OFF DUTY'}) · {activeCount} active · {s.vehicleType || 'Bike'}
                         </option>
                       );
                     })}
@@ -945,7 +960,7 @@ export function DeliveryAssignmentsView() {
                         const isDuty = s.dutyStatus === 'ON_DUTY';
                         return (
                           <option key={s.id} value={s.id}>
-                            {isDuty ? '🟢' : '⚪'} {s.name} ({isDuty ? 'ON DUTY' : 'OFF DUTY'}) · {s.activeAssignmentsCount || 0} active
+                            {isDuty ? '🟢' : '⚪'} {s.deliveryStaffId ? `[${s.deliveryStaffId}] ` : ''}{s.name} ({isDuty ? 'ON DUTY' : 'OFF DUTY'}) · {s.activeAssignmentsCount || 0} active
                           </option>
                         );
                       })}
