@@ -3,14 +3,31 @@ import {useNavigate} from 'react-router-dom';
 import {Bell,Search,UserRound,X} from 'lucide-react';
 import {api} from '../../services/httpClient';
 import {mediaUrl} from '../../utils/media';
-import {playNotificationSound,subscribeToPush,sendTestPush,triggerSystemNotification} from '../../services/pushNotification.service';
+import {playNotificationSound,subscribeToPush,sendTestPush,triggerSystemNotification,enableOrderAlerts} from '../../services/pushNotification.service';
 import './navbar.css';
 
 export default function AdminNavbarActions(){
  const nav=useNavigate(),root=useRef(null),prevNoticesRef=useRef([]);
  const [q,setQ]=useState(''),[results,setResults]=useState([]),[menu,setMenu]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[data,setData]=useState(null),[noticeError,setNoticeError]=useState('');
  const [testStatus,setTestStatus]=useState('idle');
+ const [perm,setPerm]=useState(()=>(typeof Notification!=='undefined'?Notification.permission:'unsupported'));
  const [read,setRead]=useState(()=>{try{return JSON.parse(localStorage.getItem('r2cart-admin-read-notifications')||'[]')}catch{return []}});
+
+ useEffect(()=>{
+  const handlePerm=()=>setPerm(typeof Notification!=='undefined'?Notification.permission:'unsupported');
+  window.addEventListener('r2cart:notifications-enabled',handlePerm);
+  return ()=>window.removeEventListener('r2cart:notifications-enabled',handlePerm);
+ },[]);
+
+ const handleEnableAlerts=async()=>{
+  const res=await enableOrderAlerts({role:'ADMIN',onStatusChange:setPerm});
+  if(res.success){
+   setPerm('granted');
+   load();
+  }else if(res.reason==='permission_denied'){
+   alert(res.message||'Notifications are blocked in your browser. Please allow notifications in your browser settings.');
+  }
+ };
 
  const load=()=>api.get('/admin/notifications').then(value=>{
   const nextNotices=value?.notifications||[];
@@ -113,14 +130,14 @@ export default function AdminNavbarActions(){
      <button disabled={!unread} onClick={()=>mark(notices.map(n=>n.id))}>Mark all read</button>
     </div>
 
-    {typeof Notification!=='undefined'&&Notification.permission!=='granted'&&(
+    {perm!=='granted'&&perm!=='unsupported'&&(
      <div style={{padding:'8px 10px',background:'rgba(20,133,66,0.08)',borderRadius:'8px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
       <span style={{fontSize:'12px',color:'#148542',fontWeight:500}}>Turn on background alerts for orders</span>
-      <button style={{fontSize:'11px',padding:'4px 8px',background:'#148542',color:'#fff',borderRadius:'6px',border:'none',cursor:'pointer'}} onClick={async()=>{await subscribeToPush({role:'ADMIN'});load()}}>Enable</button>
+      <button style={{fontSize:'11px',padding:'4px 8px',background:'#148542',color:'#fff',borderRadius:'6px',border:'none',cursor:'pointer'}} onClick={handleEnableAlerts}>Enable</button>
      </div>
     )}
 
-    {typeof Notification!=='undefined'&&Notification.permission==='granted'&&(
+    {perm==='granted'&&(
      <div style={{padding:'6px 10px',background:'rgba(20,133,66,0.06)',borderRadius:'8px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11px'}}>
       <span style={{color:'#148542',fontWeight:500}}>🔔 Windows & push alerts active</span>
       <button

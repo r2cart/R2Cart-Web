@@ -54,6 +54,58 @@ export async function getCurrentPushSubscription() {
   }
 }
 
+export async function enableOrderAlerts({ role = 'ADMIN', onStatusChange } = {}) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { success: false, reason: 'unsupported' };
+  }
+
+  // 1. If user previously blocked notifications in browser settings
+  if (Notification.permission === 'denied') {
+    return {
+      success: false,
+      reason: 'permission_denied',
+      permission: 'denied',
+      message:
+        'Notifications are currently blocked in your browser settings.\n\nTo enable alerts:\n1. Click the site settings / lock icon in your browser address bar (top-left)\n2. Change Notifications to "Allow"\n3. Refresh this page'
+    };
+  }
+
+  try {
+    // 2. Request browser permission directly from user click
+    const permission = await Notification.requestPermission();
+    if (onStatusChange) onStatusChange(permission);
+
+    if (permission !== 'granted') {
+      return {
+        success: false,
+        reason: 'permission_denied',
+        permission,
+        message: 'Notification permission was not allowed.'
+      };
+    }
+
+    // 3. Unlock audio playback by playing chime
+    try {
+      playNotificationSound();
+    } catch (e) {
+      console.warn('Audio unlock warning:', e);
+    }
+
+    // 4. Broadcast to all open UI components
+    window.dispatchEvent(new CustomEvent('r2cart:notifications-enabled', { detail: { permission: 'granted' } }));
+
+    // 5. Connect background push subscription safely in background
+    subscribeToPush({ role }).catch((err) => {
+      console.warn('[Push] Background push sync warning:', err);
+    });
+
+    return { success: true, permission: 'granted' };
+  } catch (err) {
+    console.error('enableOrderAlerts error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
   if (!isPushSupported()) {
     return { success: false, reason: 'unsupported' };
@@ -67,23 +119,43 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
     }
 
     // 2. Fetch VAPID public key from backend
-    const { publicKey } = await api.get('/notifications/vapid-public-key');
+    const { publicKey } = await api.get('/notifications/vapid-public-key').catch(() => ({}));
     if (!publicKey) {
-      throw new Error('VAPID public key not found on server');
+      console.warn('VAPID public key not found on server; in-app order notifications remain active.');
+      return { success: true, permission: 'granted', webPush: false };
     }
 
-    // 3. Ensure service worker is registered and ready
+    // 3. Ensure service worker is registered and ready (with safety timeout)
     await registerServiceWorker();
-    const reg = await navigator.serviceWorker.ready;
+    const readyWithTimeout = Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 3500))
+    ]);
+
+    const reg = await readyWithTimeout.catch((err) => {
+      console.warn('[Push] SW not ready:', err.message);
+      return null;
+    });
+
+    if (!reg || !reg.pushManager) {
+      return { success: true, permission: 'granted', webPush: false };
+    }
 
     // 4. Check for existing subscription or create new
-    let subscription = await reg.pushManager.getSubscription();
+    let subscription = await reg.pushManager.getSubscription().catch(() => null);
     if (!subscription) {
       const convertedKey = urlBase64ToUint8Array(publicKey);
       subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedKey,
+      }).catch((subErr) => {
+        console.warn('[Push] PushManager subscribe skipped:', subErr.message);
+        return null;
       });
+    }
+
+    if (!subscription) {
+      return { success: true, permission: 'granted', webPush: false };
     }
 
     // 5. Send subscription to backend with role-aware authorization
@@ -98,14 +170,16 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
     await api.post('/notifications/subscribe', {
       subscription: subscription.toJSON(),
       role,
-    }, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
+    }, token ? { headers: { Authorization: `Bearer ${token}` } } : {}).catch((apiErr) => {
+      console.warn('[Push] Backend subscription store skipped:', apiErr.message);
+    });
 
     localStorage.setItem('r2cart_push_subscribed', 'true');
 
     // Register FCM token in parallel for cross-platform support
     requestFcmToken({ role }).catch((err) => console.warn('[FCM] Token register skipped:', err.message));
 
-    return { success: true, subscription };
+    return { success: true, permission: 'granted', subscription };
   } catch (err) {
     console.error('Failed to subscribe to push notifications:', err);
     return { success: false, error: err.message };

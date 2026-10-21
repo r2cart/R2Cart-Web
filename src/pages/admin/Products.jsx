@@ -8,13 +8,16 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useNavigate,useParams} from 'react-router-dom';
-import {ArrowLeft,Edit2,Eye,ImagePlus,Plus,Search,Trash2} from 'lucide-react';
+import {ArrowLeft,Check,Copy,Crop,Edit2,Eye,ImagePlus,Package,Plus,Search,Sparkles,Trash2} from 'lucide-react';
 import {Button,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
 import ProductVariants from '../../components/admin/ProductVariants';
 import NewProductPacks from '../../components/admin/NewProductPacks';
+import ImageCropperModal from '../../components/admin/ImageCropperModal';
+import UnitSelector from '../../components/admin/UnitSelector';
 import useAdminCategories from '../../hooks/useAdminCategories';
+import { generateProductDescription } from '../../utils/productDescriptionGenerator';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
 const emptyProduct={name:'',category:'',unit:'',mrp:'',price:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
@@ -63,8 +66,248 @@ export function AdminProducts(){
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
   <Modal open={!!confirm} onClose={()=>{if(!busy)setConfirm(null)}} title={`Delete ${confirm?.name||'product'}?`}><div className="modal-body"><p>This removes this pack from the customer catalogue and deletes unused Cloudinary images. Shared pack images stay safe.</p><div className="row end gap"><Button disabled={!!busy} variant="ghost" onClick={()=>setConfirm(null)}>Cancel</Button><Button disabled={!!busy} variant="danger" onClick={destroy}>{busy?'Deleting…':'Delete product'}</Button></div></div></Modal>
   <Modal open={deleteAllConfirm} onClose={()=>{if(!busy)setDeleteAllConfirm(false)}} title="Delete all products?"><div className="modal-body"><p>Are you sure you want to delete all <b>{totalProducts}</b> products from your store?</p><p className="text-danger">This will remove all products from the customer catalogue. This action cannot be undone.</p><div className="row end gap"><Button disabled={!!busy} variant="ghost" onClick={()=>setDeleteAllConfirm(false)}>Cancel</Button><Button disabled={!!busy} variant="danger" onClick={destroyAll}>{busy==='all'?'Deleting all products…':'Yes, delete all products'}</Button></div></div></Modal>
-  <Modal open={!!view} onClose={()=>setView(null)} title={view?.name||'Product details'}><div className="modal-body">{view&&<>{view.image&&<img className="upload-preview" src={view.image} alt={view.name}/>}<p>{view.description}</p><dl><dt>Category</dt><dd>{view.categoryName}</dd><dt>Pack / SKU</dt><dd>{view.unit} · {view.sku}</dd><dt>MRP / selling price</dt><dd>{money(view.mrp)} / {money(view.price)}</dd><dt>Stock / low stock threshold</dt><dd>{view.stock} / {view.lowStockThreshold}</dd><dt>Status</dt><dd>{view.status}</dd></dl><Link className="btn btn-primary" to={`/admin/products/${view.id}/edit`}>Edit this pack</Link></>}</div></Modal>
- </>;
+   <ProductDetailModal view={view} onClose={()=>setView(null)} basePath={basePath} />
+  </>;
+}
+
+function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
+  const [copied, setCopied] = useState(false);
+  if (!view) return null;
+
+  const copySku = () => {
+    if (view.sku) {
+      navigator.clipboard?.writeText(view.sku);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const mrp = Number(view.mrp || 0);
+  const price = Number(view.price || 0);
+  const savings = mrp > price ? mrp - price : 0;
+  const discount = mrp > 0 && savings > 0 ? Math.round((savings / mrp) * 100) : 0;
+
+  return (
+    <Modal open={!!view} onClose={onClose} title="Product Details">
+      <div style={{ padding: '16px 20px 22px', boxSizing: 'border-box' }}>
+        {/* Top Product Hero Card */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '14px',
+            alignItems: 'center',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            marginBottom: '16px'
+          }}
+        >
+          {view.image ? (
+            <img
+              src={view.image}
+              alt={view.name}
+              style={{
+                width: '80px',
+                height: '80px',
+                objectFit: 'contain',
+                borderRadius: '12px',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                padding: '4px',
+                flexShrink: 0
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '12px',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#94a3b8',
+                flexShrink: 0
+              }}
+            >
+              <Package size={28} />
+            </div>
+          )}
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+              <span
+                style={{
+                  fontSize: '10.5px',
+                  fontWeight: 800,
+                  padding: '2px 7px',
+                  borderRadius: '5px',
+                  background: view.status === 'ACTIVE' ? '#dcfce7' : '#f1f5f9',
+                  color: view.status === 'ACTIVE' ? '#15803d' : '#64748b',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {view.status}
+              </span>
+
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#059669',
+                  background: '#ecfdf5',
+                  padding: '2px 7px',
+                  borderRadius: '5px',
+                  border: '1px solid #a7f3d0'
+                }}
+              >
+                {view.categoryName || view.category}
+              </span>
+
+              {view.unit && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', background: '#ffffff', padding: '2px 7px', borderRadius: '5px', border: '1px solid #e2e8f0' }}>
+                  {view.unit}
+                </span>
+              )}
+            </div>
+
+            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>
+              {view.name}
+            </h3>
+
+            {/* Price Row */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+              <b style={{ fontSize: '17px', fontWeight: 800, color: '#059669' }}>
+                {money(price)}
+              </b>
+              {mrp > price && (
+                <del style={{ fontSize: '12.5px', color: '#94a3b8' }}>
+                  {money(mrp)}
+                </del>
+              )}
+              {savings > 0 && (
+                <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#047857', background: '#ecfdf5', padding: '2px 6px', borderRadius: '5px' }}>
+                  Save {money(savings)} ({discount}% OFF)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Description Section */}
+        {view.description && (
+          <div style={{ marginBottom: '14px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '5px' }}>
+              Description
+            </span>
+            <div
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                padding: '10px 12px',
+                fontSize: '12.5px',
+                color: '#334155',
+                lineHeight: 1.5
+              }}
+            >
+              {view.description}
+            </div>
+          </div>
+        )}
+
+        {/* Info Metrics Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '18px' }}>
+          {/* Stock Info */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 12px' }}>
+            <small style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'block' }}>
+              Inventory Stock
+            </small>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '3px' }}>
+              <b style={{ fontSize: '14px', color: view.stock <= (view.lowStockThreshold || 10) ? '#dc2626' : '#0f172a' }}>
+                {view.stock} units
+              </b>
+              {view.stock <= (view.lowStockThreshold || 10) && (
+                <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#dc2626', background: '#fee2e2', padding: '1px 5px', borderRadius: '4px' }}>
+                  Low
+                </span>
+              )}
+            </div>
+            <small style={{ color: '#94a3b8', fontSize: '10px' }}>
+              Alert at: {view.lowStockThreshold || 10} units
+            </small>
+          </div>
+
+          {/* Pricing Info */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 12px' }}>
+            <small style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'block' }}>
+              Pricing Breakdown
+            </small>
+            <div style={{ marginTop: '3px', fontSize: '12px' }}>
+              <span style={{ color: '#64748b' }}>Selling: </span>
+              <b style={{ color: '#059669' }}>{money(price)}</b>
+              <span style={{ color: '#94a3b8', margin: '0 4px' }}>·</span>
+              <span style={{ color: '#64748b' }}>MRP: </span>
+              <b>{money(mrp)}</b>
+            </div>
+            <small style={{ color: '#059669', fontSize: '10px', fontWeight: 700 }}>
+              {savings > 0 ? `${discount}% Discount` : 'Regular Price'}
+            </small>
+          </div>
+
+          {/* SKU */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 12px', gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <small style={{ color: '#64748b', fontSize: '11px', fontWeight: 600 }}>
+                Inventory SKU Code
+              </small>
+              {view.sku && (
+                <button
+                  type="button"
+                  onClick={copySku}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: copied ? '#059669' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {copied ? <Check size={12} strokeWidth={2.5} /> : <Copy size={12} />}
+                  <span>{copied ? 'Copied!' : 'Copy'}</span>
+                </button>
+              )}
+            </div>
+            <code style={{ display: 'block', fontSize: '11px', color: '#0f172a', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', marginTop: '4px', wordBreak: 'break-all' }}>
+              {view.sku || 'N/A'}
+            </code>
+          </div>
+        </div>
+
+        {/* Modal Actions Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+
+          <Link
+            className="btn btn-primary"
+            to={`${basePath}/products/${view.id}/edit`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700 }}
+          >
+            <Edit2 size={13} />
+            <span>Edit This Product</span>
+          </Link>
+        </div>
+      </div>
+    </Modal>
+  );
 }
 
 function FilterBar({q,setQ,children}){return <div className="filter-bar"><div className="filter-search"><Search/><input value={q} onChange={event=>setQ(event.target.value)} placeholder="Search by name or SKU"/></div>{children}</div>}
@@ -81,11 +324,66 @@ export function ProductForm(){
  const [preview,setPreview]=useState('');
  const [packs,setPacks]=useState([]);
  const [loadError,setLoadError]=useState(''),[reload,setReload]=useState(0);
- useEffect(()=>{let active=true;setLoadError('');setImageFile(null);setPreview('');setPacks([]);if(!id){setForm(emptyProduct);setLoading(false);return}setLoading(true);adminService.product(id).then(product=>{if(active)setForm({...emptyProduct,...product})}).catch(reason=>{if(active)setLoadError(reason.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[id,reload]);
- useEffect(()=>()=>{if(preview.startsWith('blob:'))URL.revokeObjectURL(preview)},[preview]);
+
+ // Cropper state
+ const [cropperOpen, setCropperOpen] = useState(false);
+ const [rawImageToCrop, setRawImageToCrop] = useState('');
+ const [originalImageSrc, setOriginalImageSrc] = useState('');
+ const [cropConfig, setCropConfig] = useState({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
+
+ useEffect(()=>{let active=true;setLoadError('');setImageFile(null);setPreview('');setPacks([]);setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });setOriginalImageSrc('');if(!id){setForm(emptyProduct);setLoading(false);return}setLoading(true);adminService.product(id).then(product=>{if(active)setForm({...emptyProduct,...product})}).catch(reason=>{if(active)setLoadError(reason.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[id,reload]);
+ useEffect(()=>()=>{
+   if(preview.startsWith('blob:'))URL.revokeObjectURL(preview);
+   if(originalImageSrc.startsWith('blob:')&&originalImageSrc!==preview)URL.revokeObjectURL(originalImageSrc);
+ },[preview,originalImageSrc]);
  const set=(key,value)=>setForm(current=>({...current,[key]:value}));
  const field=(key,label,type='text')=><label>{label}<input type={type} required min={type==='number'?0:undefined} step={['mrp','price'].includes(key)?'0.01':undefined} value={form[key]??''} onChange={event=>set(key,event.target.value)}/></label>;
- const chooseImage=event=>{const file=event.target.files?.[0];if(!file)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type))return notify('Choose a JPG, PNG or WebP image','error');if(file.size>5*1024*1024)return notify('Image must be smaller than 5 MB','error');if(preview.startsWith('blob:'))URL.revokeObjectURL(preview);setImageFile(file);setPreview(URL.createObjectURL(file))};
+
+ const chooseImage=(event)=>{
+   const file=event.target.files?.[0];
+   if(!file)return;
+   if(!['image/jpeg','image/png','image/webp'].includes(file.type))return notify('Choose a JPG, PNG or WebP image','error');
+   if(file.size>10*1024*1024)return notify('Image must be smaller than 10 MB','error');
+   const objectUrl=URL.createObjectURL(file);
+   setOriginalImageSrc(objectUrl);
+   setRawImageToCrop(objectUrl);
+   setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
+   setCropperOpen(true);
+   event.target.value='';
+ };
+
+ const handleCropDone=(croppedFile,croppedPreviewUrl,savedConfig)=>{
+   if(preview&&preview.startsWith('blob:')&&preview!==rawImageToCrop&&preview!==originalImageSrc){
+     URL.revokeObjectURL(preview);
+   }
+   setImageFile(croppedFile);
+   setPreview(croppedPreviewUrl);
+   if(savedConfig){
+     setCropConfig(savedConfig);
+   }
+   setCropperOpen(false);
+   notify(`Image cropped at ${Math.round((savedConfig?.zoom||1)*100)}% zoom`);
+ };
+
+ const handleOpenCropperForCurrent=()=>{
+   const srcToUse=originalImageSrc||preview||form.image;
+   if(!srcToUse)return;
+   setRawImageToCrop(srcToUse);
+   setCropperOpen(true);
+ };
+
+ const [genIndex, setGenIndex] = useState(0);
+
+ const handleGenerateDescription = () => {
+   if (!form.name || !form.name.trim()) {
+     return notify('Please enter the Product Name first to generate description', 'error');
+   }
+   const generated = generateProductDescription(form.name, form.category, genIndex);
+   set('description', generated);
+   setGenIndex((prev) => prev + 1);
+   notify('✨ Product description generated successfully');
+ };
+
  const save=async event=>{event.preventDefault();setSaving(true);try{if(!form.category)throw new Error('Select a product category');if([form,...packs].some(pack=>Number(pack.price)>Number(pack.mrp)))throw new Error('Selling price cannot exceed MRP for any pack');const units=[form,...packs].map(pack=>pack.unit.trim().toLowerCase().replace(/\s+/g,''));if(new Set(units).size!==units.length)throw new Error('Each pack size must be different');let next=form;if(imageFile){const uploaded=await adminService.uploadProductImage(imageFile,form.category);next={...form,image:uploaded.url}}await(id?adminService.updateProduct(id,payload(next)):adminService.createProduct({...payload(next),packs}));await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(id?'Product updated':'Product and all pack sizes published');nav('/admin/products')}catch(error){notify(error.message,'error')}finally{setSaving(false)}};
  if(loading)return <div className="admin-card modal-body">Loading product…</div>;
  if(loadError)return <div className="admin-card bulk-error"><p role="alert">{loadError}</p><Button variant="outline" onClick={()=>setReload(value=>value+1)}>Try again</Button><Link className="back-link" to="/admin/products">Back to products</Link></div>;
@@ -94,12 +392,157 @@ export function ProductForm(){
   <AdminTitle title={id?'Edit product':'Add new product'} text="Saved changes are published to the customer catalogue."/>
   {categoryError&&<div className="admin-card bulk-error"><p role="alert">{categoryError}</p><Button variant="outline" onClick={reloadCategories}>Retry categories</Button></div>}
   <form className="admin-form" onSubmit={save}>
-   <section className="admin-card"><h3>Product media</h3><div className="upload-box">{(preview||form.image)?<img src={preview||form.image} alt="Product preview" className="upload-preview"/>:<ImagePlus/>}<b>Upload product image</b><span>JPG, PNG or WebP · maximum 5 MB</span><label className="btn btn-outline">Choose from device<input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage} hidden/></label><span>or paste an image URL</span><input type="url" value={form.image||''} onChange={event=>{set('image',event.target.value);setImageFile(null);setPreview('')}} placeholder="https://example.com/product.jpg"/></div></section>
-   <section className="admin-card"><h3>Basic information</h3><div className="form-grid">{field('name','Product name')}<label>Category<select required value={form.category} onChange={event=>set('category',event.target.value)}><option value="">Choose category</option>{categories.filter(category=>category.status!=='INACTIVE').map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label><label>SKU · Automatic<input readOnly value={form.sku||''} placeholder="Generated automatically when you save"/><small className="muted">{id?'This inventory code stays unchanged.':'A unique inventory code will be created by the server.'}</small></label><label className="full">Description<textarea required value={form.description} onChange={event=>set('description',event.target.value)}/></label></div></section>
-   <section className="admin-card"><h3>Pricing & inventory</h3><div className="form-grid">{field('unit','Unit')}{field('mrp','MRP','number')}{field('price','Selling price','number')}{field('stock','Stock','number')}<label>Status<select value={form.status} onChange={event=>set('status',event.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label><label className="check-line"><input type="checkbox" checked={form.featured} onChange={event=>set('featured',event.target.checked)}/> Featured product</label><label className="check-line"><input type="checkbox" checked={form.bestSeller} onChange={event=>set('bestSeller',event.target.checked)}/> Best seller</label></div></section>
-   {id?<ProductVariants key={id} productId={id}/>:<NewProductPacks packs={packs} onChange={setPacks} disabled={saving}/>}
-   <section className="admin-card"><h3>Stock alert threshold</h3><label>Notify when stock is at or below<input type="number" min="0" step="1" value={form.lowStockThreshold} placeholder="Use the backend default" onChange={event=>set('lowStockThreshold',event.target.value)}/></label></section>
-   <div className="form-actions"><Button type="button" variant="ghost" disabled={saving} onClick={()=>nav('/admin/products')}>Cancel</Button><Button disabled={saving||!!categoryError}>{saving?'Saving…':'Save product'}</Button></div>
+   <section className="admin-card">
+    <h3>Product media</h3>
+    <div className="upload-box">
+      {(preview||form.image)?(
+        <div style={{textAlign:'center',marginBottom:'14px'}}>
+          <img src={preview||form.image} alt="Product preview" className="upload-preview" style={{width:'160px',height:'160px',objectFit:'contain',borderRadius:'14px',border:'2px solid #059669',background:'#f8fafc',padding:'6px'}}/>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',marginTop:'10px'}}>
+            <Button type="button" variant="outline" onClick={handleOpenCropperForCurrent} style={{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:'12px'}}>
+              <Crop size={14}/>
+              <span>Crop & Adjust (1:1)</span>
+            </Button>
+            <Button type="button" variant="ghost" onClick={()=>{if(preview?.startsWith('blob:'))URL.revokeObjectURL(preview);if(originalImageSrc?.startsWith('blob:')&&originalImageSrc!==preview)URL.revokeObjectURL(originalImageSrc);setImageFile(null);setPreview('');setOriginalImageSrc('');setCropConfig({zoom:1,rotation:0,offset:{x:0,y:0}});set('image','');}} style={{color:'#ef4444',fontSize:'12px'}}>
+              Remove
+            </Button>
+          </div>
+        </div>
+      ):<ImagePlus size={40} color="#059669"/>}
+      <b>Upload product image</b>
+      <span>JPG, PNG or WebP · Auto-crops to 1:1 square ratio</span>
+      <label className="btn btn-outline" style={{cursor:'pointer'}}>
+        Choose from device
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage} hidden/>
+      </label>
+      <span>or paste an image URL</span>
+      <div style={{display:'flex',gap:'8px',width:'100%',maxWidth:'420px'}}>
+        <input type="url" value={form.image||''} onChange={event=>{set('image',event.target.value);setImageFile(null);setPreview('')}} placeholder="https://example.com/product.jpg" style={{flex:1}}/>
+        {form.image&&(
+          <Button type="button" variant="outline" onClick={handleOpenCropperForCurrent} title="Crop image from URL">
+            <Crop size={15}/>
+          </Button>
+        )}
+      </div>
+    </div>
+   </section>
+
+   <section className="admin-card">
+    <h3>Basic information</h3>
+    <div className="form-grid">
+      {field('name','Product name')}
+      <label>Category<select required value={form.category} onChange={event=>set('category',event.target.value)}><option value="">Choose category</option>{categories.filter(category=>category.status!=='INACTIVE').map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>
+      <label>SKU · Automatic<input readOnly value={form.sku||''} placeholder="Generated automatically when you save"/><small className="muted">{id?'This inventory code stays unchanged.':'A unique inventory code will be created by the server.'}</small></label>
+      <div className="full" style={{ gridColumn: '1 / -1' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+          <label style={{ margin: 0, fontSize: '12px', fontWeight: 700 }}>
+            Description *
+          </label>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={handleGenerateDescription}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: '#ecfdf5',
+                border: '1.5px solid #a7f3d0',
+                color: '#047857',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Generate description based on product name and category"
+            >
+              <Sparkles size={13} color="#059669" />
+              <span>{form.description ? '✨ Re-generate Description' : '✨ Auto-Generate Description'}</span>
+            </button>
+
+            {form.description && (
+              <button
+                type="button"
+                onClick={() => set('description', '')}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', cursor: 'pointer' }}
+                title="Clear text to enter manually"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        <textarea
+          required
+          rows={3}
+          value={form.description}
+          placeholder="Enter description manually or click '✨ Auto-Generate Description'..."
+          onChange={(event) => set('description', event.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            borderRadius: '10px',
+            border: '1.5px solid #e2e8f0',
+            fontSize: '13px',
+            lineHeight: 1.5,
+            boxSizing: 'border-box',
+            resize: 'vertical'
+          }}
+        />
+        <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+          💡 Tip: You can auto-generate and freely edit, customize, or type your own description manually anytime.
+        </small>
+      </div>
+    </div>
+   </section>
+
+   <section className="admin-card">
+    <h3>Pricing & inventory</h3>
+    <div className="form-grid">
+      <div>
+        <label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'6px'}}>
+          Unit / Pack Size *
+        </label>
+        <UnitSelector
+          value={form.unit}
+          onChange={(val)=>set('unit',val)}
+          placeholder="e.g. 500 g or 1 kg"
+        />
+      </div>
+      {field('mrp','MRP','number')}
+      {field('price','Selling price','number')}
+      {field('stock','Stock','number')}
+      <label>Status<select value={form.status} onChange={event=>set('status',event.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+      <label className="check-line"><input type="checkbox" checked={form.featured} onChange={event=>set('featured',event.target.checked)}/> Featured product</label>
+      <label className="check-line"><input type="checkbox" checked={form.bestSeller} onChange={event=>set('bestSeller',event.target.checked)}/> Best seller</label>
+    </div>
+   </section>
+
+   {id?<ProductVariants key={id} productId={id}/>:<NewProductPacks basePack={form} packs={packs} onChange={setPacks} disabled={saving}/>}
+
+   <section className="admin-card">
+    <h3>Stock alert threshold</h3>
+    <label>Notify when stock is at or below<input type="number" min="0" step="1" value={form.lowStockThreshold} placeholder="Use the backend default" onChange={event=>set('lowStockThreshold',event.target.value)}/></label>
+   </section>
+
+   <div className="form-actions">
+     <Button type="button" variant="ghost" disabled={saving} onClick={()=>nav('/admin/products')}>Cancel</Button>
+     <Button disabled={saving||!!categoryError}>{saving?'Saving…':'Save product'}</Button>
+   </div>
   </form>
+
+  <ImageCropperModal
+    open={cropperOpen}
+    imageSrc={rawImageToCrop}
+    initialZoom={cropConfig.zoom}
+    initialRotation={cropConfig.rotation}
+    initialOffset={cropConfig.offset}
+    onCropDone={handleCropDone}
+    onCancel={()=>setCropperOpen(false)}
+  />
  </>;
 }

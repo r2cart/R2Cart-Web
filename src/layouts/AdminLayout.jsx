@@ -27,7 +27,7 @@ import {
 import { Logo } from './CustomerLayout';
 import { authService } from '../services/auth.service';
 import { BRAND } from '../config/brand';
-import { subscribeToPush, getNotificationPermission } from '../services/pushNotification.service';
+import { subscribeToPush, getNotificationPermission, enableOrderAlerts } from '../services/pushNotification.service';
 import { hasPermission } from '../utils/permissions';
 import { Button } from '../components/ui';
 
@@ -169,9 +169,25 @@ export default function AdminLayout({ children }) {
         setOrderAlert(e.detail);
       }
     };
+    const handlePermEnabled = () => {
+      setPerm('granted');
+    };
     window.addEventListener('r2cart:new-order-alert', handleOrderAlert);
-    return () => window.removeEventListener('r2cart:new-order-alert', handleOrderAlert);
+    window.addEventListener('r2cart:notifications-enabled', handlePermEnabled);
+    return () => {
+      window.removeEventListener('r2cart:new-order-alert', handleOrderAlert);
+      window.removeEventListener('r2cart:notifications-enabled', handlePermEnabled);
+    };
   }, []);
+
+  const handleEnableAlerts = async () => {
+    const res = await enableOrderAlerts({ role: 'ADMIN', onStatusChange: setPerm });
+    if (res.success) {
+      setPerm('granted');
+    } else if (res.reason === 'permission_denied') {
+      alert(res.message || 'Notifications are blocked in your browser. Please allow notifications in your browser settings.');
+    }
+  };
 
   // Check if current user is authorized to access the active page
   const pageAuthorization = useMemo(() => {
@@ -356,10 +372,7 @@ export default function AdminLayout({ children }) {
           <div style={{ background: 'linear-gradient(90deg, #148542, #0d5f2e)', color: '#fff', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 500, zIndex: 10 }}>
             <span>🔔 <b>Turn on Order Alerts:</b> Get instant sound alerts and notifications when customer orders arrive.</span>
             <button
-              onClick={async () => {
-                const res = await subscribeToPush({ role: 'ADMIN' });
-                if (res?.success) setPerm('granted');
-              }}
+              onClick={handleEnableAlerts}
               style={{ background: '#fff', color: '#148542', border: 'none', borderRadius: '6px', padding: '5px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap', marginLeft: '12px' }}
             >
               Enable Alerts
