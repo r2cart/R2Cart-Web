@@ -1,4 +1,5 @@
-import {useEffect,useState} from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import {AlertCircle,Building,Clock3,Edit2,Eye,Globe,LoaderCircle,MapPin,PauseCircle,PlayCircle,Plus,RefreshCcw,Save,Search,Settings,Sliders,Trash2,Truck} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
@@ -41,7 +42,38 @@ const money = value => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
 export function AdminDelivery() {
   const { notify } = useApp();
-  const [tab, setTab] = useState('villages'); // 'villages' | 'areas' | 'config'
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  const getInitialTab = () => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab && ['villages', 'areas', 'assignments', 'verifications', 'settlements', 'config'].includes(urlTab)) {
+      return urlTab;
+    }
+    if (location.pathname.includes('/delivery/assignments')) return 'assignments';
+    if (location.pathname.includes('/delivery/verifications')) return 'verifications';
+    if (location.pathname.includes('/delivery/cod-settlements')) return 'settlements';
+    return 'villages';
+  };
+
+  const [tab, setTab] = useState(getInitialTab);
+
+  // Sync tab with URL search parameter if changed externally
+  useEffect(() => {
+    const currentParam = searchParams.get('tab');
+    if (currentParam && currentParam !== tab && ['villages', 'areas', 'assignments', 'verifications', 'settlements', 'config'].includes(currentParam)) {
+      setTab(currentParam);
+    }
+  }, [searchParams]);
+
+  const handleTabSwitch = (newTab) => {
+    setTab(newTab);
+    setSearchParams(prev => {
+      const nextParams = new URLSearchParams(prev);
+      nextParams.set('tab', newTab);
+      return nextParams;
+    }, { replace: true });
+  };
   const [villagesList, setVillagesList] = useState([]);
   const [areasList, setAreasList] = useState([]);
   const [config, setConfig] = useState(null);
@@ -82,6 +114,24 @@ export function AdminDelivery() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [error, setError] = useState('');
 
+  // Extract all localities from active Delivery Zones for autocomplete & suggestions
+  const allZoneLocalities = areasList.flatMap(area => {
+    const locs = Array.isArray(area.localities) ? area.localities : [];
+    return locs.map(loc => {
+      const locName = typeof loc === 'string' ? loc.trim() : (loc?.name || '').trim();
+      return {
+        name: locName,
+        zoneName: area.name,
+        zoneId: area.id,
+        radiusKm: area.radiusKm,
+        deliveryFee: area.deliveryFee,
+        minimumOrder: area.minimumOrder,
+        freeDeliveryThreshold: area.freeDeliveryThreshold,
+        estimatedMinutes: area.estimatedMinutes
+      };
+    }).filter(l => Boolean(l.name));
+  });
+
   const loadData = async () => {
     setLoading(true);
     setError('');
@@ -117,12 +167,18 @@ export function AdminDelivery() {
     e.preventDefault();
     setBusy(true);
     try {
+      const isPartial = editVillage.overrideMode === 'PARTIAL';
+      const parseNumOrNull = val => {
+        if (val === '' || val === null || val === undefined) return isPartial ? null : 0;
+        return Number(val);
+      };
+
       const payload = {
         ...editVillage,
         overrideMode: editVillage.overrideMode || 'COMPLETE',
-        deliveryFee: Number(editVillage.deliveryFee),
-        minimumOrder: Number(editVillage.minimumOrder),
-        freeDeliveryThreshold: Number(editVillage.freeDeliveryThreshold),
+        deliveryFee: parseNumOrNull(editVillage.deliveryFee),
+        minimumOrder: parseNumOrNull(editVillage.minimumOrder),
+        freeDeliveryThreshold: parseNumOrNull(editVillage.freeDeliveryThreshold),
         radiusKm: editVillage.radiusKm ? Number(editVillage.radiusKm) : 5.0,
         allowCod: editVillage.allowCod !== false,
         allowScheduled: editVillage.allowScheduled !== false,
@@ -361,7 +417,7 @@ export function AdminDelivery() {
         <button
           type="button"
           className={`tab-btn ${tab === 'villages' ? 'active' : ''}`}
-          onClick={() => setTab('villages')}
+          onClick={() => handleTabSwitch('villages')}
         >
           <MapPin size={15} />
           <span>Delivery Villages ({villagesList.length})</span>
@@ -369,7 +425,7 @@ export function AdminDelivery() {
         <button
           type="button"
           className={`tab-btn ${tab === 'areas' ? 'active' : ''}`}
-          onClick={() => setTab('areas')}
+          onClick={() => handleTabSwitch('areas')}
         >
           <Building size={15} />
           <span>Delivery Zones ({areasList.length})</span>
@@ -377,7 +433,7 @@ export function AdminDelivery() {
         <button
           type="button"
           className={`tab-btn ${tab === 'assignments' ? 'active' : ''}`}
-          onClick={() => setTab('assignments')}
+          onClick={() => handleTabSwitch('assignments')}
         >
           <Truck size={15} />
           <span>Order Assignments</span>
@@ -385,7 +441,7 @@ export function AdminDelivery() {
         <button
           type="button"
           className={`tab-btn ${tab === 'verifications' ? 'active' : ''}`}
-          onClick={() => setTab('verifications')}
+          onClick={() => handleTabSwitch('verifications')}
         >
           <Eye size={15} />
           <span>POD Verifications</span>
@@ -393,7 +449,7 @@ export function AdminDelivery() {
         <button
           type="button"
           className={`tab-btn ${tab === 'settlements' ? 'active' : ''}`}
-          onClick={() => setTab('settlements')}
+          onClick={() => handleTabSwitch('settlements')}
         >
           <Sliders size={15} />
           <span>COD Settlements</span>
@@ -401,7 +457,7 @@ export function AdminDelivery() {
         <button
           type="button"
           className={`tab-btn ${tab === 'config' ? 'active' : ''}`}
-          onClick={() => setTab('config')}
+          onClick={() => handleTabSwitch('config')}
         >
           <Settings size={15} />
           <span>Global Settings</span>
@@ -767,15 +823,101 @@ export function AdminDelivery() {
       <Modal open={!!editVillage} onClose={() => !busy && setEditVillage(null)} title={editVillage?.id ? 'Edit Delivery Village' : 'Add Delivery Village'} size="location-modal">
         <form className="modal-body delivery-zone-form" onSubmit={handleSaveVillage}>
           <div className="form-grid">
-            <label className="full">
-              Village Name *
+            <div className="full">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '13px', marginBottom: '6px' }}>
+                Village Name *
+              </label>
               <input
                 required
+                list="zone-village-suggestions"
                 value={editVillage?.name || ''}
-                onChange={e => setEditVillage(curr => ({ ...curr, name: e.target.value }))}
-                placeholder="Example: Hathua Ward 4, Machhagar, Line Bazar"
+                onChange={e => {
+                  const val = e.target.value;
+                  const matchedLoc = allZoneLocalities.find(l => l.name.toLowerCase() === val.trim().toLowerCase());
+                  setEditVillage(curr => ({
+                    ...curr,
+                    name: val,
+                    areaId: matchedLoc?.zoneId || curr?.areaId || ''
+                  }));
+                }}
+                placeholder="Type village name or select from suggested localities below..."
               />
-            </label>
+              <datalist id="zone-village-suggestions">
+                {allZoneLocalities.map((item, idx) => (
+                  <option key={`${item.name}-${idx}`} value={item.name}>
+                    Zone: {item.zoneName}
+                  </option>
+                ))}
+              </datalist>
+
+              {/* Suggestions chips from configured delivery zones */}
+              {allZoneLocalities.length > 0 && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(16, 185, 129, 0.05)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#047857', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <MapPin size={14} />
+                      Localities in Delivery Zones ({areasList.map(a => a.name).join(', ')}):
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Click to select & auto-fill zone rules</span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    maxHeight: '120px',
+                    overflowY: 'auto',
+                    padding: '2px'
+                  }}>
+                    {allZoneLocalities.map((item, idx) => {
+                      const isCurrent = (editVillage?.name || '').trim().toLowerCase() === item.name.toLowerCase();
+                      const isConfigured = !editVillage?.id && villagesList.some(v => v.name.toLowerCase() === item.name.toLowerCase());
+                      return (
+                        <button
+                          key={`${item.name}-${idx}`}
+                          type="button"
+                          onClick={() => {
+                            setEditVillage(curr => ({
+                              ...curr,
+                              name: item.name,
+                              areaId: item.zoneId || curr?.areaId || '',
+                              radiusKm: item.radiusKm ? String(item.radiusKm) : (curr?.radiusKm || '5.0'),
+                              deliveryFee: item.deliveryFee !== null && item.deliveryFee !== undefined ? String(item.deliveryFee) : (curr?.deliveryFee ?? ''),
+                              minimumOrder: item.minimumOrder !== null && item.minimumOrder !== undefined ? String(item.minimumOrder) : (curr?.minimumOrder ?? ''),
+                              freeDeliveryThreshold: item.freeDeliveryThreshold !== null && item.freeDeliveryThreshold !== undefined ? String(item.freeDeliveryThreshold) : (curr?.freeDeliveryThreshold ?? ''),
+                              estimatedMinutes: item.estimatedMinutes ? String(item.estimatedMinutes) : (curr?.estimatedMinutes || '30')
+                            }));
+                          }}
+                          style={{
+                            fontSize: '12px',
+                            padding: '4px 9px',
+                            borderRadius: '6px',
+                            border: isCurrent ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                            background: isCurrent ? '#059669' : '#ffffff',
+                            color: isCurrent ? '#ffffff' : '#334155',
+                            fontWeight: isCurrent ? 700 : 500,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title={isConfigured ? `${item.name} is already configured in villages` : `Auto-fill details from ${item.zoneName}`}
+                        >
+                          {item.name}
+                          {isConfigured && <span style={{ fontSize: '10px', opacity: 0.7 }}>(saved)</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Override Mode Selection */}
             <div className="full" style={{ padding: '12px', border: '1px solid var(--line)', borderRadius: '10px', background: 'rgba(255,255,255,0.02)' }}>
@@ -834,31 +976,34 @@ export function AdminDelivery() {
             <label>
               Delivery Fee (₹)
               <input
-                required
+                required={editVillage?.overrideMode !== 'PARTIAL'}
                 min="0"
                 type="number"
                 value={editVillage?.deliveryFee ?? ''}
                 onChange={e => setEditVillage(curr => ({ ...curr, deliveryFee: e.target.value }))}
+                placeholder={editVillage?.overrideMode === 'PARTIAL' ? 'Inherit global default' : '0'}
               />
             </label>
             <label>
               Minimum Order (₹)
               <input
-                required
+                required={editVillage?.overrideMode !== 'PARTIAL'}
                 min="0"
                 type="number"
                 value={editVillage?.minimumOrder ?? ''}
                 onChange={e => setEditVillage(curr => ({ ...curr, minimumOrder: e.target.value }))}
+                placeholder={editVillage?.overrideMode === 'PARTIAL' ? 'Inherit global default' : '0'}
               />
             </label>
             <label>
               Free Delivery Above (₹)
               <input
-                required
+                required={editVillage?.overrideMode !== 'PARTIAL'}
                 min="0"
                 type="number"
                 value={editVillage?.freeDeliveryThreshold ?? ''}
                 onChange={e => setEditVillage(curr => ({ ...curr, freeDeliveryThreshold: e.target.value }))}
+                placeholder={editVillage?.overrideMode === 'PARTIAL' ? 'Inherit global default' : '0'}
               />
             </label>
             <label>

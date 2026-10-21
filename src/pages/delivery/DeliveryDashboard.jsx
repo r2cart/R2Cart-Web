@@ -17,7 +17,9 @@ import {
   Wallet,
   ShieldCheck,
   XCircle,
-  ExternalLink
+  ExternalLink,
+  Bell,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { useApp } from '../../context/AppContext';
@@ -25,9 +27,44 @@ import { deliveryService } from '../../services/delivery.service';
 import { authService } from '../../services/auth.service';
 import { DeliveryProofModal } from './DeliveryProofModal';
 import { DeliveryFailureModal } from './DeliveryFailureModal';
+import { DeliveryChatModal } from '../../components/DeliveryChatModal';
 import { BRAND } from '../../config/brand';
+import { subscribeToPush, isPushSupported, getNotificationPermission } from '../../services/pushNotification.service';
 
 const money = val => `₹${Number(val || 0).toLocaleString('en-IN')}`;
+
+const formatDateTime = (val) => {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  return d.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+function playChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {}
+}
 
 export function DeliveryDashboard() {
   const navigate = useNavigate();
@@ -41,9 +78,14 @@ export function DeliveryDashboard() {
   // Active filter tab: 'ALL' | 'PENDING' | 'IN_TRANSIT' | 'DELIVERED' | 'FAILED'
   const [activeTab, setActiveTab] = useState('ALL');
 
+  // Push notifications permission & state
+  const [pushStatus, setPushStatus] = useState(() => getNotificationPermission());
+  const [enablingPush, setEnablingPush] = useState(false);
+
   // Modals state
   const [proofModalOrder, setProofModalOrder] = useState(null);
   const [failureModalOrder, setFailureModalOrder] = useState(null);
+  const [chatModalOrder, setChatModalOrder] = useState(null);
 
   // Expanded items state map for order card items
   const [expandedOrders, setExpandedOrders] = useState({});
@@ -52,15 +94,43 @@ export function DeliveryDashboard() {
     setExpandedOrders(curr => ({ ...curr, [orderId]: !curr[orderId] }));
   };
 
-  const loadDashboardData = async () => {
-    setLoading(true);
+  const enableRiderNotifications = async () => {
+    setEnablingPush(true);
+    try {
+      const res = await subscribeToPush({ role: 'DELIVERY_PERSON' });
+      if (res.success) {
+        setPushStatus('granted');
+        notify('Push alerts enabled! You will be notified instantly when orders are assigned. 🛵');
+        playChime();
+      } else if (res.reason === 'permission_denied') {
+        setPushStatus('denied');
+        notify('Notification permission was blocked in browser settings.', 'error');
+      }
+    } catch (err) {
+      notify(err.message || 'Failed to enable notifications', 'error');
+    } finally {
+      setEnablingPush(false);
+    }
+  };
+
+  const loadDashboardData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [oData, pData, cData] = await Promise.all([
         deliveryService.getMyOrders({ tab: activeTab }),
         deliveryService.getMyProfile().catch(() => null),
         deliveryService.getMyCodSummary().catch(() => null)
       ]);
-      setOrders(oData || []);
+      const prevOrders = orders;
+      const nextOrders = oData || [];
+
+      // Check if new assignment arrived in silent refresh
+      if (silent && prevOrders.length > 0 && nextOrders.length > prevOrders.length) {
+        playChime();
+        notify('🛵 New Delivery Assigned! Tap to view details.');
+      }
+
+      setOrders(nextOrders);
       if (pData) setProfile(pData);
       if (cData) setCodSummary(cData);
     } catch (err) {
@@ -68,9 +138,9 @@ export function DeliveryDashboard() {
         navigate('/delivery/login', { replace: true });
         return;
       }
-      notify(err.message || 'Failed to load assigned deliveries', 'error');
+      if (!silent) notify(err.message || 'Failed to load assigned deliveries', 'error');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -83,10 +153,22 @@ export function DeliveryDashboard() {
       navigate('/delivery/login', { replace: true });
       return;
     }
+
+    // Auto-subscribe if permission was already granted previously
+    if (getNotificationPermission() === 'granted') {
+      subscribeToPush({ role: 'DELIVERY_PERSON' }).catch(() => {});
+    }
   }, [navigate]);
 
   useEffect(() => {
     loadDashboardData();
+
+    // 20-second background polling for real-time order assignments
+    const pollInterval = setInterval(() => {
+      loadDashboardData(true);
+    }, 20000);
+
+    return () => clearInterval(pollInterval);
   }, [activeTab]);
 
   const handleDutyChange = async (newStatus) => {
@@ -226,6 +308,53 @@ export function DeliveryDashboard() {
 
       {/* 2. Main Content Container */}
       <main style={{ maxWidth: '680px', margin: '0 auto', padding: '16px' }}>
+        {/* Push Notification Enable Banner */}
+        {isPushSupported() && pushStatus !== 'granted' && (
+          <div style={{
+            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+            border: '1.5px solid #a7f3d0',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>🔔</span>
+              <div>
+                <b style={{ fontSize: '13px', color: '#065f46', display: 'block' }}>
+                  Enable Live Order Alerts
+                </b>
+                <span style={{ fontSize: '11.5px', color: '#047857' }}>
+                  Get real-time sound & push notifications as soon as an order is assigned.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={enablingPush}
+              onClick={enableRiderNotifications}
+              style={{
+                padding: '7px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#059669',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: enablingPush ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 6px rgba(5, 150, 105, 0.3)'
+              }}
+            >
+              {enablingPush ? 'Enabling...' : 'Turn On'}
+            </button>
+          </div>
+        )}
+
         {/* KPI Strip */}
         <div style={{
           display: 'grid',
@@ -367,8 +496,13 @@ export function DeliveryDashboard() {
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-                        Assigned: {new Date(order.assignedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span>Assigned: {formatDateTime(order.assignedAt)}</span>
+                        {order.status === 'DELIVERED' && order.deliveredAt && (
+                          <span style={{ color: '#15803d', fontWeight: 700 }}>
+                            ✓ Delivered: {formatDateTime(order.deliveredAt)}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -401,25 +535,29 @@ export function DeliveryDashboard() {
                         {order.customerName}
                       </div>
 
-                      {order.customerPhone && (
-                        <a
-                          href={`tel:${order.customerPhone}`}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => setChatModalOrder(order)}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            background: '#059669',
+                            gap: '5px',
+                            background: '#0284c7',
                             color: '#fff',
                             padding: '6px 12px',
                             borderRadius: '8px',
                             fontSize: '12px',
                             fontWeight: 700,
-                            textDecoration: 'none'
+                            border: 'none',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                            transition: 'all 0.15s ease'
                           }}
                         >
-                          <Phone size={13} /> Call Customer
-                        </a>
-                      )}
+                          <MessageSquare size={13} /> Chat with Customer
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{ fontSize: '13px', color: '#334155', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
@@ -432,28 +570,29 @@ export function DeliveryDashboard() {
                       </div>
                     </div>
 
-                    {/* 1-Tap Google Maps Navigation */}
+                    {/* 1-Tap Google Maps Navigation (Disabled until map integration is added) */}
                     <div style={{ marginTop: '10px' }}>
-                      <a
-                        href={order.googleMapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        disabled
+                        title="Map navigation is currently disabled"
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
-                          background: '#f0fdf4',
-                          border: '1px solid #bbf7d0',
-                          color: '#15803d',
+                          background: '#f1f5f9',
+                          border: '1px solid #cbd5e1',
+                          color: '#94a3b8',
                           padding: '6px 12px',
                           borderRadius: '6px',
                           fontSize: '12px',
-                          fontWeight: 700,
-                          textDecoration: 'none'
+                          fontWeight: 600,
+                          cursor: 'not-allowed',
+                          opacity: 0.75
                         }}
                       >
-                        <Navigation size={13} /> Navigate in Google Maps <ExternalLink size={11} />
-                      </a>
+                        <Navigation size={13} /> Navigate to Map (Disabled)
+                      </button>
                     </div>
                   </div>
 
@@ -620,17 +759,51 @@ export function DeliveryDashboard() {
                     )}
 
                     {order.status === 'DELIVERED' && (
-                      <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>
-                        <span>Delivered: {new Date(order.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓</span>
-                        {order.proofs?.[0]?.signedUrl && (
-                          <a
-                            href={order.proofs[0].signedUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: '#0284c7', textDecoration: 'underline' }}
-                          >
-                            View Delivery Proof Photo
-                          </a>
+                      <div style={{
+                        width: '100%',
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        borderRadius: '10px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                          <span style={{ fontSize: '13px', color: '#15803d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <CheckCircle2 size={16} /> Delivered on {formatDateTime(order.deliveredAt)}
+                          </span>
+                          {order.proofs?.[0]?.signedUrl && (
+                            <a
+                              href={order.proofs[0].signedUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                fontSize: '12px',
+                                color: '#0284c7',
+                                fontWeight: 600,
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: '#e0f2fe',
+                                padding: '3px 8px',
+                                borderRadius: '6px'
+                              }}
+                            >
+                              <Camera size={13} /> View Delivery Proof
+                            </a>
+                          )}
+                        </div>
+                        {order.proofs?.[0]?.recipientName && (
+                          <div style={{ fontSize: '12px', color: '#166534' }}>
+                            <b>Received by:</b> {order.proofs[0].recipientName} {order.proofs[0].recipientPhone ? `(${order.proofs[0].recipientPhone})` : ''}
+                          </div>
+                        )}
+                        {order.proofs?.[0]?.notes && (
+                          <div style={{ fontSize: '11.5px', color: '#475569', fontStyle: 'italic' }}>
+                            <b>Delivery Note:</b> “{order.proofs[0].notes}”
+                          </div>
                         )}
                       </div>
                     )}
@@ -672,6 +845,16 @@ export function DeliveryDashboard() {
             notify(`Order #${failureModalOrder.orderNumber} marked as delivery failed`);
             loadDashboardData();
           }}
+        />
+      )}
+
+      {/* Live Chat with Customer Modal */}
+      {chatModalOrder && (
+        <DeliveryChatModal
+          isOpen={Boolean(chatModalOrder)}
+          order={chatModalOrder}
+          onClose={() => setChatModalOrder(null)}
+          role="DELIVERY_PERSON"
         />
       )}
     </div>

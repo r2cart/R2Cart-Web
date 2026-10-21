@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Truck,
   UserCheck,
@@ -25,8 +26,26 @@ import { adminService } from '../../services/admin.service';
 
 const money = val => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
+const formatDateTime = (val) => {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  return d.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 export function DeliveryAssignmentsView() {
   const { notify } = useApp();
+  const [searchParams] = useSearchParams();
+  const preselectedOrderNum = searchParams.get('orderNumber');
+  const preselectedOrderId = searchParams.get('orderId');
+
   const [subTab, setSubTab] = useState('unassigned'); // 'unassigned' | 'assignments' | 'staff'
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -50,6 +69,49 @@ export function DeliveryAssignmentsView() {
   const [newStaffId, setNewStaffId] = useState('');
   const [reassignReason, setReassignReason] = useState('Staff workload balancing');
   const [reassignNotes, setReassignNotes] = useState('');
+
+  // Auto-open assign modal if redirected from order details page
+  useEffect(() => {
+    if (!preselectedOrderNum && !preselectedOrderId) return;
+    if (assignModalOrder) return;
+
+    if (unassignedOrders.length > 0) {
+      const match = unassignedOrders.find(o =>
+        (preselectedOrderId && (o.id === preselectedOrderId || o.orderId === preselectedOrderId)) ||
+        (preselectedOrderNum && o.orderNumber === preselectedOrderNum)
+      );
+      if (match) {
+        setAssignModalOrder(match);
+        setSubTab('unassigned');
+        return;
+      }
+    }
+
+    // Fallback: If not in current unassigned list, fetch directly
+    if (!loading && preselectedOrderId && !assignModalOrder) {
+      adminService.order(preselectedOrderId)
+        .then(ord => {
+          if (ord) {
+            setAssignModalOrder({
+              id: ord.id,
+              orderId: ord.id,
+              orderNumber: ord.orderNumber,
+              customerName: ord.user?.name || ord.shippingAddress?.name || 'Customer',
+              customerPhone: ord.user?.mobile || ord.shippingAddress?.phone || '—',
+              total: ord.total,
+              paymentMethod: ord.paymentMethod,
+              paymentStatus: ord.paymentStatus,
+              villageId: ord.villageId,
+              villageName: ord.village?.name || ord.shippingAddress?.village || 'General Area',
+              itemCount: ord.items?.reduce((sum, i) => sum + (i.quantity || 1), 0) || ord.items?.length || 0,
+              addressLine: [ord.shippingAddress?.addressLine1, ord.shippingAddress?.addressLine2, ord.shippingAddress?.city, ord.shippingAddress?.state].filter(Boolean).join(', ')
+            });
+            setSubTab('unassigned');
+          }
+        })
+        .catch(() => {});
+    }
+  }, [unassignedOrders, loading, preselectedOrderNum, preselectedOrderId, assignModalOrder]);
 
   const loadData = async (page = 1) => {
     setLoading(true);
@@ -83,7 +145,13 @@ export function DeliveryAssignmentsView() {
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
     if (!selectedStaffId) {
-      notify('Please select a delivery person', 'error');
+      notify('Please select an active ON DUTY delivery person', 'error');
+      return;
+    }
+    const chosenStaff = staffList.find(s => s.id === selectedStaffId);
+    if (!chosenStaff || chosenStaff.dutyStatus !== 'ON_DUTY') {
+      const reason = chosenStaff?.dutyStatus === 'ON_BREAK' ? 'is currently ON BREAK' : 'is currently OFF DUTY';
+      notify(`Cannot assign order: ${chosenStaff?.name || 'Selected driver'} ${reason}. Only ON DUTY drivers can receive orders.`, 'error');
       return;
     }
     setBusy(true);
@@ -93,7 +161,7 @@ export function DeliveryAssignmentsView() {
         deliveryPersonId: selectedStaffId,
         notes: assignNotes
       });
-      notify(`Order ${assignModalOrder.orderNumber} successfully assigned!`);
+      notify(`Order ${assignModalOrder.orderNumber} successfully assigned to ${chosenStaff.name}!`);
       setAssignModalOrder(null);
       setSelectedStaffId('');
       setAssignNotes('');
@@ -111,6 +179,12 @@ export function DeliveryAssignmentsView() {
       notify('Please select the new delivery person', 'error');
       return;
     }
+    const chosenStaff = staffList.find(s => s.id === newStaffId);
+    if (!chosenStaff || chosenStaff.dutyStatus !== 'ON_DUTY') {
+      const reason = chosenStaff?.dutyStatus === 'ON_BREAK' ? 'is currently ON BREAK' : 'is currently OFF DUTY';
+      notify(`Cannot reassign order: ${chosenStaff?.name || 'Target driver'} ${reason}. Target driver must be ON DUTY.`, 'error');
+      return;
+    }
     setBusy(true);
     try {
       await adminService.reassignDeliveryOrder({
@@ -119,7 +193,7 @@ export function DeliveryAssignmentsView() {
         reason: reassignReason,
         notes: reassignNotes
       });
-      notify(`Order ${reassignModalTarget.orderNumber} reassigned successfully!`);
+      notify(`Order ${reassignModalTarget.orderNumber} reassigned to ${chosenStaff.name} successfully!`);
       setReassignModalTarget(null);
       setNewStaffId('');
       setReassignNotes('');
@@ -131,14 +205,62 @@ export function DeliveryAssignmentsView() {
     }
   };
 
-  // Filter staff recommendations based on order's village
-  const recommendedStaff = assignModalOrder
-    ? staffList.filter(s => {
-        if (!assignModalOrder.villageId) return true;
-        const vIds = Array.isArray(s.assignedVillageIds) ? s.assignedVillageIds : [];
-        return vIds.includes(assignModalOrder.villageId);
-      })
-    : staffList;
+  // Smart ranking for staff recommendations
+  const recommendedStaff = useMemo(() => {
+    if (!staffList || staffList.length === 0) return [];
+
+    const orderVillageId = assignModalOrder?.villageId;
+
+    const checkVillageMatch = (s) => {
+      if (!orderVillageId) return true;
+      const vIds = Array.isArray(s.assignedVillageIds) ? s.assignedVillageIds : [];
+      return vIds.length === 0 || vIds.includes(orderVillageId);
+    };
+
+    // Priority: ON_DUTY (1) > ON_BREAK (2) > OFF_DUTY (3)
+    const dutyPriority = { ON_DUTY: 1, ON_BREAK: 2, OFF_DUTY: 3 };
+
+    return [...staffList].sort((a, b) => {
+      const aMatch = checkVillageMatch(a);
+      const bMatch = checkVillageMatch(b);
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+
+      const aDuty = dutyPriority[a.dutyStatus] || 4;
+      const bDuty = dutyPriority[b.dutyStatus] || 4;
+      if (aDuty !== bDuty) return aDuty - bDuty;
+
+      const aCount = a.activeAssignmentsCount || 0;
+      const bCount = b.activeAssignmentsCount || 0;
+      if (aCount !== bCount) return aCount - bCount;
+
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [staffList, assignModalOrder]);
+
+  const onDutyStaffCount = useMemo(() => {
+    return recommendedStaff.filter(s => s.dutyStatus === 'ON_DUTY').length;
+  }, [recommendedStaff]);
+
+  const onBreakStaffCount = useMemo(() => {
+    return recommendedStaff.filter(s => s.dutyStatus === 'ON_BREAK').length;
+  }, [recommendedStaff]);
+
+  // Pre-select top available ON_DUTY driver when modal opens if not selected
+  useEffect(() => {
+    if (assignModalOrder && recommendedStaff.length > 0 && !selectedStaffId) {
+      const topDuty = recommendedStaff.find(s => s.dutyStatus === 'ON_DUTY');
+      if (topDuty) {
+        setSelectedStaffId(topDuty.id);
+      }
+    }
+  }, [assignModalOrder, recommendedStaff, selectedStaffId]);
+
+  const selectedStaffObj = staffList.find(s => s.id === selectedStaffId);
+  const isSelectedStaffOnDuty = selectedStaffObj?.dutyStatus === 'ON_DUTY';
+
+  const newStaffObj = staffList.find(s => s.id === newStaffId);
+  const isNewStaffOnDuty = newStaffObj?.dutyStatus === 'ON_DUTY';
 
   return (
     <div className="delivery-assignments-view" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -278,7 +400,7 @@ export function DeliveryAssignmentsView() {
                       </td>
                       <td>
                         <div style={{ fontWeight: 600, color: '#047857', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <MapPin size={13} /> {order.villageName || 'Unspecified Village'}
+                          <MapPin size={13} /> {order.villageName || order.area || 'General Area'}
                         </div>
                         <div style={{ fontSize: '11.5px', color: '#64748b', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {order.addressLine}
@@ -432,7 +554,7 @@ export function DeliveryAssignmentsView() {
                       </td>
                       <td>
                         <div style={{ fontSize: '12.5px', fontWeight: 600 }}>{a.customerName}</div>
-                        <div style={{ fontSize: '11px', color: '#047857' }}>{a.villageName}</div>
+                        <div style={{ fontSize: '11px', color: '#047857' }}>{a.villageName || a.area || 'General Area'}</div>
                       </td>
                       <td>
                         <b>{money(a.grandTotal)}</b>
@@ -444,15 +566,15 @@ export function DeliveryAssignmentsView() {
                       </td>
                       <td>
                         <div style={{ fontSize: '11px', color: '#64748b' }}>
-                          Assigned: {new Date(a.assignedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          Assigned: {formatDateTime(a.assignedAt)}
                         </div>
                         {a.deliveredAt && (
-                          <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600 }}>
-                            Delivered: {new Date(a.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <div style={{ fontSize: '11.5px', color: '#15803d', fontWeight: 700, marginTop: '2px' }}>
+                            ✓ Delivered: {formatDateTime(a.deliveredAt)}
                           </div>
                         )}
                         {a.failedAt && (
-                          <div style={{ fontSize: '11px', color: '#b91c1c', fontWeight: 600 }}>
+                          <div style={{ fontSize: '11px', color: '#b91c1c', fontWeight: 600, marginTop: '2px' }}>
                             Failed: {a.failureReason}
                           </div>
                         )}
@@ -545,10 +667,10 @@ export function DeliveryAssignmentsView() {
                   padding: '3px 8px',
                   borderRadius: '6px',
                   fontWeight: 700,
-                  background: staff.dutyStatus === 'ON_DUTY' ? '#dcfce7' : '#f1f5f9',
-                  color: staff.dutyStatus === 'ON_DUTY' ? '#15803d' : '#64748b'
+                  background: staff.dutyStatus === 'ON_DUTY' ? '#dcfce7' : (staff.dutyStatus === 'ON_BREAK' ? '#fef3c7' : '#f1f5f9'),
+                  color: staff.dutyStatus === 'ON_DUTY' ? '#15803d' : (staff.dutyStatus === 'ON_BREAK' ? '#b45309' : '#64748b')
                 }}>
-                  {staff.dutyStatus === 'ON_DUTY' ? '● ON DUTY' : '○ OFF DUTY'}
+                  {staff.dutyStatus === 'ON_DUTY' ? '● ON DUTY' : (staff.dutyStatus === 'ON_BREAK' ? '⏸ ON BREAK' : '○ OFF DUTY')}
                 </span>
               </div>
 
@@ -690,7 +812,7 @@ export function DeliveryAssignmentsView() {
                       border: '1px solid #a7f3d0'
                     }}>
                       <MapPin size={12} />
-                      {assignModalOrder.villageName || 'General Area'}
+                      {assignModalOrder.villageName || assignModalOrder.area || 'General Area'}
                     </span>
                     {assignModalOrder.itemCount && (
                       <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 500 }}>
@@ -704,6 +826,29 @@ export function DeliveryAssignmentsView() {
                 </div>
               </div>
 
+              {/* On Duty Alert Banner */}
+              {onDutyStaffCount === 0 && (
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <AlertCircle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 700 }}>No Delivery Drivers are ON DUTY</div>
+                    <div style={{ fontSize: '11.5px', color: '#b91c1c', marginTop: '2px' }}>
+                      Orders cannot be assigned while drivers are on break or off duty. Delivery partner must turn "On Duty" in their mobile delivery portal first.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Delivery Person Selection */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -712,8 +857,14 @@ export function DeliveryAssignmentsView() {
                     <span>Select Delivery Person</span>
                     <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 500 }}>
-                    {recommendedStaff.length} driver{recommendedStaff.length === 1 ? '' : 's'} available
+                  <span style={{
+                    fontSize: '11.5px',
+                    fontWeight: 600,
+                    color: recommendedStaff.length === 0 ? '#ef4444' : (onDutyStaffCount > 0 ? '#15803d' : '#b45309')
+                  }}>
+                    {recommendedStaff.length === 0
+                      ? '0 drivers registered'
+                      : `${recommendedStaff.length} driver${recommendedStaff.length === 1 ? '' : 's'} (${onDutyStaffCount} on duty${onBreakStaffCount > 0 ? `, ${onBreakStaffCount} on break` : ''})`}
                   </span>
                 </div>
 
@@ -751,10 +902,26 @@ export function DeliveryAssignmentsView() {
                     <option value="">-- Choose available delivery staff --</option>
                     {recommendedStaff.map(s => {
                       const isDuty = s.dutyStatus === 'ON_DUTY';
+                      const isBreak = s.dutyStatus === 'ON_BREAK';
                       const activeCount = s.activeAssignmentsCount || 0;
+                      const vIds = Array.isArray(s.assignedVillageIds) ? s.assignedVillageIds : [];
+                      const matchesVillage = !assignModalOrder?.villageId || vIds.length === 0 || vIds.includes(assignModalOrder.villageId);
+
+                      const statusEmoji = isDuty ? '🟢' : isBreak ? '⏸️' : '⚪';
+                      const statusLabel = isDuty ? 'ON DUTY' : isBreak ? 'ON BREAK' : 'OFF DUTY';
+                      const areaLabel = !matchesVillage ? ' · ⚠️ Outside Primary Area' : (vIds.length === 0 ? ' · All Areas' : '');
+
                       return (
-                        <option key={s.id} value={s.id}>
-                          {isDuty ? '🟢' : '⚪'} {s.deliveryStaffId ? `[${s.deliveryStaffId}] ` : ''}{s.name} ({isDuty ? 'ON DUTY' : 'OFF DUTY'}) · {activeCount} active · {s.vehicleType || 'Bike'}
+                        <option
+                          key={s.id}
+                          value={s.id}
+                          disabled={!isDuty}
+                          style={{
+                            color: isDuty ? '#0f172a' : '#94a3b8',
+                            backgroundColor: isDuty ? '#ffffff' : '#f8fafc'
+                          }}
+                        >
+                          {statusEmoji} {s.deliveryStaffId ? `[${s.deliveryStaffId}] ` : ''}{s.name} ({statusLabel}){!isDuty ? ` - CANNOT ASSIGN (${statusLabel})` : ''}{areaLabel} · {activeCount} active · {s.vehicleType || 'Bike'}
                         </option>
                       );
                     })}
@@ -765,7 +932,7 @@ export function DeliveryAssignmentsView() {
                 </div>
 
                 <small style={{ fontSize: '11.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  💡 Ranked by destination village coverage and lowest active order workload.
+                  💡 Ranked by village coverage, on-duty availability, and lowest active workload.
                 </small>
               </div>
 
@@ -841,7 +1008,7 @@ export function DeliveryAssignmentsView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={busy || !selectedStaffId}
+                  disabled={busy || !selectedStaffId || !isSelectedStaffOnDuty}
                   style={{
                     height: '42px',
                     padding: '0 24px',
@@ -851,8 +1018,8 @@ export function DeliveryAssignmentsView() {
                     color: '#ffffff',
                     fontSize: '13.5px',
                     fontWeight: 700,
-                    cursor: busy || !selectedStaffId ? 'not-allowed' : 'pointer',
-                    opacity: busy || !selectedStaffId ? 0.6 : 1,
+                    cursor: busy || !selectedStaffId || !isSelectedStaffOnDuty ? 'not-allowed' : 'pointer',
+                    opacity: busy || !selectedStaffId || !isSelectedStaffOnDuty ? 0.6 : 1,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -958,9 +1125,20 @@ export function DeliveryAssignmentsView() {
                       .filter(s => s.id !== reassignModalTarget.deliveryPerson?.id)
                       .map(s => {
                         const isDuty = s.dutyStatus === 'ON_DUTY';
+                        const isBreak = s.dutyStatus === 'ON_BREAK';
+                        const statusEmoji = isDuty ? '🟢' : isBreak ? '⏸️' : '⚪';
+                        const statusLabel = isDuty ? 'ON DUTY' : isBreak ? 'ON BREAK' : 'OFF DUTY';
                         return (
-                          <option key={s.id} value={s.id}>
-                            {isDuty ? '🟢' : '⚪'} {s.deliveryStaffId ? `[${s.deliveryStaffId}] ` : ''}{s.name} ({isDuty ? 'ON DUTY' : 'OFF DUTY'}) · {s.activeAssignmentsCount || 0} active
+                          <option
+                            key={s.id}
+                            value={s.id}
+                            disabled={!isDuty}
+                            style={{
+                              color: isDuty ? '#0f172a' : '#94a3b8',
+                              backgroundColor: isDuty ? '#ffffff' : '#f8fafc'
+                            }}
+                          >
+                            {statusEmoji} {s.deliveryStaffId ? `[${s.deliveryStaffId}] ` : ''}{s.name} ({statusLabel}){!isDuty ? ` - CANNOT ASSIGN (${statusLabel})` : ''} · {s.activeAssignmentsCount || 0} active
                           </option>
                         );
                       })}
@@ -1090,7 +1268,7 @@ export function DeliveryAssignmentsView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={busy || !newStaffId}
+                  disabled={busy || !newStaffId || !isNewStaffOnDuty}
                   style={{
                     height: '42px',
                     padding: '0 24px',
@@ -1100,8 +1278,8 @@ export function DeliveryAssignmentsView() {
                     color: '#ffffff',
                     fontSize: '13.5px',
                     fontWeight: 700,
-                    cursor: busy || !newStaffId ? 'not-allowed' : 'pointer',
-                    opacity: busy || !newStaffId ? 0.6 : 1,
+                    cursor: busy || !newStaffId || !isNewStaffOnDuty ? 'not-allowed' : 'pointer',
+                    opacity: busy || !newStaffId || !isNewStaffOnDuty ? 0.6 : 1,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',

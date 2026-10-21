@@ -1,34 +1,48 @@
-import {useState} from 'react';
-import {useNavigate} from 'react-router-dom';
-import {Eye,EyeOff} from 'lucide-react';
+import {useState, useEffect} from 'react';
+import {useLocation, useNavigate} from 'react-router-dom';
+import {Eye, EyeOff, ShieldCheck, Store, AlertCircle} from 'lucide-react';
 import {Button} from '../../components/ui';
-import {authService,resolveRoleRedirect} from '../../services/auth.service';
+import {authService, resolveRoleRedirect} from '../../services/auth.service';
 import {BRAND} from '../../config/brand';
 import {Logo} from '../../layouts/CustomerLayout';
 
-export function AdminLogin(){
- const nav=useNavigate();
- const [show,setShow]=useState(false);
- const [loading,setLoading]=useState(false);
- const [error,setError]=useState('');
+export function AdminLogin({superAdmin: isSuperAdminProp = false}){
+ const location = useLocation();
+ const nav = useNavigate();
+ const isSuperAdmin = isSuperAdminProp || location.pathname.includes('/super-admin');
 
- const submit=async event=>{
+ const [show, setShow] = useState(false);
+ const [loading, setLoading] = useState(false);
+ const [error, setError] = useState('');
+
+ useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  if (params.get('error') === 'deactivated') {
+   setError('Your staff account is currently deactivated. Please contact administrator.');
+  }
+ }, [location.search]);
+
+ const submit = async event => {
   event.preventDefault();
   setLoading(true);
   setError('');
-  const data=new FormData(event.currentTarget);
-  const identifier=data.get('email')?.trim();
-  const password=data.get('password')?.trim();
+  const data = new FormData(event.currentTarget);
+  const identifier = data.get('email')?.trim();
+  const password = data.get('password')?.trim();
 
   try{
-   const user = await authService.adminLogin({identifier,email:identifier,password});
+   const user = isSuperAdmin
+     ? await authService.superAdminLogin({identifier, email: identifier, password})
+     : await authService.adminLogin({identifier, email: identifier, password});
+
    const rolePrompt = (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER') ? 'ADMIN' : (user?.role === 'DELIVERY_PERSON' ? 'DELIVERY' : 'CUSTOMER');
-   sessionStorage.setItem('r2cart-auth-prompt',rolePrompt);
-   const target = resolveRoleRedirect(user, '/admin/dashboard');
+   sessionStorage.setItem('r2cart-auth-prompt', rolePrompt);
+   const defaultTarget = isSuperAdmin ? '/super-admin/dashboard' : '/admin/dashboard';
+   const target = resolveRoleRedirect(user, defaultTarget);
    window.location.assign(target);
   }catch(reason){
-   console.error('Admin login error:', reason);
-   setError(reason.message||'Invalid admin credentials');
+   console.error(`${isSuperAdmin ? 'Super Admin' : 'Admin'} login error:`, reason);
+   setError(reason.message || 'Invalid credentials or unauthorized access.');
   }finally{
    setLoading(false);
   }
@@ -38,37 +52,72 @@ export function AdminLogin(){
   <div className="admin-login-copy">
    <Logo/>
    <div>
-    <span>STORE OPERATIONS</span>
-    <h1>Run your grocery business with clarity.</h1>
-    <p>{BRAND.tagline} Manage orders, stock and customers from one focused workspace.</p>
+    <span>{isSuperAdmin ? 'PLATFORM GOVERNANCE' : 'STORE OPERATIONS'}</span>
+    <h1>{isSuperAdmin ? 'Platform-wide security, controls & governance.' : 'Run your grocery business with clarity.'}</h1>
+    <p>{isSuperAdmin ? 'Centralized control over system security, staff roles, and store configurations.' : `${BRAND.tagline} Manage orders, stock and customers from one focused workspace.`}</p>
    </div>
   </div>
   <form onSubmit={submit}>
-   <span>{BRAND.name.toUpperCase()} ADMIN PORTAL</span>
-   <h2>Welcome back</h2>
-   <p>Sign in to manage your store.</p>
-   {error&&<p className="form-error">{error}</p>}
+   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+    {isSuperAdmin ? <ShieldCheck size={18} style={{ color: '#047857' }} /> : <Store size={18} style={{ color: '#059669' }} />}
+    <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.5px', color: isSuperAdmin ? '#047857' : '#059669' }}>
+     {BRAND.name.toUpperCase()} {isSuperAdmin ? 'SUPER ADMIN PORTAL' : 'STORE ADMIN PORTAL'}
+    </span>
+   </div>
+   <h2>{isSuperAdmin ? 'Super Admin Access' : 'Store Admin Sign In'}</h2>
+   <p>{isSuperAdmin ? 'Sign in to access global governance and security controls.' : 'Sign in to manage store catalog, orders, and fulfillment.'}</p>
+   
+   {error && (
+     <div style={{
+       padding: '12px 14px',
+       borderRadius: '8px',
+       background: '#fef2f2',
+       border: '1.5px solid #fecaca',
+       color: '#b91c1c',
+       fontSize: '13px',
+       marginBottom: '16px',
+       display: 'flex',
+       alignItems: 'center',
+       gap: '10px'
+     }}>
+       <AlertCircle size={16} style={{ flexShrink: 0, color: '#dc2626' }} />
+       <span>{error}</span>
+     </div>
+   )}
+
    <label>
-    Email, Mobile or Staff ID
-    <input name="email" type="text" placeholder="admin@gmail.com or Staff ID" defaultValue="admin@gmail.com" required/>
+    {isSuperAdmin ? 'Super Admin Email or Mobile' : 'Email, Mobile or Staff ID'}
+    <input
+      name="email"
+      type="text"
+      placeholder={isSuperAdmin ? "super@example.com" : "admin@example.com"}
+      required
+    />
    </label>
    <label>
     Password
     <div className="password">
-     <input name="password" type={show?'text':'password'} defaultValue="Admin@123" required/>
+     <input
+       name="password"
+       type={show ? 'text' : 'password'}
+       placeholder="••••••••"
+       required
+     />
      <button type="button" onClick={()=>setShow(!show)} aria-label={show?'Hide password':'Show password'} title={show?'Hide password':'Show password'}>
-      {show?<EyeOff/>:<Eye/>}
+      {show ? <EyeOff size={16} /> : <Eye size={16} />}
      </button>
     </div>
    </label>
-   <div className="row between">
-    <label className="check"><input type="checkbox" defaultChecked/> Remember me</label>
-    <span className="muted">Contact store owner to reset access</span>
+
+   <div className="row between" style={{ marginTop: '4px', marginBottom: '8px' }}>
+    <label className="check"><input type="checkbox" defaultChecked/> Remember session</label>
+    <span className="muted" style={{ fontSize: '12px', color: '#64748b' }}>Authorized access only</span>
    </div>
+
    <Button className="wide" type="submit" disabled={loading}>
-    {loading?'Signing in…':'Sign in to dashboard'}
+    {loading ? 'Authenticating…' : (isSuperAdmin ? 'Sign in as Super Admin' : 'Sign in as Store Admin')}
    </Button>
-   <small>Development credentials are pre-filled</small>
   </form>
  </div>
 }
+

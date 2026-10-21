@@ -76,6 +76,7 @@ export const authService={
  requestPasswordReset:email=>api.post('/auth/forgot-password',{email}),
  resetPassword:payload=>api.post('/auth/reset-password',payload),
  adminLogin:credentials=>api.post('/admin/auth/login',credentials).then(saveAdmin),
+ superAdminLogin:credentials=>api.post('/super-admin/auth/login',credentials).then(saveAdmin),
  deliveryLogin:credentials=>api.post('/delivery/auth/login',credentials).then(saveDelivery),
  me:()=>api.get('/auth/me'),
  async logout(){

@@ -39,7 +39,11 @@ export async function requestFcmToken({ role = 'CUSTOMER' } = {}) {
     // Send token to backend
     const adminToken = localStorage.getItem('grocify-admin-access-token');
     const customerToken = localStorage.getItem('grocify-access-token');
-    const authToken = role === 'ADMIN' ? (adminToken || customerToken) : (customerToken || adminToken);
+    const deliveryToken = localStorage.getItem('grocify-delivery-access-token');
+    let authToken = customerToken;
+    if (role === 'ADMIN') authToken = adminToken || customerToken;
+    else if (role === 'DELIVERY_PERSON') authToken = deliveryToken || adminToken || customerToken;
+    else authToken = customerToken || adminToken || deliveryToken;
 
     await api.post('/notifications/fcm/token', {
       token,

@@ -92,7 +92,14 @@ export function AdminOrders() {
                   <td>{order.items.reduce((sum, item) => sum + item.quantity, 0)}</td>
                   <td><b>{money(order.total)}</b></td>
                   <td>{order.paymentMethod === 'COD' ? 'Cash on Delivery' : order.paymentMethod}</td>
-                  <td><StatusBadge status={order.status} /></td>
+                  <td>
+                    <StatusBadge status={order.status} />
+                    {order.status === 'Delivered' && (
+                      <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600, marginTop: '4px' }}>
+                        ✓ Delivered: {order.deliveredAt ? date(order.deliveredAt) : 'Yes'}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <Link className="icon-btn" aria-label="View order" to={`/admin/orders/${order.id}`}>
@@ -205,6 +212,12 @@ export function AdminOrderDetails() {
         <div>
           <h1>Order #{order.orderNumber}</h1>
           <p>Placed {date(order.date)} · India time</p>
+          {order.status === 'Delivered' && (
+            <p style={{ color: '#4ade80', fontWeight: 700, margin: '4px 0 0 0', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ✓ Delivered on {order.deliveredAt ? date(order.deliveredAt) : 'Delivered'}
+              {order.deliveryPerson?.name ? ` by ${order.deliveryPerson.name}` : ''}
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <Button
@@ -382,7 +395,7 @@ export function AdminOrderDetails() {
                 <Truck size={18} style={{ color: '#38bdf8' }} />
                 <span>Delivery Fulfilment & POD</span>
               </h3>
-              <Link to="/admin/delivery" style={{ fontSize: '12px', color: '#38bdf8', textDecoration: 'none' }}>
+              <Link to="/admin/delivery?tab=assignments" style={{ fontSize: '12px', color: '#38bdf8', textDecoration: 'none' }}>
                 Portal →
               </Link>
             </div>
@@ -407,12 +420,17 @@ export function AdminOrderDetails() {
                     🛵 {order.deliveryAssignments[0].deliveryPerson.vehicleType} {order.deliveryAssignments[0].deliveryPerson.vehicleNumber ? `· ${order.deliveryAssignments[0].deliveryPerson.vehicleNumber}` : ''}
                   </p>
                 )}
+                {(order.deliveryAssignments[0].deliveredAt || order.deliveredAt) && (
+                  <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#4ade80', fontWeight: 600 }}>
+                    ✓ Delivered At: {date(order.deliveryAssignments[0].deliveredAt || order.deliveredAt)}
+                  </p>
+                )}
               </div>
             ) : (
               <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.2)', marginBottom: '12px' }}>
                 <span style={{ fontSize: '12px', color: '#eab308' }}>⚠️ No delivery driver assigned yet.</span>
                 <div style={{ marginTop: '8px' }}>
-                  <Link to="/admin/delivery" className="btn btn-outline" style={{ display: 'inline-block', fontSize: '11px', padding: '4px 10px' }}>
+                  <Link to={`/admin/delivery?tab=assignments&orderNumber=${order.orderNumber}&orderId=${order.id}`} className="btn btn-outline" style={{ display: 'inline-block', fontSize: '11px', padding: '4px 10px' }}>
                     Assign Driver Now
                   </Link>
                 </div>

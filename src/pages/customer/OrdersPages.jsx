@@ -21,15 +21,30 @@ import {
   AlertCircle,
   ChevronRight,
   XCircle,
-  Edit2
+  Edit2,
+  MessageSquare
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { EmptyState, StatusBadge, money, Button, Modal } from '../../components/ui';
 import { addressText } from '../../utils/address';
 import { orderService } from '../../services/order.service';
+import { DeliveryChatModal } from '../../components/DeliveryChatModal';
 
 const orderItems = o => (o.items || []).filter(Boolean);
 const orderLabel = o => o.orderNumber || o.id;
+export const formatDateTime = (val) => {
+  if (!val) return null;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  return d.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
 const paymentLabel = order =>
   typeof order?.payment === 'object'
     ? order.paymentMethod === 'COD'
@@ -501,6 +516,7 @@ export function OrdersPage() {
   const [search, setSearch] = useState('');
   const [cancelTarget, setCancelTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
+  const [chatTarget, setChatTarget] = useState(null);
   const nav = useNavigate();
 
   // If customer is not logged in, prompt sign-in with clean state
@@ -706,6 +722,7 @@ export function OrdersPage() {
                 onReorder={e => handleReorder(order, e)}
                 onCancel={order => setCancelTarget(order)}
                 onEdit={order => setEditTarget(order)}
+                onChat={order => setChatTarget(order)}
               />
             ))}
           </div>
@@ -742,11 +759,18 @@ export function OrdersPage() {
         onClose={() => setEditTarget(null)}
         onUpdated={handleUpdateDetails}
       />
+
+      <DeliveryChatModal
+        order={chatTarget}
+        isOpen={Boolean(chatTarget)}
+        onClose={() => setChatTarget(null)}
+        role="CUSTOMER"
+      />
     </div>
   );
 }
 
-function OrderCardV2({ order, onReorder, onCancel, onEdit }) {
+function OrderCardV2({ order, onReorder, onCancel, onEdit, onChat }) {
   const [copied, setCopied] = useState(false);
   const items = orderItems(order);
   const isScheduled = order.deliveryType === 'SCHEDULED';
@@ -886,6 +910,34 @@ function OrderCardV2({ order, onReorder, onCancel, onEdit }) {
         </div>
       )}
 
+      {/* Delivery Confirmation Strip for completed orders */}
+      {order.status === 'Delivered' && (
+        <div style={{
+          margin: '10px 14px 4px',
+          background: '#ecfdf5',
+          border: '1px solid #a7f3d0',
+          borderRadius: '10px',
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '8px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#065f46' }}>
+            <CheckCircle2 size={18} style={{ color: '#059669', flexShrink: 0 }} />
+            <span style={{ fontSize: '13px', fontWeight: 600 }}>
+              Delivered on <b>{formatDateTime(order.deliveredAt || order.date)}</b>
+            </span>
+          </div>
+          {order.deliveryPerson?.name && (
+            <span style={{ fontSize: '11.5px', color: '#047857', background: '#d1fae5', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+              Delivered by {order.deliveryPerson.name}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Middle Body: Products Thumbnails and Summary */}
       <div className="order-card-v2-body">
         <div className="order-card-items-col">
@@ -956,6 +1008,23 @@ function OrderCardV2({ order, onReorder, onCancel, onEdit }) {
         </div>
 
         <div className="order-card-btn-actions">
+          {order.status === 'Out for Delivery' && onChat && (
+            <button
+              type="button"
+              className="order-btn-cancel"
+              style={{ color: '#0284c7', borderColor: '#7dd3fc', background: '#f0f9ff' }}
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                onChat?.(order);
+              }}
+              title="Chat with your delivery rider"
+            >
+              <MessageSquare size={13} />
+              <span>Chat Rider</span>
+            </button>
+          )}
+
           {canCancel && onEdit && (
             <button
               type="button"
@@ -1015,8 +1084,20 @@ export function OrderDetailPage() {
   const [copied, setCopied] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [freshOrder, setFreshOrder] = useState(null);
 
-  const order = orderList.find(x => x.id === id) || orderList.find(x => x.orderNumber === id);
+  useEffect(() => {
+    if (id) {
+      orderService.get(id).then(res => {
+        const o = res?.data || res?.order || res;
+        if (o) setFreshOrder(o);
+      }).catch(err => console.error('Failed to load fresh order details:', err));
+    }
+  }, [id]);
+
+  const baseOrder = orderList.find(x => x.id === id) || orderList.find(x => x.orderNumber === id);
+  const order = freshOrder || baseOrder;
 
   if (!order) {
     return (
@@ -1123,27 +1204,53 @@ export function OrderDetailPage() {
                 Your order is currently Out for Delivery!
               </b>
               <span style={{ fontSize: '12.5px', color: '#0284c7' }}>
-                Online cancellation and detail modifications are closed. If you need urgent assistance, our support team is available.
+                {order.deliveryPerson?.name
+                  ? `Rider ${order.deliveryPerson.name} is on the way with your grocery basket.`
+                  : 'Online cancellation and detail modifications are closed. If you need urgent assistance, our team is available.'}
               </span>
             </div>
           </div>
-          <Link
-            to={`/support?orderId=${orderLabel(order)}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 14px',
-              background: '#0284c7',
-              color: '#ffffff',
-              borderRadius: '8px',
-              fontSize: '12.5px',
-              fontWeight: 700,
-              textDecoration: 'none'
-            }}
-          >
-            Contact Customer Support
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setChatModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: '#059669',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <MessageSquare size={14} />
+              <span>Chat with Rider {order.deliveryPerson?.name ? `(${order.deliveryPerson.name})` : ''}</span>
+            </button>
+            <Link
+              to={`/support?orderId=${orderLabel(order)}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: '#0284c7',
+                color: '#ffffff',
+                borderRadius: '8px',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                textDecoration: 'none'
+              }}
+            >
+              Contact Customer Support
+            </Link>
+          </div>
         </div>
       )}
 
@@ -1173,6 +1280,13 @@ export function OrderDetailPage() {
               minute: '2-digit'
             }) : 'Recent'}
           </p>
+          {isDelivered && (
+            <p style={{ color: '#047857', fontSize: '12.5px', margin: '4px 0 0', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <CheckCircle2 size={15} color="#059669" />
+              Delivered on {formatDateTime(order.deliveredAt || order.date)}
+              {order.deliveryPerson?.name ? ` · by ${order.deliveryPerson.name}` : ''}
+            </p>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -1249,7 +1363,76 @@ export function OrderDetailPage() {
                 </span>
               )}
             </h3>
-            <OrderDetailTimeline status={order.status} />
+            <OrderDetailTimeline status={order.status} order={order} />
+
+            {/* Assigned Rider Card if order is out for delivery or has deliveryPerson */}
+            {(isOutForDelivery || order.deliveryPerson) && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  padding: '14px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      background: '#ecfdf5',
+                      color: '#059669',
+                      display: 'grid',
+                      placeItems: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Truck size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{order.deliveryPerson?.name || 'Assigned Delivery Partner'}</span>
+                      <span style={{ fontSize: '10.5px', fontWeight: 700, background: '#ecfdf5', color: '#059669', padding: '1px 6px', borderRadius: '6px' }}>
+                        Rider
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                      {[order.deliveryPerson?.vehicleType, order.deliveryPerson?.vehicleNumber].filter(Boolean).join(' · ') || 'Out on delivery vehicle'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setChatModalOpen(true)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      background: '#059669',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
+                    }}
+                  >
+                    <MessageSquare size={13} /> Chat with Rider
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Itemized Products */}
@@ -1342,7 +1525,23 @@ export function OrderDetailPage() {
               <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
                 DELIVERY TIME
               </span>
-              {isScheduled ? (
+              {isDelivered ? (
+                <div style={{
+                  background: '#ecfdf5',
+                  border: '1px solid #a7f3d0',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  color: '#065f46',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <CheckCircle2 size={16} color="#059669" />
+                  <span>Delivered on {formatDateTime(order.deliveredAt || order.date)}</span>
+                </div>
+              ) : isScheduled ? (
                 <div className="delivery-type-pill scheduled">
                   📅 {order.deliveryDate} · {order.deliverySlot}
                 </div>
@@ -1483,17 +1682,34 @@ export function OrderDetailPage() {
         onClose={() => setEditModalOpen(false)}
         onUpdated={handleUpdateDetails}
       />
+
+      <DeliveryChatModal
+        order={order}
+        isOpen={chatModalOpen}
+        onClose={() => setChatModalOpen(false)}
+        role="CUSTOMER"
+      />
     </div>
   );
 }
 
-function OrderDetailTimeline({ status }) {
+function OrderDetailTimeline({ status, order }) {
+  const isDelivered = status === 'Delivered';
+  const deliveredTimestampText = order?.deliveredAt ? formatDateTime(order.deliveredAt) : null;
+  const deliveryPersonName = order?.deliveryPerson?.name;
+
   const steps = [
-    { key: 'New', label: 'Order Placed', desc: 'Received & logged' },
+    { key: 'New', label: 'Order Placed', desc: order?.date ? `Placed on ${formatDateTime(order.date)}` : 'Received & logged' },
     { key: 'Confirmed', label: 'Confirmed', desc: 'Accepted by store' },
     { key: 'Packing', label: 'Packing', desc: 'Packed at local hub' },
-    { key: 'Out for Delivery', label: 'Out for Delivery', desc: 'Rider on the way' },
-    { key: 'Delivered', label: 'Delivered', desc: 'Completed' }
+    { key: 'Out for Delivery', label: 'Out for Delivery', desc: deliveryPersonName ? `Out with ${deliveryPersonName}` : 'Rider on the way' },
+    {
+      key: 'Delivered',
+      label: 'Delivered',
+      desc: isDelivered && deliveredTimestampText
+        ? `Delivered on ${deliveredTimestampText}${deliveryPersonName ? ` · by ${deliveryPersonName}` : ''}`
+        : 'Completed'
+    }
   ];
 
   let currentIdx = 0;
@@ -1577,9 +1793,21 @@ function OrderDetailTimeline({ status }) {
                   </span>
                 )}
               </div>
-              <small style={{ fontSize: '11.5px', color: isDone ? '#64748b' : '#cbd5e1' }}>
+              <small style={{ fontSize: '11.5px', color: isDone ? (s.key === 'Delivered' && isDelivered ? '#059669' : '#64748b') : '#cbd5e1', fontWeight: s.key === 'Delivered' && isDelivered ? 600 : 400 }}>
                 {s.desc}
               </small>
+              {s.key === 'Delivered' && isDelivered && order?.deliveryProof?.cloudinaryUrl && (
+                <div style={{ marginTop: '4px' }}>
+                  <a
+                    href={order.deliveryProof.cloudinaryUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: '11.5px', color: '#0284c7', textDecoration: 'underline', fontWeight: 600 }}
+                  >
+                    View Proof Photo
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         );

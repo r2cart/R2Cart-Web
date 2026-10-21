@@ -1,16 +1,17 @@
 import {useEffect,useState} from 'react';
 import {Link,useNavigate} from 'react-router-dom';
-import {ArrowLeft,CheckCircle2,Eye,EyeOff} from 'lucide-react';
+import {ArrowLeft,CheckCircle2,Eye,EyeOff,AlertCircle} from 'lucide-react';
 import {useApp} from '../../context/AppContext';
 import {Button} from '../../components/ui';
 import {authService,resolveRoleRedirect} from '../../services/auth.service';
 import {BRAND} from '../../config/brand';
 import {Logo} from '../../layouts/CustomerLayout';
-export function LoginPage({signup=false}){
+ export function LoginPage({signup=false}){
  const nav=useNavigate();
  const {setUser,notify}=useApp();
  const [form,setForm]=useState({name:'',email:'',mobile:'',password:'',confirmPassword:''});
  const [loading,setLoading]=useState(false);
+ const [authError,setAuthError]=useState('');
 
  const params=new URLSearchParams(window.location.search);
  const redirect=params.get('redirect')||sessionStorage.getItem('grocify-auth-redirect')||'/';
@@ -18,6 +19,7 @@ export function LoginPage({signup=false}){
 
  const submit=async e=>{
   e.preventDefault();
+  setAuthError('');
   if(signup&&form.password!==form.confirmPassword)return notify('Passwords do not match','error');
   setLoading(true);
   try{
@@ -38,6 +40,7 @@ export function LoginPage({signup=false}){
     window.location.replace(targetPath);
    }
   }catch(error){
+   setAuthError(error.message);
    notify(error.message,'error');
   }finally{
    setLoading(false);
@@ -45,7 +48,24 @@ export function LoginPage({signup=false}){
  };
 
  return (
-  <AuthShell title={signup?'Create your account':`Welcome to ${BRAND.name}`} text={signup?'Create a password, then verify your email with OTP.':'Sign in with your email, mobile, or assigned Delivery Staff ID.'}>
+  <AuthShell title={signup?'Create your account':`Welcome to ${BRAND.name}`} text={signup?'Create a password, then verify your email with OTP.':'Sign in with your email or mobile number.'}>
+   {authError && (
+     <div style={{
+       padding: '12px 14px',
+       borderRadius: '8px',
+       background: '#fef2f2',
+       border: '1.5px solid #fecaca',
+       color: '#b91c1c',
+       fontSize: '13px',
+       marginBottom: '16px',
+       display: 'flex',
+       alignItems: 'center',
+       gap: '10px'
+     }}>
+       <AlertCircle size={16} style={{ flexShrink: 0, color: '#dc2626' }} />
+       <span>{authError}</span>
+     </div>
+   )}
    <form className="auth-form" onSubmit={submit}>
     {signup&&<label>Full name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your full name"/></label>}
     {signup?(

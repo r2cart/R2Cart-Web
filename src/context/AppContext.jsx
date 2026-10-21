@@ -1,4 +1,4 @@
-import {createContext,useContext,useEffect,useMemo,useState} from 'react';
+import {createContext,useCallback,useContext,useEffect,useMemo,useState} from 'react';
 import {storage} from '../services/storage.service';
 import {customerService} from '../services/customer.service';
 import {authService} from '../services/auth.service';
@@ -18,6 +18,8 @@ function clearLegacyDemoSession(){
   if(isInvalidCustomer(stored)){
    localStorage.removeItem('grocify-access-token');
    storage.remove('user');
+   storage.remove('location');
+   storage.remove('active_address_id');
   }
  }catch{}
 }
@@ -28,6 +30,8 @@ export function AppProvider({children}){
  const [user,setUserState]=useState(()=>{if(!onlineSession()){storage.remove('user');return null}const stored=storage.get('user',null);if(isInvalidCustomer(stored)){localStorage.removeItem('grocify-access-token');storage.remove('user');return null}return stored});
  const [location,setLocation]=useState(DEFAULT_LOCATION);
  const [addressList,setAddressList]=useState([]);
+ const [addressesLoaded,setAddressesLoaded]=useState(false);
+ const [activeAddressId,setActiveAddressId]=useState(()=>storage.get('active_address_id',null));
  const [orderList,setOrderList]=useState([]);
  const [categories,setCategories]=useState([]);
  const [products,setProducts]=useState([]);
@@ -54,17 +58,35 @@ export function AppProvider({children}){
  function onlineSession(){return Boolean(localStorage.getItem('grocify-access-token'))}
  const online=onlineSession;
  const setUser=value=>{setUserState(value);if(value)storage.set('user',value);else storage.remove('user')};
- const clearCustomerView=()=>{setUserState(null);setAddressList([]);setLocation(DEFAULT_LOCATION);storage.remove('user');storage.remove('location')};
+ const clearCustomerView=()=>{setUserState(null);setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION);storage.remove('user');storage.remove('location');storage.remove('active_address_id')};
  const logout=async()=>{try{await authService.logout()}finally{clearCustomerView()}};
  useEffect(()=>{if(!isInvalidCustomer(user))return;authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView()},[user]);
- useEffect(()=>{storage.remove('location');if(!user?.id){setAddressList([]);setLocation(DEFAULT_LOCATION)}},[user?.id]);
+ useEffect(()=>{storage.remove('location');if(!user?.id){setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION)}},[user?.id]);
  useEffect(()=>{if(user?.id&&location!==DEFAULT_LOCATION)storage.set(`location-${user.id}`,location)},[location,user?.id]);
  useEffect(()=>{
   if(!online())return;
   const localCart=storage.get('cart',{});
   const syncPromises=Object.entries(localCart).filter(([,q])=>q>0).map(([id,q])=>customerService.setCartItem(id,q).catch(()=>{}));
-  Promise.all(syncPromises).then(()=>Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()])).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView();return null}const addresses=remoteAddresses.map(addressView);setUser(profile);setCart(remoteCart.cart);setFavorites(remoteFavorites.map(p=>p.id));setAddressList(addresses);const savedLocation=storage.get(`location-${profile.id}`,'');const defaultAddress=addresses.find(address=>address.default)||addresses[0];setLocation(savedLocation||formatLocation(defaultAddress));return orderService.list()}).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{
-    // Only clear session if genuinely unauthenticated (and not during server restart/deployment)
+  Promise.all(syncPromises).then(()=>Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()])).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{
+    if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView();return null}
+    const addresses=remoteAddresses.map(addressView);
+    setUser(profile);
+    setCart(remoteCart.cart);
+    setFavorites(remoteFavorites.map(p=>p.id));
+    setAddressList(addresses);
+    setAddressesLoaded(true);
+    const savedLocation=storage.get(`location-${profile.id}`,'');
+    const savedAddressId=storage.get('active_address_id',null);
+    const matchedActive=savedAddressId&&addresses.find(a=>a.id===savedAddressId);
+    const defaultAddress=matchedActive||addresses.find(address=>address.default)||addresses[0];
+    if(defaultAddress){
+      if(!savedAddressId)setActiveAddressId(defaultAddress.id);
+      setLocation(savedLocation||formatLocation(defaultAddress));
+    }else{
+      setLocation(DEFAULT_LOCATION);
+    }
+    return orderService.list();
+  }).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{
     if((error?.status===401||error?.status===403)&&error?.message?.toLowerCase().includes('invalid')){
       localStorage.removeItem('grocify-access-token');
       localStorage.removeItem('grocify-refresh-token');
@@ -95,7 +117,45 @@ export function AppProvider({children}){
  const refreshCategories=async()=>{try{const rows=await catalogService.listCategories();setCategories(rows.map(category=>({...category,image:mediaUrl(category.image)||grocifyLogo})));catalogResult('categories');return rows}catch(error){catalogResult('categories',error.message);return []}};
  const refreshProducts=async()=>{try{const rows=await catalogService.listProducts();setProducts(rows.map(product=>({...product,image:mediaUrl(product.image)||grocifyLogo,images:(product.images||[]).map(mediaUrl)})));catalogResult('products');return rows}catch(error){catalogResult('products',error.message);return []}};
  const refreshBanners=async()=>{try{const rows=await catalogService.listBanners();setBanners(rows.map(banner=>({...banner,image:mediaUrl(banner.image)})));catalogResult('banners');return rows}catch(error){catalogResult('banners',error.message);return []}};
- const refreshDelivery=async()=>{try{const [settings,deliveryData]=await Promise.all([catalogService.getStoreSettings(),catalogService.listDelivery()]);setStoreSettings(settings);const rawZones=Array.isArray(deliveryData)?deliveryData:[...(deliveryData?.areas||[]),...(deliveryData?.villages||[]).map(v=>({id:v.id,name:v.name,localities:[v.name],deliveryFee:Number(v.deliveryFee),minimumOrder:Number(v.minimumOrder),freeDeliveryThreshold:Number(v.freeDeliveryThreshold),estimatedMinutes:30,radiusKm:Number(v.radiusKm||5),isVillage:true}))];setDeliveryZones(rawZones.map(zone=>({...zone,localities:zone.localities||zone.pincodes||[zone.name]})));catalogResult('delivery');return rawZones}catch(error){catalogResult('delivery',error.message);return []}};
+ const refreshDelivery=async()=>{
+  try{
+    const [settings,deliveryData]=await Promise.all([catalogService.getStoreSettings(),catalogService.listDelivery()]);
+    setStoreSettings(settings);
+    // Prioritize village overrides FIRST before broader area zones
+    const villageZones=(deliveryData?.villages||[]).map(v=>({
+      id:v.id,
+      name:v.name,
+      localities:[v.name],
+      deliveryFee:Number(v.deliveryFee),
+      minimumOrder:Number(v.minimumOrder),
+      freeDeliveryThreshold:Number(v.freeDeliveryThreshold),
+      estimatedMinutes:Number(v.estimatedMinutes||30),
+      radiusKm:Number(v.radiusKm||5),
+      allowCod:v.allowCod??true,
+      allowScheduled:v.allowScheduled??true,
+      isVillage:true
+    }));
+    const areaZones=(deliveryData?.areas||[]).map(a=>({
+      ...a,
+      localities:a.localities||a.pincodes||[a.name],
+      deliveryFee:Number(a.deliveryFee),
+      minimumOrder:Number(a.minimumOrder),
+      freeDeliveryThreshold:Number(a.freeDeliveryThreshold),
+      estimatedMinutes:Number(a.estimatedMinutes||20),
+      radiusKm:Number(a.radiusKm||5),
+      allowCod:a.allowCod??true,
+      allowScheduled:a.allowScheduled??true,
+      isVillage:false
+    }));
+    const rawZones=Array.isArray(deliveryData)?deliveryData:[...villageZones,...areaZones];
+    setDeliveryZones(rawZones.map(zone=>({...zone,localities:zone.localities||zone.pincodes||[zone.name]})));
+    catalogResult('delivery');
+    return rawZones;
+  }catch(error){
+    catalogResult('delivery',error.message);
+    return [];
+  }
+ };
  useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('focus',refresh);window.addEventListener('grocify:categories-updated',refresh);window.addEventListener('grocify:products-updated',refresh);window.addEventListener('grocify:banners-updated',refresh);window.addEventListener('grocify:delivery-updated',refresh);window.addEventListener('grocify:settings-updated',refresh);return()=>{window.removeEventListener('focus',refresh);window.removeEventListener('grocify:categories-updated',refresh);window.removeEventListener('grocify:products-updated',refresh);window.removeEventListener('grocify:banners-updated',refresh);window.removeEventListener('grocify:delivery-updated',refresh);window.removeEventListener('grocify:settings-updated',refresh)}},[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
  const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
@@ -105,8 +165,103 @@ export function AppProvider({children}){
  const cartItems=useMemo(()=>products.filter(p=>cart[p.id]).map(p=>({...p,qty:cart[p.id]})),[cart,products]);
  const subtotal=cartItems.reduce((sum,p)=>sum+p.price*p.qty,0),mrpTotal=cartItems.reduce((sum,p)=>sum+p.mrp*p.qty,0);
  const deliveryConfig=useMemo(()=>({minimumOrder:Number(storeSettings?.minimumOrder||0),deliveryFee:Number(storeSettings?.deliveryFee||0),freeDeliveryThreshold:Number(storeSettings?.freeDeliveryThreshold||0),estimatedDelivery:storeSettings?.estimatedDelivery||'Delivery estimate unavailable'}),[storeSettings]);
- const availableLocalities=useMemo(()=>[...new Set(deliveryZones.flatMap(zone=>zone.localities))],[deliveryZones]);
- const deliveryRulesFor=area=>{const zone=deliveryZones.find(item=>item.localities.some(locality=>locality.toLowerCase()===String(area||'').trim().toLowerCase()));return zone?{zoneId:zone.id,zoneName:zone.name,minimumOrder:Number(zone.minimumOrder),deliveryFee:Number(zone.deliveryFee),freeDeliveryThreshold:Number(zone.freeDeliveryThreshold),estimatedDelivery:`${zone.estimatedMinutes} minutes`}:area?null:deliveryConfig};
- return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
+ const availableLocalities=useMemo(()=>{
+  const set=new Set();
+  deliveryZones.forEach(zone=>{
+    if(zone.isVillage&&zone.name)set.add(zone.name);
+    else if(Array.isArray(zone.localities))zone.localities.forEach(loc=>set.add(loc));
+  });
+  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+ },[deliveryZones]);
+
+ const deliveryRulesFor=useCallback(area=>{
+  const clean=String(area||'').trim().toLowerCase();
+  if(!clean)return deliveryConfig;
+
+  // 1. First priority: Exact Village override
+  const villageMatch=deliveryZones.find(item=>item.isVillage&&String(item.name||'').trim().toLowerCase()===clean);
+  if(villageMatch){
+    return {
+      zoneId:villageMatch.id,
+      zoneName:villageMatch.name,
+      minimumOrder:Number(villageMatch.minimumOrder),
+      deliveryFee:Number(villageMatch.deliveryFee),
+      freeDeliveryThreshold:Number(villageMatch.freeDeliveryThreshold),
+      estimatedDelivery:`${villageMatch.estimatedMinutes||30} minutes`,
+      radiusKm:Number(villageMatch.radiusKm||5),
+      allowCod:villageMatch.allowCod??true,
+      allowScheduled:villageMatch.allowScheduled??true,
+      isVillage:true
+    };
+  }
+
+  // 2. Second priority: Area / Zone locality match
+  const areaMatch=deliveryZones.find(item=>!item.isVillage&&Array.isArray(item.localities)&&item.localities.some(loc=>String(loc||'').trim().toLowerCase()===clean));
+  if(areaMatch){
+    return {
+      zoneId:areaMatch.id,
+      zoneName:areaMatch.name,
+      minimumOrder:Number(areaMatch.minimumOrder),
+      deliveryFee:Number(areaMatch.deliveryFee),
+      freeDeliveryThreshold:Number(areaMatch.freeDeliveryThreshold),
+      estimatedDelivery:`${areaMatch.estimatedMinutes||20} minutes`,
+      radiusKm:Number(areaMatch.radiusKm||5),
+      allowCod:areaMatch.allowCod??true,
+      allowScheduled:areaMatch.allowScheduled??true,
+      isVillage:false
+    };
+  }
+
+  // 3. Fallback: Any zone containing the locality
+  const anyMatch=deliveryZones.find(item=>Array.isArray(item.localities)&&item.localities.some(loc=>String(loc||'').trim().toLowerCase()===clean));
+  if(anyMatch){
+    return {
+      zoneId:anyMatch.id,
+      zoneName:anyMatch.name,
+      minimumOrder:Number(anyMatch.minimumOrder),
+      deliveryFee:Number(anyMatch.deliveryFee),
+      freeDeliveryThreshold:Number(anyMatch.freeDeliveryThreshold),
+      estimatedDelivery:`${anyMatch.estimatedMinutes||25} minutes`,
+      radiusKm:Number(anyMatch.radiusKm||5),
+      allowCod:anyMatch.allowCod??true,
+      allowScheduled:anyMatch.allowScheduled??true,
+      isVillage:Boolean(anyMatch.isVillage)
+    };
+  }
+
+  return null;
+ },[deliveryZones,deliveryConfig]);
+
+ const activeAddress=useMemo(()=>{
+  if(!addressList.length)return null;
+  if(activeAddressId){
+    const found=addressList.find(a=>a.id===activeAddressId);
+    if(found)return found;
+  }
+  return addressList.find(a=>a.default)||addressList[0]||null;
+ },[addressList,activeAddressId]);
+
+ const setActiveAddress=useCallback(addrOrId=>{
+  const addr=typeof addrOrId==='object'?addrOrId:addressList.find(a=>a.id===addrOrId);
+  const id=addr?.id||(typeof addrOrId==='string'?addrOrId:null);
+  setActiveAddressId(id);
+  if(id)storage.set('active_address_id',id);
+  else storage.remove('active_address_id');
+  if(addr){
+    const locStr=`${addr.line}, ${addr.cityLine||addr.area||addr.city}`;
+    setLocation(locStr);
+    if(user?.id)storage.set(`location-${user.id}`,locStr);
+  }
+ },[addressList,user?.id]);
+
+ const activeDeliveryRules=useMemo(()=>{
+  if(activeAddress?.area){
+    const rules=deliveryRulesFor(activeAddress.area);
+    if(rules)return rules;
+  }
+  return deliveryConfig;
+ },[activeAddress,deliveryRulesFor,deliveryConfig]);
+
+ return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,addressesLoaded,activeAddress,setActiveAddress,activeDeliveryRules,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
 }
 export const useApp=()=>useContext(Ctx);

@@ -34,8 +34,107 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
+  // Live Camera state & refs
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState('environment');
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+    setCameraLoading(false);
+  };
+
+  const startCamera = async (facing = cameraFacing) => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    try {
+      setCameraLoading(true);
+      setError('');
+      setIsCameraActive(true);
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+
+      const constraints = {
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        try { await videoRef.current.play(); } catch {}
+      }
+      setCameraLoading(false);
+    } catch (err) {
+      console.warn('Live camera start failed, fallback to native file capture:', err);
+      stopCamera();
+      cameraInputRef.current?.click();
+      setError('Live camera could not be opened directly. Falling back to device camera/file picker.');
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraActive && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(e => console.warn('Video play error:', e));
+    }
+  }, [isCameraActive]);
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
+
+  const handleCapturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setError('Failed to capture photo frame. Please try again.');
+        return;
+      }
+      const file = new File([blob], `proof-${order?.orderNumber || 'delivery'}-${Date.now()}.jpg`, {
+        type: 'image/jpeg'
+      });
+      setPhotoFile(file);
+      setPhotoPreview(canvas.toDataURL('image/jpeg', 0.88));
+      stopCamera();
+    }, 'image/jpeg', 0.88);
+  };
+
+  const handleToggleCameraFacing = () => {
+    const nextFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+    setCameraFacing(nextFacing);
+    startCamera(nextFacing);
+  };
 
   // Sync state whenever order prop changes
   useEffect(() => {
@@ -50,6 +149,7 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
       setError('');
       setPhotoFile(null);
       setPhotoPreview(null);
+      stopCamera();
     }
   }, [order]);
 
@@ -74,10 +174,18 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
   };
 
   const handleResetPhoto = () => {
+    stopCamera();
     setPhotoFile(null);
     setPhotoPreview(null);
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
+  };
+
+  const handleModalClose = () => {
+    if (!uploading) {
+      stopCamera();
+      onClose();
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -129,7 +237,7 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
   return (
     <Modal
       open={open}
-      onClose={() => !uploading && onClose()}
+      onClose={handleModalClose}
       size="pod-modal"
       title={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: '8px' }}>
@@ -269,89 +377,191 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
 
           {/* 2. Photo Proof Capture Card */}
           <div style={{
-            border: photoPreview ? '2px solid #059669' : '2px dashed #86efac',
+            border: photoPreview ? '2px solid #059669' : isCameraActive ? '2px solid #10b981' : '2px dashed #86efac',
             borderRadius: '16px',
-            padding: photoPreview ? '10px' : '18px 16px',
+            padding: photoPreview ? '10px' : isCameraActive ? '8px' : '16px 14px',
             textAlign: 'center',
-            background: photoPreview ? '#09090b' : 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)',
+            background: photoPreview || isCameraActive ? '#09090b' : 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)',
             position: 'relative',
             transition: 'all 0.2s ease'
           }}>
             {photoPreview ? (
-              <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-                <img
-                  src={photoPreview}
-                  alt="Delivery proof preview"
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                  <img
+                    src={photoPreview}
+                    alt="Delivery proof preview"
+                    style={{
+                      maxHeight: '210px',
+                      maxWidth: '100%',
+                      objectFit: 'contain',
+                      borderRadius: '10px'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleResetPhoto}
+                    style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      background: 'rgba(0,0,0,0.75)',
+                      backdropFilter: 'blur(4px)',
+                      color: '#fff',
+                      border: '1px solid rgba(255,255,255,0.25)',
+                      borderRadius: '20px',
+                      padding: '5px 12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Retake photo"
+                  >
+                    <RefreshCw size={12} /> Retake
+                  </button>
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '8px',
+                    left: '8px',
+                    background: 'rgba(5, 150, 105, 0.95)',
+                    backdropFilter: 'blur(4px)',
+                    color: '#fff',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    <CheckCircle2 size={12} /> Photo Attached ({photoFile ? (photoFile.size / 1024 / 1024).toFixed(1) + ' MB' : 'Ready'})
+                  </div>
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '11.5px', fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <CheckCircle2 size={13} />
+                  <span>Parcel photo verified & attached</span>
+                </div>
+              </div>
+            ) : isCameraActive ? (
+              <div style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', background: '#000000' }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
                   style={{
+                    width: '100%',
                     maxHeight: '230px',
-                    maxWidth: '100%',
-                    objectFit: 'contain',
+                    objectFit: 'cover',
+                    display: cameraLoading ? 'none' : 'block',
                     borderRadius: '10px'
                   }}
                 />
-                <button
-                  type="button"
-                  onClick={handleResetPhoto}
-                  style={{
-                    position: 'absolute',
-                    top: '8px',
-                    right: '8px',
-                    background: 'rgba(0,0,0,0.72)',
-                    backdropFilter: 'blur(4px)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    borderRadius: '20px',
-                    padding: '5px 12px',
-                    cursor: 'pointer',
+                {cameraLoading && (
+                  <div style={{ padding: '36px 20px', color: '#10b981', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                    <LoaderCircle className="spin" size={28} />
+                    <span style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>Starting camera...</span>
+                  </div>
+                )}
+                {!cameraLoading && (
+                  <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '5px',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Retake photo"
-                >
-                  <RefreshCw size={12} /> Retake
-                </button>
-                <div style={{
-                  position: 'absolute',
-                  bottom: '8px',
-                  left: '8px',
-                  background: 'rgba(5, 150, 105, 0.95)',
-                  backdropFilter: 'blur(4px)',
-                  color: '#fff',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  <CheckCircle2 size={12} /> Photo Attached ({photoFile ? (photoFile.size / 1024 / 1024).toFixed(1) + ' MB' : 'Ready'})
-                </div>
+                    justifyContent: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    background: 'rgba(0,0,0,0.85)',
+                    backdropFilter: 'blur(6px)'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={handleToggleCameraFacing}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.15)',
+                        color: '#ffffff',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                      title="Switch front/back camera"
+                    >
+                      <RefreshCw size={12} /> Switch
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCapturePhoto}
+                      style={{
+                        height: '38px',
+                        padding: '0 20px',
+                        borderRadius: '20px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#ffffff',
+                        border: '2px solid #ffffff',
+                        boxShadow: '0 0 14px rgba(16, 185, 129, 0.5)',
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '7px'
+                      }}
+                    >
+                      <Camera size={16} /> Snap Photo
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        color: '#fca5a5',
+                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      <X size={12} /> Cancel
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div>
                 <div style={{
-                  width: '50px',
-                  height: '50px',
-                  borderRadius: '14px',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
                   background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
                   color: '#059669',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  margin: '0 auto 10px',
+                  margin: '0 auto 8px',
                   boxShadow: '0 4px 10px rgba(5, 150, 105, 0.12)'
                 }}>
-                  <Camera size={25} />
+                  <Camera size={22} />
                 </div>
-                <div style={{ fontSize: '14px', color: '#065f46', fontWeight: 800, marginBottom: '2px' }}>
+                <div style={{ fontSize: '13.5px', color: '#065f46', fontWeight: 800, marginBottom: '2px' }}>
                   Capture Delivery Proof Photo <span style={{ color: '#ef4444' }}>*</span>
                 </div>
-                <p style={{ margin: '0 auto 14px', fontSize: '12px', color: '#047857', maxWidth: '380px', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 auto 12px', fontSize: '11.5px', color: '#047857', maxWidth: '380px', lineHeight: 1.4 }}>
                   Take a clear photo of the delivered parcel at the customer doorstep or handed over.
                 </p>
 
@@ -366,15 +576,15 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
                   />
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => startCamera('environment')}
                     style={{
-                      height: '40px',
-                      padding: '0 18px',
+                      height: '38px',
+                      padding: '0 16px',
                       borderRadius: '10px',
                       border: 'none',
                       background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                       color: '#ffffff',
-                      fontSize: '13px',
+                      fontSize: '12.5px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       display: 'inline-flex',
@@ -384,7 +594,7 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <Camera size={15} /> Open Camera
+                    <Camera size={14} /> Open Camera
                   </button>
 
                   <input
@@ -398,13 +608,13 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
                     type="button"
                     onClick={() => galleryInputRef.current?.click()}
                     style={{
-                      height: '40px',
-                      padding: '0 16px',
+                      height: '38px',
+                      padding: '0 15px',
                       borderRadius: '10px',
                       border: '1.5px solid #a7f3d0',
                       background: '#ffffff',
                       color: '#059669',
-                      fontSize: '13px',
+                      fontSize: '12.5px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       display: 'inline-flex',
@@ -415,11 +625,25 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
                     onMouseOver={e => e.currentTarget.style.background = '#f0fdf4'}
                     onMouseOut={e => e.currentTarget.style.background = '#ffffff'}
                   >
-                    <ImageIcon size={15} /> Choose from Gallery
+                    <ImageIcon size={14} /> Choose from Gallery
                   </button>
                 </div>
-                <div style={{ marginTop: '10px', fontSize: '11px', color: '#059669', opacity: 0.85 }}>
-                  Mandatory proof · Auto-uploaded to Cloudinary
+
+                <div style={{
+                  marginTop: '12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#065f46',
+                  background: '#ecfdf5',
+                  border: '1px solid #a7f3d0',
+                  padding: '4px 12px',
+                  borderRadius: '20px'
+                }}>
+                  <ShieldCheck size={13} style={{ color: '#059669' }} />
+                  <span>Mandatory proof · Auto-uploaded to Cloudinary</span>
                 </div>
               </div>
             )}
@@ -725,33 +949,49 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
           </div>
 
           {/* Quick Note Presets for Rider Convenience */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '-4px' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Quick note:</span>
-            {[
-              'Handed to Customer',
-              'Left at Doorstep',
-              'Handed to Security',
-              'Received by Family Member'
-            ].map(preset => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => setNotes(preset)}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  border: notes === preset ? '1px solid #10b981' : '1px solid #e2e8f0',
-                  background: notes === preset ? '#ecfdf5' : '#f8fafc',
-                  color: notes === preset ? '#065f46' : '#64748b',
-                  fontSize: '11px',
-                  fontWeight: notes === preset ? 700 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {preset}
-              </button>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '-2px' }}>
+            <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 700 }}>Quick notes (Tap to fill):</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+              {[
+                'Handed to Customer',
+                'Left at Doorstep',
+                'Handed to Security',
+                'Received by Family Member'
+              ].map(preset => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setNotes(preset)}
+                  style={{
+                    height: '34px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    border: notes === preset ? '1.5px solid #10b981' : '1px solid #cbd5e1',
+                    background: notes === preset ? '#ecfdf5' : '#ffffff',
+                    color: notes === preset ? '#065f46' : '#334155',
+                    fontSize: '11.5px',
+                    fontWeight: notes === preset ? 700 : 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease',
+                    boxShadow: notes === preset ? '0 1px 3px rgba(16, 185, 129, 0.15)' : 'none',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                  onMouseOver={e => {
+                    if (notes !== preset) e.currentTarget.style.background = '#f8fafc';
+                  }}
+                  onMouseOut={e => {
+                    if (notes !== preset) e.currentTarget.style.background = '#ffffff';
+                  }}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -760,7 +1000,7 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
           <button
             type="button"
             disabled={uploading}
-            onClick={onClose}
+            onClick={handleModalClose}
             style={{
               height: '44px',
               padding: '0 20px',

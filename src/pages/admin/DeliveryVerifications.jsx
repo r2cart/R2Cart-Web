@@ -286,6 +286,12 @@ export function DeliveryVerificationsView() {
               <div><b>Customer Phone:</b> {selectedProof.customerMobile}</div>
               <div><b>Recipient Name:</b> {selectedProof.recipientName || 'Self / Customer'}</div>
               <div><b>Recipient Phone:</b> {selectedProof.recipientPhone || 'N/A'}</div>
+              <div style={{ color: '#15803d', fontWeight: 600 }}>
+                <b>Delivered At:</b> {new Date(selectedProof.deliveredAt || selectedProof.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+              </div>
+              {selectedProof.notes && (
+                <div><b>Delivery Note:</b> “{selectedProof.notes}”</div>
+              )}
               <div style={{ gridColumn: 'span 2' }}><b>Address:</b> {selectedProof.deliveryAddress}</div>
               <div style={{ gridColumn: 'span 2' }}>
                 <b>Cloudinary Asset ID:</b> <code style={{ fontSize: '11.5px' }}>{selectedProof.cloudinaryPublicId}</code>

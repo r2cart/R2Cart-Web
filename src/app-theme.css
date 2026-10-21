@@ -54,6 +54,7 @@ main>.page,main>.static-page,main>.success-page{animation:pageEnter .38s cubic-b
 .empty-icon svg{width:58px;height:58px;color:var(--green);stroke-width:1.5}
 .mini-empty>svg{width:46px;height:46px;color:var(--green);margin:0 auto 14px}
 .address-option>span svg{width:20px;height:20px;color:var(--green)}
+.address-option.selected>span svg{color:#ffffff!important}
 .issue-grid span svg{width:25px;height:25px;color:var(--green)}
 .coupon-select>span svg,.payment-option>span svg{width:23px;height:23px;color:var(--green)}
 .category-tabs{scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch}

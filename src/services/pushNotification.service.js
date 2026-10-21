@@ -89,7 +89,11 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
     // 5. Send subscription to backend with role-aware authorization
     const adminToken = localStorage.getItem('grocify-admin-access-token');
     const customerToken = localStorage.getItem('grocify-access-token');
-    const token = role === 'ADMIN' ? (adminToken || customerToken) : (customerToken || adminToken);
+    const deliveryToken = localStorage.getItem('grocify-delivery-access-token');
+    let token = customerToken;
+    if (role === 'ADMIN') token = adminToken || customerToken;
+    else if (role === 'DELIVERY_PERSON') token = deliveryToken || adminToken || customerToken;
+    else token = customerToken || adminToken || deliveryToken;
 
     await api.post('/notifications/subscribe', {
       subscription: subscription.toJSON(),

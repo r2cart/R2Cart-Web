@@ -14,7 +14,7 @@ export const deliveryService = {
 
   updateStatus: (id, payload) => api.patch(`/delivery-portal/orders/${id}/status`, payload),
 
-  uploadProof: (id, formData) => api.post(`/delivery-portal/orders/${id}/upload-proof`, formData),
+  uploadProof: (id, formData) => api.upload(`/delivery-portal/orders/${id}/upload-proof`, formData),
 
   completeDelivery: (id, payload) => api.post(`/delivery-portal/orders/${id}/complete-delivery`, payload),
 
@@ -24,5 +24,7 @@ export const deliveryService = {
 
   getMyCodSummary: () => api.get('/delivery-portal/cod-summary'),
 
-  getMyProfile: () => api.get('/delivery-portal/profile')
+  getMyProfile: () => api.get('/delivery-portal/profile'),
+  getDeliveryChat: (id) => api.get(`/delivery-portal/orders/${id}/chat`),
+  sendDeliveryChatMessage: (id, message) => api.post(`/delivery-portal/orders/${id}/chat`, { message })
 };
