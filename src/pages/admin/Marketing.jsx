@@ -822,14 +822,24 @@ export function AdminMarketing() {
         onClose={() => setRemoveCampaign(null)}
         onConfirm={handleDeleteCampaign}
         title="Delete Campaign?"
-        message={`“${removeCampaign?.title || ''}” will be permanently removed.`}
+        itemName={removeCampaign?.title}
+        itemType="Campaign"
+        message={`Are you sure you want to delete campaign “${removeCampaign?.title || ''}”? It will be immediately removed.`}
+        warningNote="Active promotions, storefront banners, or pushes linked to this campaign will cease."
+        confirmText="Delete Campaign"
+        cancelText="Cancel"
       />
       <ConfirmDialog
         open={!!removeCoupon}
         onClose={() => setRemoveCoupon(null)}
         onConfirm={handleDeleteCoupon}
         title="Delete Coupon?"
-        message={`Coupon “${removeCoupon?.code || ''}” will be deleted. Prior orders will remain intact.`}
+        itemName={removeCoupon?.code}
+        itemType="Coupon"
+        message={`Are you sure you want to delete coupon code “${removeCoupon?.code || ''}”? Customers will no longer be able to claim it.`}
+        warningNote="Prior customer orders with this coupon discount applied will remain completely intact."
+        confirmText="Delete Coupon"
+        cancelText="Cancel"
       />
     </>
   );

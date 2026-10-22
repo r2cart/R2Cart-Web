@@ -30,6 +30,53 @@ import { adminService } from '../../services/admin.service';
 
 const DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+export const formatTo12h = timeStr => {
+  if (!timeStr) return '';
+  const [hStr, mStr] = timeStr.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr || '00';
+  if (isNaN(h)) return timeStr;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
+};
+
+export const parseTimeTo24h = (timePart, ampm) => {
+  if (!timePart) return null;
+  const [hStr, mStr] = timePart.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ? parseInt(mStr, 10) : 0;
+  if (isNaN(h)) return null;
+  const period = ampm ? ampm.toUpperCase().trim() : null;
+  if (period === 'PM' && h < 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+export const extractTimesFromLabel = label => {
+  if (!label) return null;
+  const regex = /(\d{1,2}:\d{2})\s*(AM|PM)?\s*[-–—to]+\s*(\d{1,2}:\d{2})\s*(AM|PM)?/i;
+  const match = label.match(regex);
+  if (!match) return null;
+  const startTime = parseTimeTo24h(match[1], match[2]);
+  const endTime = parseTimeTo24h(match[3], match[4]);
+  if (startTime && endTime) {
+    return { startTime, endTime };
+  }
+  return null;
+};
+
+export const calculateCutoffTime = (endTime, cutoffMinutes = 60) => {
+  if (!endTime) return '--:--';
+  const [h, m] = endTime.split(':').map(Number);
+  let totalMin = h * 60 + (m || 0) - Number(cutoffMinutes || 0);
+  if (totalMin < 0) totalMin += 1440;
+  const cutH = Math.floor(totalMin / 60) % 24;
+  const cutM = totalMin % 60;
+  return formatTo12h(`${String(cutH).padStart(2, '0')}:${String(cutM).padStart(2, '0')}`);
+};
+
 const slotBlank = {
   label: '',
   startTime: '07:00',
@@ -208,6 +255,56 @@ export function AdminScheduling() {
     }
   };
 
+  const handleOpeningTimeChange = val => {
+    setOpeningTime(val);
+    setWeekdayHours(curr => {
+      const next = { ...curr };
+      DAYS_OF_WEEK.forEach(day => {
+        if (!next[day]?.isCustom) {
+          next[day] = {
+            ...(next[day] || { close: closingTime, isOpen: true }),
+            open: val,
+            isCustom: false
+          };
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleClosingTimeChange = val => {
+    setClosingTime(val);
+    setWeekdayHours(curr => {
+      const next = { ...curr };
+      DAYS_OF_WEEK.forEach(day => {
+        if (!next[day]?.isCustom) {
+          next[day] = {
+            ...(next[day] || { open: openingTime, isOpen: true }),
+            close: val,
+            isCustom: false
+          };
+        }
+      });
+      return next;
+    });
+  };
+
+  const applyDefaultToAllDays = () => {
+    setWeekdayHours(() => {
+      const next = {};
+      DAYS_OF_WEEK.forEach(day => {
+        next[day] = {
+          open: openingTime,
+          close: closingTime,
+          isOpen: true,
+          isCustom: false
+        };
+      });
+      return next;
+    });
+    notify(`Applied baseline hours (${openingTime} – ${closingTime}) to all open days`);
+  };
+
   // Save Store Hours & Rules
   const handleSaveHours = async e => {
     e.preventDefault();
@@ -295,7 +392,7 @@ export function AdminScheduling() {
     setBusy(true);
     try {
       const payload = {
-        label: editSlot.label,
+        label: (editSlot.label || '').trim(),
         startTime: editSlot.startTime,
         endTime: editSlot.endTime,
         maxOrders: Number(editSlot.maxOrders),
@@ -304,15 +401,31 @@ export function AdminScheduling() {
         status: editSlot.status || 'ACTIVE'
       };
 
+      const numCutoff = Number(editSlot.cutoffMinutes !== undefined ? editSlot.cutoffMinutes : sameDayCutoffMinutes);
       if (editSlot.id) {
-        await adminService.updateDeliverySlot(editSlot.id, payload);
+        const res = await adminService.updateDeliverySlot(editSlot.id, payload);
+        const updatedSlot = res?.data || res || {};
+        setSameDayCutoffMinutes(String(numCutoff));
+        setSlotsList(curr => curr.map(s => (s.id === editSlot.id ? { ...s, ...payload, ...updatedSlot, cutoffMinutes: numCutoff } : { ...s, cutoffMinutes: numCutoff })));
         notify('Delivery time slot updated');
       } else {
-        await adminService.createDeliverySlot(payload);
+        const res = await adminService.createDeliverySlot(payload);
+        const createdSlot = res?.data || res;
+        setSameDayCutoffMinutes(String(numCutoff));
+        if (createdSlot?.id) {
+          setSlotsList(curr => [...curr.map(s => ({ ...s, cutoffMinutes: numCutoff })), createdSlot]);
+        }
         notify('Delivery time slot created');
       }
       setEditSlot(null);
       await loadData();
+
+      // Dispatch cross-tab & storage events so checkout immediately reflects slot changes
+      window.dispatchEvent(new Event('grocify:slots-updated'));
+      window.dispatchEvent(new Event('grocify:settings-updated'));
+      try {
+        localStorage.setItem('grocify-slots-updated', String(Date.now()));
+      } catch (_) {}
     } catch (err) {
       notify(err.message, 'error');
     } finally {
@@ -326,6 +439,10 @@ export function AdminScheduling() {
       await adminService.updateDeliverySlotStatus(slot.id, nextStatus);
       setSlotsList(curr => curr.map(s => (s.id === slot.id ? { ...s, status: nextStatus } : s)));
       notify(`Slot ${nextStatus === 'ACTIVE' ? 'activated' : 'disabled'}`);
+      window.dispatchEvent(new Event('grocify:slots-updated'));
+      try {
+        localStorage.setItem('grocify-slots-updated', String(Date.now()));
+      } catch (_) {}
     } catch (err) {
       notify(err.message, 'error');
     }
@@ -338,6 +455,10 @@ export function AdminScheduling() {
       setSlotsList(curr => curr.filter(s => s.id !== removeSlot.id));
       setRemoveSlot(null);
       notify('Delivery slot removed');
+      window.dispatchEvent(new Event('grocify:slots-updated'));
+      try {
+        localStorage.setItem('grocify-slots-updated', String(Date.now()));
+      } catch (_) {}
     } catch (err) {
       notify(err.message, 'error');
     }
@@ -522,7 +643,7 @@ export function AdminScheduling() {
                   required
                   type="time"
                   value={openingTime}
-                  onChange={e => setOpeningTime(e.target.value)}
+                  onChange={e => handleOpeningTimeChange(e.target.value)}
                 />
                 <span className="scheduling-input-hint">Default store daily opening time</span>
               </div>
@@ -533,7 +654,7 @@ export function AdminScheduling() {
                   required
                   type="time"
                   value={closingTime}
-                  onChange={e => setClosingTime(e.target.value)}
+                  onChange={e => handleClosingTimeChange(e.target.value)}
                 />
                 <span className="scheduling-input-hint">Default store daily closing time</span>
               </div>
@@ -620,22 +741,32 @@ export function AdminScheduling() {
               </div>
 
               <div className="scheduling-input-box">
-                <label>Same-Day Slot Cutoff (Minutes Before Slot Start)</label>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Same-Day Slot Cutoff (Minutes Before Slot End)</span>
+                  <span style={{ fontSize: '10px', fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px' }}>
+                    Store-Wide Common
+                  </span>
+                </label>
                 <input
                   type="number"
                   min="0"
                   max="240"
                   value={sameDayCutoffMinutes}
-                  onChange={e => setSameDayCutoffMinutes(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSameDayCutoffMinutes(val);
+                    const num = Math.max(0, parseInt(val, 10) || 0);
+                    setSlotsList(curr => curr.map(s => ({ ...s, cutoffMinutes: num })));
+                  }}
                 />
-                <span className="scheduling-input-hint">Slots automatically close booking N minutes prior to start (Default: 60 mins)</span>
+                <span className="scheduling-input-hint">Common cutoff: all slots automatically close booking N minutes prior to slot end time (Default: 60 mins)</span>
               </div>
             </div>
           </div>
 
           {/* Card 3: Weekday Operating Schedule */}
           <div className="scheduling-card">
-            <div className="scheduling-card-head">
+            <div className="scheduling-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div className="scheduling-card-title-group">
                 <div className="scheduling-card-icon" style={{ background: '#f5f3ff', color: '#7c3aed' }}>
                   <Calendar size={20} />
@@ -645,6 +776,16 @@ export function AdminScheduling() {
                   <p>Fine-tune specific weekdays with distinct operating hours or mark certain days completely closed.</p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={applyDefaultToAllDays}
+                className="scheduling-btn-secondary"
+                style={{ height: '34px', padding: '0 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                title="Reset all days to use the Default Daily Operating Hours above"
+              >
+                <RefreshCcw size={13} />
+                <span>Sync Default Hours ({openingTime} – {closingTime}) to All Days</span>
+              </button>
             </div>
 
             <div className="weekday-schedule-list">
@@ -657,7 +798,8 @@ export function AdminScheduling() {
                     ...curr,
                     [day]: {
                       ...(curr[day] || { open: openingTime, close: closingTime, isOpen: true }),
-                      [field]: val
+                      [field]: val,
+                      isCustom: true
                     }
                   }));
                 };
@@ -906,22 +1048,30 @@ export function AdminScheduling() {
       {/* ========================================================================= */}
       {/* TAB 4: DELIVERY SLOTS & CAPACITY */}
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
       {tab === 'slots' && (
         <div className="scheduling-card">
-          <div className="scheduling-card-head">
+          <div className="scheduling-card-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div className="scheduling-card-title-group">
-              <div className="scheduling-card-icon" style={{ background: '#e0e7ff', color: '#4338ca' }}>
+              <div className="scheduling-card-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
                 <CalendarClock size={20} />
               </div>
               <div>
-                <h3>Delivery Time Slots & Capacity Management</h3>
-                <p>Define customer delivery slots, delivery duration, maximum concurrent order capacity, and cutoff times.</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0 }}>Delivery Time Slots</h3>
+                  <span style={{ fontSize: '11px', fontWeight: 700, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={11} /> Common Cutoff: {sameDayCutoffMinutes} mins before end
+                  </span>
+                </div>
+                <p style={{ margin: '3px 0 0', color: '#64748b', fontSize: '12.5px' }}>
+                  Manage delivery windows, order capacity limits, and same-day ordering cutoffs.
+                </p>
               </div>
             </div>
             <button
               type="button"
               className="scheduling-btn-primary"
-              onClick={() => setEditSlot({ ...slotBlank })}
+              onClick={() => setEditSlot({ ...slotBlank, cutoffMinutes: String(sameDayCutoffMinutes || 60) })}
             >
               <Plus size={15} />
               <span>Add Delivery Slot</span>
@@ -930,11 +1080,11 @@ export function AdminScheduling() {
 
           {slotsList.length === 0 ? (
             <div className="scheduling-empty-box">
-              <div className="scheduling-empty-icon" style={{ background: '#e0e7ff', color: '#4338ca' }}>
+              <div className="scheduling-empty-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
                 <CalendarClock size={26} />
               </div>
               <h4>No Delivery Slots Configured</h4>
-              <p>Create customer delivery slots (e.g. 7 AM – 10 AM Morning Express) to enable scheduled deliveries.</p>
+              <p>Create customer delivery slots (e.g. Morning Slot 7 AM – 10 AM) to enable scheduled deliveries.</p>
             </div>
           ) : (
             <div className="scheduling-table-container">
@@ -942,58 +1092,77 @@ export function AdminScheduling() {
                 <table className="scheduling-table">
                   <thead>
                     <tr>
-                      <th style={{ minWidth: '180px' }}>Slot Label</th>
-                      <th style={{ minWidth: '160px' }}>Timing Window</th>
-                      <th style={{ minWidth: '160px' }}>Capacity Limit</th>
-                      <th style={{ minWidth: '140px' }}>Cutoff Window</th>
-                      <th style={{ minWidth: '110px' }}>Status</th>
+                      <th style={{ minWidth: '150px' }}>Slot Name</th>
+                      <th style={{ minWidth: '140px' }}>Timing Window</th>
+                      <th style={{ minWidth: '110px' }}>Capacity</th>
+                      <th style={{ minWidth: '140px' }}>Same-Day Cutoff</th>
+                      <th style={{ minWidth: '90px' }}>Status</th>
                       <th className="col-actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {slotsList.map(slot => (
-                      <tr key={slot.id}>
-                        <td style={{ fontWeight: 800, color: '#0f172a' }}>{slot.label}</td>
-                        <td style={{ color: '#047857', fontWeight: 700 }}>{slot.startTime} – {slot.endTime}</td>
-                        <td>
-                          <span style={{ fontWeight: 800, color: '#0369a1', background: '#e0f2fe', padding: '3px 8px', borderRadius: '4px', fontSize: '12px' }}>
-                            {slot.maxOrders} orders max
-                          </span>
-                        </td>
-                        <td style={{ color: '#64748b' }}>{slot.cutoffMinutes} mins before start</td>
-                        <td>
-                          <StatusBadge status={slot.status} />
-                        </td>
-                        <td className="col-actions">
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                              type="button"
-                              className={`security-icon-btn ${slot.status === 'ACTIVE' ? 'toggle-deactivate' : 'toggle-activate'}`}
-                              onClick={() => handleToggleSlotStatus(slot)}
-                              title={slot.status === 'ACTIVE' ? 'Disable Slot' : 'Enable Slot'}
-                            >
-                              {slot.status === 'ACTIVE' ? <X size={14} /> : <Check size={14} />}
-                            </button>
-                            <button
-                              type="button"
-                              className="security-action-btn-main"
-                              onClick={() => setEditSlot(slot)}
-                            >
-                              <Edit2 size={12} />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="security-icon-btn delete"
-                              onClick={() => setRemoveSlot(slot)}
-                              title="Delete slot"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {slotsList.map(slot => {
+                      const cleanName = slot.label.replace(/\s*\(\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*[-–—to]+\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*\)/i, '').trim() || slot.label;
+                      return (
+                        <tr key={slot.id}>
+                          <td>
+                            <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: slot.status === 'ACTIVE' ? '#10b981' : '#94a3b8', flexShrink: 0 }} />
+                              <span title={slot.label}>{cleanName}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 700, color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: '6px', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                              {formatTo12h(slot.startTime)} – {formatTo12h(slot.endTime)}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 700, color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '6px', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                              {slot.maxOrders} orders max
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+                              <Clock size={13} style={{ color: '#059669' }} />
+                              <span style={{ color: '#0f172a', fontWeight: 600 }}>
+                                Closes at <b>{calculateCutoffTime(slot.endTime, slot.cutoffMinutes ?? sameDayCutoffMinutes)}</b>
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <StatusBadge status={slot.status} />
+                          </td>
+                          <td className="col-actions">
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                type="button"
+                                className={`security-icon-btn ${slot.status === 'ACTIVE' ? 'toggle-deactivate' : 'toggle-activate'}`}
+                                onClick={() => handleToggleSlotStatus(slot)}
+                                title={slot.status === 'ACTIVE' ? 'Disable Slot' : 'Enable Slot'}
+                              >
+                                {slot.status === 'ACTIVE' ? <X size={14} /> : <Check size={14} />}
+                              </button>
+                              <button
+                                type="button"
+                                className="security-action-btn-main"
+                                onClick={() => setEditSlot(slot)}
+                              >
+                                <Edit2 size={12} />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="security-icon-btn delete"
+                                onClick={() => setRemoveSlot(slot)}
+                                title="Delete slot"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1608,44 +1777,141 @@ export function AdminScheduling() {
       </Modal>
 
       {/* EDIT DELIVERY SLOT MODAL */}
-      <Modal open={Boolean(editSlot)} onClose={() => setEditSlot(null)} title={editSlot?.id ? 'Edit Delivery Slot' : 'Create Delivery Slot'}>
+      <Modal
+        open={Boolean(editSlot)}
+        onClose={() => setEditSlot(null)}
+        title={editSlot?.id ? 'Edit Delivery Slot' : 'Create Delivery Slot'}
+        size="delivery-slot-modal"
+      >
         {editSlot && (
-          <form onSubmit={handleSaveSlot} className="modal-body form-grid">
-            <label>
-              <b>Slot Label *</b>
+          <form
+            onSubmit={handleSaveSlot}
+            className="modal-body slot-modal-form"
+            style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '18px 24px 20px' }}
+          >
+            {/* Slot Label Input */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                Slot Label <span style={{ color: '#ef4444' }}>*</span>
+              </label>
               <input
                 required
                 value={editSlot.label}
-                onChange={e => setEditSlot({ ...editSlot, label: e.target.value })}
-                placeholder="e.g. Morning Slot (07:00 AM – 10:00 AM)"
+                onChange={e => {
+                  const val = e.target.value;
+                  const extracted = extractTimesFromLabel(val);
+                  if (extracted) {
+                    setEditSlot(curr => ({
+                      ...curr,
+                      label: val,
+                      startTime: extracted.startTime,
+                      endTime: extracted.endTime
+                    }));
+                  } else {
+                    setEditSlot(curr => ({ ...curr, label: val }));
+                  }
+                }}
+                placeholder="e.g. Morning Slot (07:00 AM – 11:00 AM)"
+                style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#f8fafc' }}
               />
-            </label>
+              <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                💡 Typing timing range (e.g. 07:00 AM – 11:00 AM) auto-updates Start & End times below.
+              </div>
+            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <label>
-                <b>Start Time (HH:MM) *</b>
+            {/* Start Time & End Time */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Start Time (HH:MM)</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
                 <input
                   required
                   type="time"
                   value={editSlot.startTime}
-                  onChange={e => setEditSlot({ ...editSlot, startTime: e.target.value })}
+                  onChange={e => {
+                    const newStart = e.target.value;
+                    setEditSlot(curr => {
+                      const next = { ...curr, startTime: newStart };
+                      const timeRegex = /\(\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*[-–—to]+\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*\)/i;
+                      const newTimePart = `(${formatTo12h(newStart)} – ${formatTo12h(next.endTime)})`;
+                      if (timeRegex.test(next.label)) {
+                        next.label = next.label.replace(timeRegex, newTimePart);
+                      }
+                      return next;
+                    });
+                  }}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
 
-              <label>
-                <b>End Time (HH:MM) *</b>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>End Time (HH:MM)</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
                 <input
                   required
                   type="time"
                   value={editSlot.endTime}
-                  onChange={e => setEditSlot({ ...editSlot, endTime: e.target.value })}
+                  onChange={e => {
+                    const newEnd = e.target.value;
+                    setEditSlot(curr => {
+                      const next = { ...curr, endTime: newEnd };
+                      const timeRegex = /\(\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*[-–—to]+\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*\)/i;
+                      const newTimePart = `(${formatTo12h(next.startTime)} – ${formatTo12h(newEnd)})`;
+                      if (timeRegex.test(next.label)) {
+                        next.label = next.label.replace(timeRegex, newTimePart);
+                      }
+                      return next;
+                    });
+                  }}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <label>
-                <b>Max Orders Capacity *</b>
+            {/* Live Timing Window & Cutoff Visual Preview */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                border: '1px solid #a7f3d0',
+                borderRadius: '10px',
+                padding: '9px 13px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#dcfce7', color: '#15803d', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <Clock size={15} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#14532d' }}>
+                    Active Window: {formatTo12h(editSlot.startTime)} – {formatTo12h(editSlot.endTime)}
+                    <span style={{ fontSize: '11px', color: '#047857', fontWeight: 500, marginLeft: '6px' }}>({editSlot.startTime} – {editSlot.endTime})</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#15803d', marginTop: '1px' }}>
+                    Cutoff: Closes <b>{editSlot.cutoffMinutes || sameDayCutoffMinutes || 0} mins</b> before end (at <b>{calculateCutoffTime(editSlot.endTime, editSlot.cutoffMinutes || sameDayCutoffMinutes)}</b>)
+                  </div>
+                </div>
+              </div>
+              <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '5px', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', flexShrink: 0 }}>
+                {editSlot.maxOrders || 0} Orders Limit
+              </span>
+            </div>
+
+            {/* Capacity & Common Cutoff Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', alignItems: 'start' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Max Orders Capacity</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
                 <input
                   required
                   type="number"
@@ -1653,52 +1919,78 @@ export function AdminScheduling() {
                   max="500"
                   value={editSlot.maxOrders}
                   onChange={e => setEditSlot({ ...editSlot, maxOrders: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-                <small style={{ color: 'var(--muted)' }}>Slots close when this limit is booked</small>
-              </label>
+                <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', height: '16px', display: 'flex', alignItems: 'center' }}>
+                  Slots close when this limit is booked
+                </div>
+              </div>
 
-              <label>
-                <b>Cutoff Minutes Before Start *</b>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '20px', marginBottom: '6px' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: '12px', fontWeight: 700, color: '#1e293b', margin: 0, whiteSpace: 'nowrap' }}>
+                    <span>Same-Day Cutoff (Mins)</span>
+                    <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                  </label>
+                  <span style={{ fontSize: '9.5px', fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap', lineHeight: '14px' }}>
+                    Store-wide
+                  </span>
+                </div>
                 <input
                   required
                   type="number"
                   min="0"
                   max="360"
-                  value={editSlot.cutoffMinutes}
-                  onChange={e => setEditSlot({ ...editSlot, cutoffMinutes: e.target.value })}
+                  value={editSlot.cutoffMinutes ?? sameDayCutoffMinutes}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setEditSlot(curr => ({ ...curr, cutoffMinutes: val }));
+                    setSameDayCutoffMinutes(val);
+                  }}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-                <small style={{ color: 'var(--muted)' }}>Close booking N mins before start</small>
-              </label>
+                <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', height: '16px', display: 'flex', alignItems: 'center' }}>
+                  Closes booking N mins before slot end
+                </div>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <label>
-                <b>Display Position / Sequence</b>
+            {/* Position & Status Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  Display Position / Sequence
+                </label>
                 <input
                   type="number"
                   value={editSlot.position || 1}
                   onChange={e => setEditSlot({ ...editSlot, position: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
 
-              <label>
-                <b>Status</b>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  Slot Status
+                </label>
                 <select
                   value={editSlot.status}
                   onChange={e => setEditSlot({ ...editSlot, status: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="ACTIVE">Active (Available for customer orders)</option>
+                  <option value="INACTIVE">Inactive (Disabled)</option>
                 </select>
-              </label>
+              </div>
             </div>
 
-            <div className="row end gap" style={{ marginTop: '12px' }}>
-              <Button type="button" variant="ghost" onClick={() => setEditSlot(null)}>
+            {/* Actions / Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '6px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+              <Button type="button" variant="ghost" onClick={() => setEditSlot(null)} style={{ padding: '8px 18px', borderRadius: '8px' }}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy}>
-                Save Delivery Slot
+              <Button type="submit" disabled={busy} style={{ padding: '8px 22px', borderRadius: '8px', background: '#059669', color: '#fff', fontWeight: 700 }}>
+                {busy ? 'Saving...' : 'Save Delivery Slot'}
               </Button>
             </div>
           </form>
@@ -1711,7 +2003,12 @@ export function AdminScheduling() {
         onClose={() => setRemoveSeasonal(null)}
         onConfirm={handleDeleteSeasonal}
         title="Delete Seasonal Schedule?"
-        message={`Are you sure you want to remove seasonal schedule "${removeSeasonal?.name}"? Store will revert to weekly operating rules.`}
+        itemName={removeSeasonal?.name}
+        itemType="Seasonal Rule"
+        message={`Are you sure you want to remove seasonal schedule "${removeSeasonal?.name}"? Store will revert to default weekly operating hours.`}
+        warningNote="Active delivery slots will fall back to standard day configurations."
+        confirmText="Delete Seasonal Schedule"
+        cancelText="Cancel"
       />
 
       <ConfirmDialog
@@ -1719,7 +2016,12 @@ export function AdminScheduling() {
         onClose={() => setRemoveSpecialDay(null)}
         onConfirm={handleDeleteSpecialDay}
         title="Delete Special Date Schedule?"
-        message={`Are you sure you want to remove special date "${removeSpecialDay?.date}" (${removeSpecialDay?.name})?`}
+        itemName={removeSpecialDay ? `${removeSpecialDay.name} (${removeSpecialDay.date})` : ''}
+        itemType="Special Date"
+        message={`Are you sure you want to remove special date override for "${removeSpecialDay?.date}" (${removeSpecialDay?.name})?`}
+        warningNote="Delivery slots for this specific date will revert to weekly day patterns."
+        confirmText="Delete Special Date"
+        cancelText="Cancel"
       />
 
       <ConfirmDialog
@@ -1727,7 +2029,12 @@ export function AdminScheduling() {
         onClose={() => setRemoveSlot(null)}
         onConfirm={handleDeleteSlot}
         title="Delete Delivery Slot?"
-        message={`Are you sure you want to delete delivery slot "${removeSlot?.label}"? Existing booked orders will not be lost.`}
+        itemName={removeSlot?.label}
+        itemType="Slot"
+        message={`Are you sure you want to delete delivery slot "${removeSlot?.label}"? Customers will no longer be able to select this window.`}
+        warningNote="Existing placed customer orders booked under this slot will remain safe and unaffected."
+        confirmText="Delete Slot"
+        cancelText="Cancel"
       />
     </div>
   );

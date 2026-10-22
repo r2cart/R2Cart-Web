@@ -10,13 +10,29 @@ import {
   FileText,
   UserCheck,
   ShieldCheck,
-  Calendar
+  Calendar,
+  Zap
 } from 'lucide-react';
 import { Button, Modal } from '../../components/ui';
 import { useApp } from '../../context/AppContext';
 import { adminService } from '../../services/admin.service';
 
 const money = val => `₹${Number(val || 0).toLocaleString('en-IN')}`;
+
+export const getStaffDisplayName = (staff) => {
+  if (!staff) return 'Delivery Partner';
+  const name = typeof staff === 'string' ? staff.trim() : staff.name?.trim();
+  if (name && name.toUpperCase() !== 'NA' && name.toUpperCase() !== 'N/A' && name.toLowerCase() !== 'null') {
+    return name;
+  }
+  if (staff.deliveryStaffId) {
+    return `Staff #${staff.deliveryStaffId}`;
+  }
+  if (staff.mobile) {
+    return `Staff (${staff.mobile})`;
+  }
+  return 'Delivery Partner';
+};
 
 export function CodSettlementsView() {
   const { notify } = useApp();
@@ -80,7 +96,7 @@ export function CodSettlementsView() {
         settledAmount: Number(actualSettledAmount),
         notes: settleNotes
       });
-      notify(`Cash settlement completed successfully for ${settleStaff.name}`);
+      notify(`Cash settlement completed successfully for ${getStaffDisplayName(settleStaff)}`);
       setSettleStaff(null);
       await loadData();
     } catch (err) {
@@ -251,7 +267,7 @@ export function CodSettlementsView() {
                     <tr key={staff.id}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <b style={{ fontSize: '14px', color: '#1e293b' }}>{staff.name}</b>
+                          <b style={{ fontSize: '14px', color: '#1e293b' }}>{getStaffDisplayName(staff)}</b>
                           {staff.deliveryStaffId && (
                             <span style={{
                               fontSize: '11px',
@@ -342,7 +358,7 @@ export function CodSettlementsView() {
                       <b style={{ fontFamily: 'monospace', color: '#0f172a' }}>{s.settlementNumber}</b>
                     </td>
                     <td>
-                      <b>{s.deliveryPerson?.name}</b>
+                      <b>{getStaffDisplayName(s.deliveryPerson)}</b>
                     </td>
                     <td>{s.totalOrders} orders</td>
                     <td>{money(s.totalExpectedAmount)}</td>
@@ -397,7 +413,7 @@ export function CodSettlementsView() {
                 collections.map(c => (
                   <tr key={c.id}>
                     <td><b>{c.orderNumber}</b></td>
-                    <td>{c.deliveryPerson?.name}</td>
+                    <td>{getStaffDisplayName(c.deliveryPerson)}</td>
                     <td>{c.customerName}</td>
                     <td>{money(c.expectedAmount)}</td>
                     <td><b style={{ color: '#166534' }}>{money(c.collectedAmount)}</b></td>
@@ -428,65 +444,160 @@ export function CodSettlementsView() {
       )}
 
       {/* ================= MODAL: RECORD CASH SETTLEMENT ================= */}
-      <Modal open={!!settleStaff} onClose={() => !busy && setSettleStaff(null)} title={`Settle Cash Handover: ${settleStaff?.name}`}>
-        {settleStaff && (
-          <form onSubmit={handleSettleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div><b>Staff Name:</b> {settleStaff.name}</div>
-                <div><b>Phone:</b> {settleStaff.mobile || 'N/A'}</div>
-                <div><b>Pending Orders:</b> {staffPendingCollections.length} orders</div>
-                <div>
-                  <b>Expected Total:</b>{' '}
-                  <span style={{ color: '#166534', fontWeight: 700 }}>
-                    {money(staffPendingCollections.reduce((acc, c) => acc + Number(c.collectedAmount), 0))}
-                  </span>
+      <Modal
+        open={!!settleStaff}
+        onClose={() => !busy && setSettleStaff(null)}
+        title={settleStaff ? `Settle Cash Handover · ${getStaffDisplayName(settleStaff)}` : 'Settle Cash Handover'}
+        size="settle-cash-modal"
+      >
+        {settleStaff && (() => {
+          const expectedTotal = staffPendingCollections.reduce((acc, c) => acc + Number(c.collectedAmount || 0), 0);
+          const entered = Number(actualSettledAmount || 0);
+          const diff = Math.round((entered - expectedTotal) * 100) / 100;
+          const staffTitle = getStaffDisplayName(settleStaff);
+
+          return (
+            <form onSubmit={handleSettleSubmit}>
+              <div className="modal-body">
+                {/* Staff Summary Header Card */}
+                <div className="settle-summary-card">
+                  <div className="settle-summary-top">
+                    <div className="settle-staff-profile">
+                      <div className="settle-staff-avatar">
+                        <UserCheck size={20} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                            {staffTitle}
+                          </span>
+                          {settleStaff.deliveryStaffId && (
+                            <span className="settle-staff-id-tag">
+                              {settleStaff.deliveryStaffId}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                          📞 {settleStaff.mobile || 'No phone recorded'}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="settle-status-badge">
+                      <Wallet size={12} />
+                      {staffPendingCollections.length} Pending {staffPendingCollections.length === 1 ? 'Order' : 'Orders'}
+                    </span>
+                  </div>
+
+                  <div className="settle-stats-grid">
+                    <div className="settle-stat-box highlight">
+                      <span className="settle-stat-title highlight">Expected COD Total</span>
+                      <span className="settle-stat-value" style={{ color: '#15803d' }}>
+                        {money(expectedTotal)}
+                      </span>
+                    </div>
+                    <div className="settle-stat-box">
+                      <span className="settle-stat-title">Duty Status</span>
+                      <span className="settle-stat-value" style={{ fontSize: '13px', color: settleStaff.dutyStatus === 'ON_DUTY' ? '#15803d' : '#64748b' }}>
+                        {settleStaff.dutyStatus === 'ON_DUTY' ? '● Active On Duty' : '○ Off Duty'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Amount Input with Auto-fill helper */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div className="settle-amount-header">
+                    <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+                      Actual Physical Cash Received <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    {expectedTotal > 0 && entered !== expectedTotal && (
+                      <button
+                        type="button"
+                        className="settle-autofill-btn"
+                        onClick={() => setActualSettledAmount(String(expectedTotal))}
+                        title="Click to auto-fill exact expected cash amount"
+                      >
+                        <Zap size={12} /> Auto-Fill ({money(expectedTotal)})
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="settle-input-wrapper">
+                    <span className="settle-input-symbol">₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      autoFocus
+                      className="settle-cash-input"
+                      value={actualSettledAmount}
+                      onChange={e => setActualSettledAmount(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {/* Reconciliation State Banner */}
+                {entered === expectedTotal && entered > 0 && (
+                  <div className="settle-diff-badge match">
+                    <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
+                    <div>
+                      <b>Exact Match:</b> Cash count perfectly matches expected COD total ({money(expectedTotal)}).
+                    </div>
+                  </div>
+                )}
+
+                {diff < 0 && (
+                  <div className="settle-diff-badge shortage">
+                    <AlertCircle size={16} style={{ color: '#dc2626', flexShrink: 0 }} />
+                    <div>
+                      <b>Cash Shortage of {money(Math.abs(diff))}:</b> Received less than the pending orders amount ({money(expectedTotal)}). Please verify note count with staff.
+                    </div>
+                  </div>
+                )}
+
+                {diff > 0 && (
+                  <div className="settle-diff-badge excess">
+                    <AlertCircle size={16} style={{ color: '#2563eb', flexShrink: 0 }} />
+                    <div>
+                      <b>Cash Excess of {money(diff)}:</b> Received more than expected total ({money(expectedTotal)}).
+                    </div>
+                  </div>
+                )}
+
+                {/* Reconciliation Notes */}
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>
+                    Reconciliation Notes <span style={{ fontWeight: 400, color: '#64748b' }}>(Optional)</span>
+                  </span>
+                  <textarea
+                    rows="2"
+                    className="settle-notes-textarea"
+                    placeholder="e.g. Denominations verified (1x ₹50, 1x ₹10, 4x ₹2). Received by cashier."
+                    value={settleNotes}
+                    onChange={e => setSettleNotes(e.target.value)}
+                  />
+                </label>
               </div>
-            </div>
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>
-                Actual Physical Cash Received (₹) <span style={{ color: '#ef4444' }}>*</span>
-              </span>
-              <input
-                type="number"
-                step="0.01"
-                required
-                value={actualSettledAmount}
-                onChange={e => setActualSettledAmount(e.target.value)}
-                style={{ height: '42px', borderRadius: '8px', border: '1px solid #d1d5db', padding: '0 12px', fontSize: '15px', fontWeight: 700, color: '#166534' }}
-              />
-            </label>
-
-            {Number(actualSettledAmount) !== staffPendingCollections.reduce((acc, c) => acc + Number(c.collectedAmount), 0) && (
-              <div style={{ background: '#fef2f2', padding: '10px', borderRadius: '6px', border: '1px solid #fecaca', fontSize: '12px', color: '#991b1b', fontWeight: 600 }}>
-                Discrepancy detected: ₹
-                {Number(actualSettledAmount) - staffPendingCollections.reduce((acc, c) => acc + Number(c.collectedAmount), 0)}
+              {/* Modal Actions */}
+              <div className="modal-foot">
+                <Button type="button" variant="ghost" onClick={() => setSettleStaff(null)} disabled={busy}>
+                  Cancel
+                </Button>
+                <button
+                  type="submit"
+                  className="settle-confirm-btn"
+                  disabled={busy || !actualSettledAmount || Number(actualSettledAmount) < 0}
+                >
+                  <ShieldCheck size={16} />
+                  {busy ? 'Reconciling Cash...' : 'Confirm Cash Received & Settle'}
+                </button>
               </div>
-            )}
-
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>Reconciliation Notes</span>
-              <textarea
-                rows="2"
-                placeholder="Optional notes regarding cash count or denominations..."
-                value={settleNotes}
-                onChange={e => setSettleNotes(e.target.value)}
-                style={{ borderRadius: '8px', border: '1px solid #d1d5db', padding: '8px 12px', fontSize: '13px' }}
-              />
-            </label>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-              <Button type="button" variant="ghost" onClick={() => setSettleStaff(null)} disabled={busy}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={busy} style={{ background: '#166534', color: '#fff', fontWeight: 700 }}>
-                {busy ? 'Reconciling...' : 'Confirm Cash Received & Settle'}
-              </Button>
-            </div>
-          </form>
-        )}
+            </form>
+          );
+        })()}
       </Modal>
     </div>
   );

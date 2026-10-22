@@ -650,7 +650,7 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
           </div>
 
           {/* 3. Recipient Information Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="pod-recipient-grid">
             <label style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <User size={13} style={{ color: '#0284c7' }} />

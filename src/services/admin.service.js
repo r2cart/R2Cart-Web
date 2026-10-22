@@ -53,6 +53,7 @@ export const adminService = {
   reorderBanners: ids => api.post('/admin/banners/reorder', { ids }),
   customers: q => api.get(`/admin/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   updateCustomerStatus: (id, status) => api.patch(`/admin/customers/${id}/status`, { status }),
+  deleteCustomer: id => api.delete(`/admin/customers/${id}`),
 
   // ==========================================
   // 1. DELIVERY MANAGEMENT (VILLAGES & AREAS)

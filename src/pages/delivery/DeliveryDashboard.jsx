@@ -19,7 +19,15 @@ import {
   XCircle,
   ExternalLink,
   Bell,
-  MessageSquare
+  MessageSquare,
+  Copy,
+  Check,
+  Search,
+  X,
+  Volume2,
+  Activity,
+  ArrowRight,
+  Store
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { useApp } from '../../context/AppContext';
@@ -77,6 +85,7 @@ export function DeliveryDashboard() {
 
   // Active filter tab: 'ALL' | 'PENDING' | 'IN_TRANSIT' | 'DELIVERED' | 'FAILED'
   const [activeTab, setActiveTab] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Push notifications permission & state
   const [pushStatus, setPushStatus] = useState(() => getNotificationPermission());
@@ -89,9 +98,17 @@ export function DeliveryDashboard() {
 
   // Expanded items state map for order card items
   const [expandedOrders, setExpandedOrders] = useState({});
+  const [copiedOrderId, setCopiedOrderId] = useState(null);
 
   const toggleItemsExpand = (orderId) => {
     setExpandedOrders(curr => ({ ...curr, [orderId]: !curr[orderId] }));
+  };
+
+  const copyOrderNumber = (orderNumber, id) => {
+    if (!orderNumber) return;
+    navigator.clipboard?.writeText(orderNumber);
+    setCopiedOrderId(id);
+    setTimeout(() => setCopiedOrderId(null), 2000);
   };
 
   const enableRiderNotifications = async () => {
@@ -154,7 +171,6 @@ export function DeliveryDashboard() {
       return;
     }
 
-    // Auto-subscribe if permission was already granted previously
     if (getNotificationPermission() === 'granted') {
       subscribeToPush({ role: 'DELIVERY_PERSON' }).catch(() => {});
     }
@@ -163,13 +179,25 @@ export function DeliveryDashboard() {
   useEffect(() => {
     loadDashboardData();
 
-    // 20-second background polling for real-time order assignments
+    // 20-second background polling
     const pollInterval = setInterval(() => {
       loadDashboardData(true);
     }, 20000);
 
     return () => clearInterval(pollInterval);
   }, [activeTab]);
+
+  // Filtered orders list based on search query
+  const filteredOrders = orders.filter(o => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (o.orderNumber && o.orderNumber.toLowerCase().includes(q)) ||
+      (o.customerName && o.customerName.toLowerCase().includes(q)) ||
+      (o.villageName && o.villageName.toLowerCase().includes(q)) ||
+      (o.deliveryAddress && o.deliveryAddress.toLowerCase().includes(q))
+    );
+  });
 
   const handleDutyChange = async (newStatus) => {
     try {
@@ -199,137 +227,91 @@ export function DeliveryDashboard() {
   const currentDuty = profile?.dutyStatus || 'OFF_DUTY';
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#f1f5f9',
-      paddingBottom: '60px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      {/* 1. Header Bar */}
-      <header style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #e2e8f0',
-        padding: '12px 16px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-      }}>
-        <div style={{
-          maxWidth: '680px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              background: '#ecfdf5',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#059669'
-            }}>
-              <Truck size={20} />
+    <div className="rider-page-shell">
+      {/* ================= 1. HIGH-TECH DARK SLATE NAVBAR ================= */}
+      <header className="rider-header">
+        <div className="rider-header-inner">
+          {/* Brand & Partner Information */}
+          <div className="rider-header-brand">
+            <div className="rider-brand-avatar">
+              <Truck size={22} strokeWidth={2.4} />
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+            <div className="rider-header-info">
+              <div className="rider-header-name-row">
+                <span className="rider-header-title">
                   {profile?.name || 'Delivery Partner'}
                 </span>
                 {profile?.deliveryStaffId && (
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    background: '#dcfce7',
-                    color: '#15803d',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                    border: '1px solid #bbf7d0',
-                    letterSpacing: '0.5px'
-                  }}>
+                  <span className="rider-staff-badge">
                     {profile.deliveryStaffId}
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>
-                {profile?.deliveryStaffId ? `${profile.deliveryStaffId} · ` : ''}{profile?.vehicleType || 'Bike'} {profile?.vehicleNumber ? `· ${profile?.vehicleNumber}` : ''}
+              <div className="rider-header-sub">
+                {profile?.vehicleType || 'Bike'} {profile?.vehicleNumber ? `· Reg: ${profile.vehicleNumber}` : ''}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Duty Status Switcher */}
-            <select
-              value={currentDuty}
-              onChange={e => handleDutyChange(e.target.value)}
-              style={{
-                height: '34px',
-                padding: '0 10px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '12px',
-                fontWeight: 700,
-                background: currentDuty === 'ON_DUTY' ? '#dcfce7' : (currentDuty === 'ON_BREAK' ? '#fef3c7' : '#f1f5f9'),
-                color: currentDuty === 'ON_DUTY' ? '#15803d' : (currentDuty === 'ON_BREAK' ? '#b45309' : '#64748b'),
-                cursor: 'pointer'
+          {/* Quick Header Actions: Audio Chime & Logout */}
+          <div className="rider-header-top-actions">
+            <button
+              type="button"
+              className="rider-icon-btn"
+              onClick={() => {
+                playChime();
+                notify('Chime test sound played! 🛵');
               }}
+              title="Test Order Chime"
             >
-              <option value="ON_DUTY">● On Duty</option>
-              <option value="ON_BREAK">⏸ On Break</option>
-              <option value="OFF_DUTY">○ Off Duty</option>
-            </select>
+              <Volume2 size={16} />
+            </button>
 
             <button
               type="button"
+              className="rider-icon-btn danger"
               onClick={handleLogout}
               title="Sign Out"
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                background: '#fff',
-                color: '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
+              aria-label="Sign Out"
             >
               <LogOut size={16} />
             </button>
           </div>
+
+          {/* Duty Status Selector (Spans full-width on row 2 in mobile view) */}
+          <div className="rider-duty-wrap">
+            <select
+              value={currentDuty}
+              onChange={e => handleDutyChange(e.target.value)}
+              className={`rider-duty-select ${
+                currentDuty === 'ON_DUTY' ? 'on-duty' :
+                currentDuty === 'ON_BREAK' ? 'on-break' : 'off-duty'
+              }`}
+              title="Change Duty Status"
+            >
+              <option value="ON_DUTY">● On Duty (Accepting Orders)</option>
+              <option value="ON_BREAK">⏸ On Break (Paused)</option>
+              <option value="OFF_DUTY">○ Off Duty</option>
+            </select>
+          </div>
         </div>
       </header>
 
-      {/* 2. Main Content Container */}
-      <main style={{ maxWidth: '680px', margin: '0 auto', padding: '16px' }}>
-        {/* Push Notification Enable Banner */}
+      {/* ================= 2. FOCUSED 980PX MAIN CONTAINER ================= */}
+      <main className="rider-content-wrap">
+        {/* Push Notification Banner */}
         {isPushSupported() && pushStatus !== 'granted' && (
-          <div style={{
-            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-            border: '1.5px solid #a7f3d0',
-            borderRadius: '12px',
-            padding: '12px 16px',
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '20px' }}>🔔</span>
+          <div className="rider-push-banner">
+            <div className="rider-push-content">
+              <div className="rider-push-icon">
+                <Bell size={20} />
+              </div>
               <div>
-                <b style={{ fontSize: '13px', color: '#065f46', display: 'block' }}>
-                  Enable Live Order Alerts
+                <b className="rider-push-title">
+                  Enable Live Delivery Dispatch Alerts
                 </b>
-                <span style={{ fontSize: '11.5px', color: '#047857' }}>
-                  Get real-time sound & push notifications as soon as an order is assigned.
+                <span className="rider-push-desc">
+                  Get instantaneous audio chimes & push notifications when new customer orders are assigned.
                 </span>
               </div>
             </div>
@@ -337,492 +319,418 @@ export function DeliveryDashboard() {
               type="button"
               disabled={enablingPush}
               onClick={enableRiderNotifications}
-              style={{
-                padding: '7px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                background: '#059669',
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: enablingPush ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 2px 6px rgba(5, 150, 105, 0.3)'
-              }}
+              className="rider-push-btn"
             >
-              {enablingPush ? 'Enabling...' : 'Turn On'}
+              {enablingPush ? 'Enabling...' : 'Turn On Alerts'}
             </button>
           </div>
         )}
 
-        {/* KPI Strip */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '10px',
-          marginBottom: '16px'
-        }}>
-          <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Assigned</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
-              {orders.length}
+        {/* ================= UNIFIED SHIFT SUMMARY CARD ================= */}
+        <div className="rider-shift-ribbon">
+          {/* Active Orders */}
+          <div className="rider-ribbon-stat active">
+            <div className="rider-ribbon-icon">
+              <Truck size={20} />
+            </div>
+            <div>
+              <span className="rider-ribbon-label">Active Tasks</span>
+              <div className="rider-ribbon-val" style={{ color: '#1d4ed8' }}>
+                {orders.filter(o => o.status !== 'DELIVERED' && o.status !== 'DELIVERY_FAILED').length}
+              </div>
             </div>
           </div>
 
-          <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Delivered Today</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a', marginTop: '2px' }}>
-              {codSummary?.todayDeliveredCount ?? 0}
+          {/* Delivered Today */}
+          <div className="rider-ribbon-stat delivered">
+            <div className="rider-ribbon-icon">
+              <CheckCircle2 size={20} />
+            </div>
+            <div>
+              <span className="rider-ribbon-label">Delivered Today</span>
+              <div className="rider-ribbon-val" style={{ color: '#15803d' }}>
+                {codSummary?.todayDeliveredCount ?? 0}
+              </div>
             </div>
           </div>
 
-          <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', border: '1px solid #fed7aa', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#9a3412', fontWeight: 600 }}>Pending COD Cash</div>
-            <div style={{ fontSize: '15px', fontWeight: 800, color: '#c2410c', marginTop: '2px' }}>
-              {money(codSummary?.pendingHandoverAmount)}
+          {/* Cash to Handover */}
+          <div className="rider-ribbon-stat cod">
+            <div className="rider-ribbon-icon">
+              <Wallet size={20} />
+            </div>
+            <div>
+              <span className="rider-ribbon-label">Cash In Hand (COD)</span>
+              <div className="rider-ribbon-val" style={{ color: '#b45309' }}>
+                {money(codSummary?.pendingHandoverAmount)}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Tab Filter Strip */}
-        <div style={{
-          display: 'flex',
-          gap: '6px',
-          overflowX: 'auto',
-          paddingBottom: '8px',
-          marginBottom: '16px',
-          WebkitOverflowScrolling: 'touch'
-        }}>
-          {[
-            { id: 'ALL', label: 'All' },
-            { id: 'PENDING', label: 'Pending' },
-            { id: 'IN_TRANSIT', label: 'In Transit' },
-            { id: 'DELIVERED', label: 'Delivered' },
-            { id: 'FAILED', label: 'Failed' }
-          ].map(t => (
+        {/* ================= FILTER STRIP & SEARCH ================= */}
+        <div className="rider-toolbar-row">
+          <div className="rider-tab-strip">
+            {[
+              { id: 'ALL', label: 'All Orders' },
+              { id: 'PENDING', label: 'Pending' },
+              { id: 'IN_TRANSIT', label: 'In Transit' },
+              { id: 'DELIVERED', label: 'Delivered' },
+              { id: 'FAILED', label: 'Failed' }
+            ].map(t => {
+              const isActive = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`rider-tab-btn ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveTab(t.id)}
+                >
+                  <span>{t.label}</span>
+                  {isActive && (
+                    <span className="rider-tab-badge">{orders.length}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="rider-toolbar-search-wrap">
+            <div className="rider-search-box">
+              <Search size={15} style={{ color: '#94a3b8', flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Search order #, customer..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: '2px' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
             <button
-              key={t.id}
               type="button"
-              onClick={() => setActiveTab(t.id)}
-              style={{
-                flexShrink: 0,
-                padding: '7px 14px',
-                borderRadius: '20px',
-                border: 'none',
-                fontSize: '12.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                background: activeTab === t.id ? '#059669' : '#ffffff',
-                color: activeTab === t.id ? '#ffffff' : '#475569',
-                boxShadow: activeTab === t.id ? '0 2px 4px rgba(5,150,105,0.2)' : '0 1px 2px rgba(0,0,0,0.04)'
-              }}
+              className="rider-icon-btn"
+              onClick={() => loadDashboardData()}
+              disabled={loading}
+              title="Refresh Deliveries"
+              style={{ background: '#ffffff', color: '#475569', borderColor: '#cbd5e1' }}
             >
-              {t.label}
+              <RefreshCw size={14} className={loading ? 'spin' : ''} />
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={loadDashboardData}
-            style={{
-              marginLeft: 'auto',
-              flexShrink: 0,
-              padding: '7px 10px',
-              borderRadius: '20px',
-              border: '1px solid #cbd5e1',
-              background: '#fff',
-              color: '#475569',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            <RefreshCw size={13} className={loading ? 'spin' : ''} />
-          </button>
+          </div>
         </div>
 
-        {/* Orders List */}
+        {/* ================= ORDERS FEED ================= */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-            Loading deliveries...
+          <div style={{
+            textAlign: 'center',
+            padding: '60px 20px',
+            background: '#ffffff',
+            borderRadius: '18px',
+            border: '1px solid #e2e8f0',
+            color: '#64748b'
+          }}>
+            <RefreshCw size={28} className="spin" style={{ color: '#10b981', margin: '0 auto 12px' }} />
+            <div style={{ fontWeight: 700, fontSize: '15px', color: '#0f172a' }}>Syncing delivery assignments...</div>
+            <div style={{ fontSize: '12.5px', marginTop: '4px' }}>Connecting to R2Cart Dispatch Portal</div>
           </div>
-        ) : orders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div style={{
             background: '#ffffff',
-            borderRadius: '16px',
-            border: '1px dashed #cbd5e1',
-            padding: '48px 24px',
+            borderRadius: '18px',
+            border: '1.5px dashed #cbd5e1',
+            padding: '52px 24px',
             textAlign: 'center'
           }}>
-            <Package size={44} style={{ color: '#94a3b8', margin: '0 auto 12px' }} />
-            <h3 style={{ margin: '0 0 6px', fontSize: '16px', color: '#1e293b' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: '#f1f5f9',
+              color: '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 14px'
+            }}>
+              <Package size={28} />
+            </div>
+            <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
               No Orders in this view
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-              Newly assigned deliveries will appear here as soon as dispatch assigns them.
+            </h4>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b', maxWidth: '380px', marginInline: 'auto' }}>
+              {searchQuery ? 'No deliveries match your search query.' : 'New deliveries will appear here as soon as dispatch assigns them.'}
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {orders.map(order => {
+          <div>
+            {filteredOrders.map(order => {
               const isExpanded = Boolean(expandedOrders[order.assignmentId]);
               const isCod = order.paymentMethod === 'COD';
+              const statusKey = (order.status || 'ASSIGNED').toLowerCase();
+              const mapsUrl = order.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress || '')}`;
 
               return (
-                <div
-                  key={order.assignmentId}
-                  style={{
-                    background: '#ffffff',
-                    borderRadius: '14px',
-                    border: '1px solid #e2e8f0',
-                    padding: '16px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px'
-                  }}
-                >
-                  {/* Card Top Strip: Order ID & Status Badge */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                          #{order.orderNumber}
-                        </span>
-                        {order.deliverySlot && (
-                          <span style={{ fontSize: '11px', background: '#f1f5f9', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                            {order.deliverySlot}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span>Assigned: {formatDateTime(order.assignedAt)}</span>
-                        {order.status === 'DELIVERED' && order.deliveredAt && (
-                          <span style={{ color: '#15803d', fontWeight: 700 }}>
-                            ✓ Delivered: {formatDateTime(order.deliveredAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <span style={{
-                      fontSize: '11px',
-                      padding: '4px 10px',
-                      borderRadius: '12px',
-                      fontWeight: 800,
-                      background:
-                        order.status === 'DELIVERED' ? '#dcfce7' :
-                        order.status === 'DELIVERY_FAILED' ? '#fee2e2' :
-                        order.status === 'OUT_FOR_DELIVERY' ? '#cffafe' :
-                        order.status === 'DELIVERY_PROOF_PENDING' ? '#fef3c7' :
-                        order.status === 'PICKED_UP' ? '#e0e7ff' : '#f1f5f9',
-                      color:
-                        order.status === 'DELIVERED' ? '#15803d' :
-                        order.status === 'DELIVERY_FAILED' ? '#b91c1c' :
-                        order.status === 'OUT_FOR_DELIVERY' ? '#0891b2' :
-                        order.status === 'DELIVERY_PROOF_PENDING' ? '#b45309' :
-                        order.status === 'PICKED_UP' ? '#4338ca' : '#475569'
-                    }}>
-                      {order.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-
-                  {/* Customer Information & Quick Actions */}
-                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
-                        {order.customerName}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => setChatModalOrder(order)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            background: '#0284c7',
-                            color: '#fff',
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            border: 'none',
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <MessageSquare size={13} /> Chat with Customer
-                        </button>
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: '13px', color: '#334155', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                      <MapPin size={15} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
-                      <div>
-                        <div><b>Village:</b> {order.villageName || 'Service Area'}</div>
-                        <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>
-                          {order.deliveryAddress}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 1-Tap Google Maps Navigation (Disabled until map integration is added) */}
-                    <div style={{ marginTop: '10px' }}>
+                <article key={order.assignmentId} className={`rider-task-card ${statusKey}`}>
+                  {/* Compact Header: Order ID + Slot + Status */}
+                  <div className="rider-card-top">
+                    <div className="rider-card-id-grp">
+                      <span className="rider-order-id-tag">
+                        #{order.orderNumber}
+                      </span>
                       <button
                         type="button"
-                        disabled
-                        title="Map navigation is currently disabled"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          background: '#f1f5f9',
-                          border: '1px solid #cbd5e1',
-                          color: '#94a3b8',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'not-allowed',
-                          opacity: 0.75
-                        }}
+                        onClick={() => copyOrderNumber(order.orderNumber, order.assignmentId)}
+                        className="rider-copy-btn"
+                        title="Copy Order #"
                       >
-                        <Navigation size={13} /> Navigate to Map (Disabled)
+                        {copiedOrderId === order.assignmentId ? <Check size={11} style={{ color: '#10b981' }} /> : <Copy size={11} />}
+                        <span>{copiedOrderId === order.assignmentId ? 'Copied' : 'Copy'}</span>
                       </button>
+                      {order.deliverySlot && (
+                        <span className="rider-slot-tag">
+                          {order.deliverySlot}
+                        </span>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Customer Delivery Instruction (if any) */}
-                  {order.deliveryInstruction && (
-                    <div style={{
-                      background: '#fffbeb',
-                      border: '1px solid #fef3c7',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                      color: '#92400e'
-                    }}>
-                      <b>Customer Note:</b> “{order.deliveryInstruction}”
-                    </div>
-                  )}
-
-                  {/* COD Collection Badge */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    background: isCod ? '#fef3c7' : '#ecfdf5',
-                    border: `1px solid ${isCod ? '#fde68a' : '#a7f3d0'}`
-                  }}>
-                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: isCod ? '#92400e' : '#065f46' }}>
-                      {isCod ? 'Cash on Delivery (COD)' : 'Prepaid (Paid Online)'}
+                    <span className={`rider-status-pill ${statusKey}`}>
+                      {order.status === 'DELIVERED' && <CheckCircle2 size={11} />}
+                      {order.status === 'DELIVERY_FAILED' && <XCircle size={11} />}
+                      {order.status === 'OUT_FOR_DELIVERY' && <Truck size={11} />}
+                      {order.status === 'PICKED_UP' && <Package size={11} />}
+                      {order.status === 'ACCEPTED' && <Check size={11} />}
+                      {order.status === 'ASSIGNED' && <Clock size={11} />}
+                      <span>{order.status.replace(/_/g, ' ')}</span>
                     </span>
-                    <b style={{ fontSize: '14px', color: isCod ? '#b45309' : '#047857' }}>
-                      {isCod ? `Collect ${money(order.codAmountToCollect || order.grandTotal)}` : 'Collect ₹0'}
-                    </b>
                   </div>
 
-                  {/* Items Toggle Dropdown */}
-                  <div>
+                  {/* High-Density Destination & Quick Actions Strip */}
+                  <div className="rider-destination-strip">
+                    <div className="rider-dest-header">
+                      <div className="rider-dest-user">
+                        <span className="rider-dest-name">{order.customerName}</span>
+                        {order.villageName && (
+                          <span className="rider-village-badge">{order.villageName}</span>
+                        )}
+                      </div>
+
+                      {/* Quick 1-Tap Thumb Contacts */}
+                      <div className="rider-quick-contacts">
+                        {order.customerPhone && (
+                          <a
+                            href={`tel:${order.customerPhone}`}
+                            className="rider-contact-btn call"
+                            title={`Call ${order.customerName} (${order.customerPhone})`}
+                          >
+                            <Phone size={11} />
+                            <span>Call</span>
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          className="rider-contact-btn chat"
+                          onClick={() => setChatModalOrder(order)}
+                          title="Live Chat with Customer"
+                        >
+                          <MessageSquare size={11} />
+                          <span>Chat</span>
+                        </button>
+
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rider-contact-btn maps"
+                          title="Open directions in Google Maps GPS"
+                        >
+                          <Navigation size={11} />
+                          <span>GPS</span>
+                          <ExternalLink size={9} style={{ opacity: 0.6 }} />
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Address Line */}
+                    <div className="rider-dest-address">
+                      <MapPin size={12} className="rider-dest-pin" />
+                      <span>{order.deliveryAddress}</span>
+                    </div>
+
+                    {/* Customer Delivery Note (if any) */}
+                    {order.deliveryInstruction && (
+                      <div className="rider-dest-note">
+                        <Bell size={11} className="rider-note-bell" />
+                        <span><b>Note:</b> “{order.deliveryInstruction}”</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Integrated Slim Payment & Items Bar */}
+                  <div className={`rider-info-strip ${isCod ? 'cod' : 'prepaid'}`}>
+                    <div className="rider-strip-payment">
+                      {isCod ? (
+                        <>
+                          <span className="rider-strip-badge cod">💵 COD</span>
+                          <span className="rider-strip-label">Collect:</span>
+                          <b className="rider-strip-amount cod">
+                            {money(order.codAmountToCollect || order.grandTotal)}
+                          </b>
+                        </>
+                      ) : (
+                        <>
+                          <span className="rider-strip-badge prepaid">✓ PREPAID</span>
+                          <span className="rider-strip-label prepaid">Paid Online · ₹0 Due</span>
+                        </>
+                      )}
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => toggleItemsExpand(order.assignmentId)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#64748b',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        padding: '4px 0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
+                      className="rider-strip-items-btn"
                     >
-                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      {order.itemCount} items in this order
+                      <Package size={12} />
+                      <span>{order.itemCount} items</span>
+                      {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                     </button>
-
-                    {isExpanded && (
-                      <div style={{
-                        marginTop: '8px',
-                        background: '#f8fafc',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px'
-                      }}>
-                        {(order.items || []).map(it => (
-                          <div key={it.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {it.image && (
-                                <img src={it.image} alt={it.name} style={{ width: '28px', height: '28px', borderRadius: '4px', objectFit: 'cover' }} />
-                              )}
-                              <span>{it.name} <span style={{ color: '#64748b' }}>({it.unit})</span></span>
-                            </div>
-                            <span style={{ fontWeight: 700, color: '#334155' }}>x{it.quantity}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
-                  {/* Action Buttons Based on Status Transitions */}
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  {/* Collapsible Items List */}
+                  {isExpanded && (
+                    <div style={{
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      {(order.items || []).map(it => (
+                        <div key={it.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, paddingRight: '8px' }}>
+                            {it.image && (
+                              <img
+                                src={it.image}
+                                alt={it.name}
+                                style={{ width: '26px', height: '26px', borderRadius: '5px', objectFit: 'cover', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                              />
+                            )}
+                            <span style={{ minWidth: 0, wordBreak: 'break-word', color: '#0f172a' }}>
+                              <b>{it.name}</b> <span style={{ color: '#64748b' }}>({it.unit})</span>
+                            </span>
+                          </div>
+                          <span style={{ fontWeight: 800, color: '#0f172a', background: '#ffffff', padding: '1px 6px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '11px', flexShrink: 0 }}>
+                            x{it.quantity}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Compact Action Buttons */}
+                  <div>
                     {order.status === 'ASSIGNED' && (
-                      <Button
+                      <button
+                        type="button"
+                        className="rider-btn-compact accept"
                         onClick={() => handleStatusUpdate(order.assignmentId, 'ACCEPTED')}
-                        style={{
-                          flex: 1,
-                          height: '42px',
-                          background: '#059669',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '13px'
-                        }}
                       >
-                        <CheckCircle2 size={15} style={{ marginRight: '6px' }} /> Accept Order
-                      </Button>
+                        <CheckCircle2 size={16} />
+                        <span>Accept Order Assignment</span>
+                      </button>
                     )}
 
                     {order.status === 'ACCEPTED' && (
-                      <Button
+                      <button
+                        type="button"
+                        className="rider-btn-compact pickup"
                         onClick={() => handleStatusUpdate(order.assignmentId, 'PICKED_UP')}
-                        style={{
-                          flex: 1,
-                          height: '42px',
-                          background: '#4338ca',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '13px'
-                        }}
                       >
-                        <Package size={15} style={{ marginRight: '6px' }} /> Pick Up from Store
-                      </Button>
+                        <Package size={16} />
+                        <span>Confirm Store Pick Up</span>
+                      </button>
                     )}
 
                     {order.status === 'PICKED_UP' && (
-                      <Button
+                      <button
+                        type="button"
+                        className="rider-btn-compact start-route"
                         onClick={() => handleStatusUpdate(order.assignmentId, 'OUT_FOR_DELIVERY')}
-                        style={{
-                          flex: 1,
-                          height: '42px',
-                          background: '#0891b2',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '13px'
-                        }}
                       >
-                        <Truck size={15} style={{ marginRight: '6px' }} /> Start Route (Out for Delivery)
-                      </Button>
+                        <Truck size={16} />
+                        <span>Start Route (Out for Delivery)</span>
+                      </button>
                     )}
 
                     {(order.status === 'OUT_FOR_DELIVERY' || order.status === 'DELIVERY_PROOF_PENDING') && (
-                      <>
-                        <Button
+                      <div className="rider-compact-actions">
+                        <button
+                          type="button"
+                          className="rider-btn-compact deliver"
                           onClick={() => setProofModalOrder(order)}
-                          style={{
-                            flex: 2,
-                            height: '44px',
-                            background: '#059669',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '13.5px'
-                          }}
                         >
-                          <Camera size={16} style={{ marginRight: '6px' }} />
-                          {order.status === 'DELIVERY_PROOF_PENDING' ? 'Complete Delivery' : 'Upload Proof & Deliver'}
-                        </Button>
+                          <Camera size={15} />
+                          <span>{order.status === 'DELIVERY_PROOF_PENDING' ? 'Complete Proof' : 'Upload Proof & Complete'}</span>
+                        </button>
 
-                        <Button
-                          variant="outline"
+                        <button
+                          type="button"
+                          className="rider-btn-compact-danger"
                           onClick={() => setFailureModalOrder(order)}
-                          style={{
-                            flex: 1,
-                            height: '44px',
-                            color: '#b91c1c',
-                            borderColor: '#fca5a5',
-                            fontSize: '12px'
-                          }}
+                          title="Report Failed Delivery"
                         >
-                          <XCircle size={14} style={{ marginRight: '4px' }} /> Delivery Failed
-                        </Button>
-                      </>
+                          <XCircle size={14} />
+                          <span>Failed</span>
+                        </button>
+                      </div>
                     )}
 
                     {order.status === 'DELIVERED' && (
-                      <div style={{
-                        width: '100%',
-                        background: '#f0fdf4',
-                        border: '1px solid #bbf7d0',
-                        borderRadius: '10px',
-                        padding: '12px 14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                          <span style={{ fontSize: '13px', color: '#15803d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <CheckCircle2 size={16} /> Delivered on {formatDateTime(order.deliveredAt)}
-                          </span>
-                          {order.proofs?.[0]?.signedUrl && (
-                            <a
-                              href={order.proofs[0].signedUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{
-                                fontSize: '12px',
-                                color: '#0284c7',
-                                fontWeight: 600,
-                                textDecoration: 'none',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                background: '#e0f2fe',
-                                padding: '3px 8px',
-                                borderRadius: '6px'
-                              }}
-                            >
-                              <Camera size={13} /> View Delivery Proof
-                            </a>
-                          )}
-                        </div>
-                        {order.proofs?.[0]?.recipientName && (
-                          <div style={{ fontSize: '12px', color: '#166534' }}>
-                            <b>Received by:</b> {order.proofs[0].recipientName} {order.proofs[0].recipientPhone ? `(${order.proofs[0].recipientPhone})` : ''}
-                          </div>
-                        )}
-                        {order.proofs?.[0]?.notes && (
-                          <div style={{ fontSize: '11.5px', color: '#475569', fontStyle: 'italic' }}>
-                            <b>Delivery Note:</b> “{order.proofs[0].notes}”
-                          </div>
+                      <div className="rider-compact-delivered">
+                        <span style={{ color: '#15803d', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <CheckCircle2 size={14} /> Delivered on {formatDateTime(order.deliveredAt)}
+                        </span>
+                        {order.proofs?.[0]?.signedUrl && (
+                          <a
+                            href={order.proofs[0].signedUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rider-proof-link"
+                            style={{ padding: '3px 8px', fontSize: '11px' }}
+                          >
+                            <Camera size={12} /> View Proof
+                          </a>
                         )}
                       </div>
                     )}
 
                     {order.status === 'DELIVERY_FAILED' && (
-                      <div style={{ width: '100%', background: '#fef2f2', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', color: '#b91c1c' }}>
-                        <b>Failure Reason:</b> {order.failureReason || 'Reported by staff'}
-                        {order.failureNotes && <div>“{order.failureNotes}”</div>}
+                      <div className="rider-compact-failed">
+                        <b>Failed:</b> {order.failureReason || 'Reported by staff'}
+                        {order.failureNotes && <span style={{ fontStyle: 'italic', marginLeft: '6px' }}>“{order.failureNotes}”</span>}
                       </div>
                     )}
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
         )}
       </main>
 
-      {/* Proof Modal */}
+      {/* ================= MODALS ================= */}
+      {/* Proof of Delivery Modal */}
       {proofModalOrder && (
         <DeliveryProofModal
           open={Boolean(proofModalOrder)}
@@ -835,7 +743,7 @@ export function DeliveryDashboard() {
         />
       )}
 
-      {/* Failure Modal */}
+      {/* Failure Reporting Modal */}
       {failureModalOrder && (
         <DeliveryFailureModal
           open={Boolean(failureModalOrder)}
@@ -860,4 +768,5 @@ export function DeliveryDashboard() {
     </div>
   );
 }
+
 export default DeliveryDashboard;

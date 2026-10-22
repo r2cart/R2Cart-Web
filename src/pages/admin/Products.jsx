@@ -9,7 +9,7 @@ import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useNavigate,useParams} from 'react-router-dom';
 import {ArrowLeft,Check,Copy,Crop,Edit2,Eye,ImagePlus,Package,Plus,Search,Sparkles,Trash2} from 'lucide-react';
-import {Button,Modal,Pagination,StatusBadge,money} from '../../components/ui';
+import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
 import ProductVariants from '../../components/admin/ProductVariants';
@@ -47,8 +47,8 @@ export function AdminProducts(){
  useEffect(()=>{const onSync=()=>setRefresh(v=>v+1);window.addEventListener('focus',onSync);window.addEventListener('grocify:orders-updated',onSync);window.addEventListener('grocify:products-updated',onSync);return()=>{window.removeEventListener('focus',onSync);window.removeEventListener('grocify:orders-updated',onSync);window.removeEventListener('grocify:products-updated',onSync)}},[]);
  const changeFilter=setter=>value=>{setter(value);setPage(1)};
 
- const toggle=async product=>{setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(next==='ACTIVE'?'Product activated':'Product deactivated')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
- const destroy=async()=>{const product=confirm;if(!product)return;setBusy(product.id);try{await adminService.deleteProduct(product.id);setConfirm(null);if(list.length===1&&page>1)setPage(value=>value-1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify('Product deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+ const toggle=async product=>{setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+ const destroy=async()=>{const product=confirm;if(!product)return;setBusy(product.id);try{await adminService.deleteProduct(product.id);setConfirm(null);if(list.length===1&&page>1)setPage(value=>value-1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" deleted successfully`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
  const destroyAll=async()=>{setBusy('all');try{const res=await adminService.deleteAllProducts();setDeleteAllConfirm(false);setPage(1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(res?.message||'All products deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
  const inspect=async id=>{setBusy(id);try{setView(await adminService.product(id))}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
 
@@ -64,8 +64,28 @@ export function AdminProducts(){
    {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td>{product.unit}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`/admin/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
   </tbody></table></div></div>
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
-  <Modal open={!!confirm} onClose={()=>{if(!busy)setConfirm(null)}} title={`Delete ${confirm?.name||'product'}?`}><div className="modal-body"><p>This removes this pack from the customer catalogue and deletes unused Cloudinary images. Shared pack images stay safe.</p><div className="row end gap"><Button disabled={!!busy} variant="ghost" onClick={()=>setConfirm(null)}>Cancel</Button><Button disabled={!!busy} variant="danger" onClick={destroy}>{busy?'Deleting…':'Delete product'}</Button></div></div></Modal>
-  <Modal open={deleteAllConfirm} onClose={()=>{if(!busy)setDeleteAllConfirm(false)}} title="Delete all products?"><div className="modal-body"><p>Are you sure you want to delete all <b>{totalProducts}</b> products from your store?</p><p className="text-danger">This will remove all products from the customer catalogue. This action cannot be undone.</p><div className="row end gap"><Button disabled={!!busy} variant="ghost" onClick={()=>setDeleteAllConfirm(false)}>Cancel</Button><Button disabled={!!busy} variant="danger" onClick={destroyAll}>{busy==='all'?'Deleting all products…':'Yes, delete all products'}</Button></div></div></Modal>
+  <ConfirmDialog
+    open={!!confirm}
+    onClose={() => { if (!busy) setConfirm(null); }}
+    onConfirm={destroy}
+    title="Delete Product?"
+    itemName={confirm ? `${confirm.name}${confirm.unit ? ` · ${confirm.unit}` : ''}` : ''}
+    itemType="Product"
+    message={`Are you sure you want to permanently delete "${confirm?.name || 'this product'}"? This pack will be immediately removed from the customer catalog and stock inventory.`}
+    warningNote="Existing customer order histories and transaction records will safely preserve this item."
+    confirmText="Delete Product"
+    cancelText="Cancel"
+  />
+  <ConfirmDialog
+    open={deleteAllConfirm}
+    onClose={() => { if (!busy) setDeleteAllConfirm(false); }}
+    onConfirm={destroyAll}
+    title="Delete All Products?"
+    message={`Are you sure you want to delete all ${totalProducts} products from your store? This will completely clear your product catalog from the customer storefront.`}
+    warningNote="This action is permanent and cannot be undone. All sellable packs will be deleted."
+    confirmText={busy === 'all' ? 'Deleting all products…' : 'Yes, Delete All Products'}
+    cancelText="Cancel"
+  />
    <ProductDetailModal view={view} onClose={()=>setView(null)} basePath={basePath} />
   </>;
 }

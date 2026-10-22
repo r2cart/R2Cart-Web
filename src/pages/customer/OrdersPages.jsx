@@ -28,6 +28,7 @@ import { useApp } from '../../context/AppContext';
 import { EmptyState, StatusBadge, money, Button, Modal } from '../../components/ui';
 import { addressText } from '../../utils/address';
 import { orderService } from '../../services/order.service';
+import { catalogService } from '../../services/catalog.service';
 import { DeliveryChatModal } from '../../components/DeliveryChatModal';
 
 const orderItems = o => (o.items || []).filter(Boolean);
@@ -241,6 +242,7 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
   const [deliveryInstruction, setDeliveryInstruction] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliverySlot, setDeliverySlot] = useState('');
+  const [availableSlots, setAvailableSlots] = useState([]);
   const [updateSavedAddress, setUpdateSavedAddress] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -263,8 +265,26 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
       setDeliverySlot(order.deliverySlot || '');
       setUpdateSavedAddress(false);
       setError('');
+
+      if (order.deliveryDate) {
+        catalogService.listDeliverySlots(order.deliveryDate)
+          .then(slots => {
+            if (Array.isArray(slots) && slots.length > 0) setAvailableSlots(slots);
+          })
+          .catch(() => {});
+      }
     }
   }, [order, open]);
+
+  useEffect(() => {
+    if (deliveryDate) {
+      catalogService.listDeliverySlots(deliveryDate)
+        .then(slots => {
+          if (Array.isArray(slots) && slots.length > 0) setAvailableSlots(slots);
+        })
+        .catch(() => {});
+    }
+  }, [deliveryDate]);
 
   if (!open || !order) return null;
 
@@ -456,11 +476,22 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
                       onChange={e => setDeliverySlot(e.target.value)}
                       style={{ height: '34px', borderColor: '#86efac' }}
                     >
-                      <option value="07:00 AM - 10:00 AM">Morning (07:00 AM - 10:00 AM)</option>
-                      <option value="10:00 AM - 01:00 PM">Midday (10:00 AM - 01:00 PM)</option>
-                      <option value="01:00 PM - 04:00 PM">Afternoon (01:00 PM - 04:00 PM)</option>
-                      <option value="04:00 PM - 07:00 PM">Evening (04:00 PM - 07:00 PM)</option>
-                      <option value="07:00 PM - 10:00 PM">Night (07:00 PM - 10:00 PM)</option>
+                      {availableSlots.length > 0 ? (
+                        availableSlots.map(s => (
+                          <option key={s.id || s.label} value={s.label}>
+                            {s.label}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          {deliverySlot && <option value={deliverySlot}>{deliverySlot}</option>}
+                          <option value="Morning Slot (07:00 AM – 11:00 AM)">Morning Slot (07:00 AM – 11:00 AM)</option>
+                          <option value="Midday Slot (10:00 AM - 01:00 PM)">Midday Slot (10:00 AM - 01:00 PM)</option>
+                          <option value="Afternoon Slot (01:00 PM - 04:00 PM)">Afternoon Slot (01:00 PM - 04:00 PM)</option>
+                          <option value="Evening Slot (04:00 PM - 07:00 PM)">Evening Slot (04:00 PM - 07:00 PM)</option>
+                          <option value="Night Slot (07:00 PM - 10:00 PM)">Night Slot (07:00 PM - 10:00 PM)</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>

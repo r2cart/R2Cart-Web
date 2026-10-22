@@ -5,7 +5,7 @@ import {
  KeyRound,LoaderCircle,RefreshCcw,Save,ShieldCheck,Store,Trash2,
  Upload,ExternalLink,RotateCcw,Truck,XCircle,AlertCircle,Cookie,Phone,CheckCircle2,
  LayoutTemplate,ArrowUp,ArrowDown,Sliders,Sparkles,Layers,Grid,ShoppingBag,
- Tag,Check,MoveUp,MoveDown,Info,ShieldAlert,AlertOctagon
+ Tag,Check,MoveUp,MoveDown,Info,ShieldAlert,AlertOctagon,CalendarClock,Plus
 } from 'lucide-react';
 import {Button} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
@@ -74,8 +74,8 @@ const defaultPolicies={
   contact:{
    title:'Contact Us',
    eyebrow:'CUSTOMER ASSISTANCE & OFFICES',
-   intro:'Have questions about your order, want to partner with us, or have feedback? The R2Cart team is here to assist you 7 days a week.',
-   metaTags:'Entity: R2Cart Retail Pvt. Ltd., Support: 7:00 AM – 11:00 PM IST, Email: support@r2cart.in',
+   intro:'Have questions about your order, want to partner with us, or have feedback? Our team is here to assist you 7 days a week.',
+   metaTags:'',
    customText:''
   },
   cookies:{
@@ -105,10 +105,11 @@ const blank={
  openingTime:'',
  closingTime:'',
  currency:'INR',
- minimumOrder:'',
- deliveryFee:'',
- freeDeliveryThreshold:'',
- estimatedDelivery:'',
+ minimumOrder:150,
+ deliveryFee:30,
+ freeDeliveryThreshold:499,
+ estimatedDelivery:'15–30 minutes',
+ globalDeliveryRadius:5.0,
  notifications:{orders:false,stock:false,customers:false},
  policies:defaultPolicies
 };
@@ -121,28 +122,58 @@ const normalize=value=>{
   ...blank,
   ...value,
   logo:mediaUrl(value?.logo||''),
-  minimumOrder:value?.minimumOrder??'',
-  deliveryFee:value?.deliveryFee??'',
-  freeDeliveryThreshold:value?.freeDeliveryThreshold??'',
+  minimumOrder:value?.minimumOrder!=null?value.minimumOrder:150,
+  deliveryFee:value?.deliveryFee!=null?value.deliveryFee:30,
+  freeDeliveryThreshold:value?.freeDeliveryThreshold!=null?value.freeDeliveryThreshold:499,
+  estimatedDelivery:value?.estimatedDelivery||'15–30 minutes',
+  globalDeliveryRadius:value?.globalDeliveryRadius!=null?Number(value.globalDeliveryRadius):5.0,
   notifications:{...blank.notifications,...(value?.notifications||{})},
   policies:{
    ...defaultPolicies,
    ...rawPol,
-   legalName:rawPol.legalName||defaultPolicies.legalName,
+   legalName:rawPol.legalName||(value?.storeName?`${value.storeName} Retail Pvt. Ltd.`:defaultPolicies.legalName),
    supportPhone:rawPol.supportPhone||value?.contactNumber||defaultPolicies.supportPhone,
    supportEmail:rawPol.supportEmail||value?.email||defaultPolicies.supportEmail,
-   supportHours:rawPol.supportHours||defaultPolicies.supportHours,
+   supportHours:rawPol.supportHours||(value?.openingTime&&value?.closingTime?`${value.openingTime} – ${value.closingTime} IST (Daily)`:defaultPolicies.supportHours),
    officeAddress:rawPol.officeAddress||value?.address||defaultPolicies.officeAddress,
-   fulfillmentHub:rawPol.fulfillmentHub||defaultPolicies.fulfillmentHub,
+   fulfillmentHub:rawPol.fulfillmentHub||(value?.storeName?`${value.storeName} Central Hub`:defaultPolicies.fulfillmentHub),
    grievanceOfficerName:rawPol.grievanceOfficerName||defaultPolicies.grievanceOfficerName,
    grievanceOfficerRole:rawPol.grievanceOfficerRole||defaultPolicies.grievanceOfficerRole,
-   grievanceOfficerEmail:rawPol.grievanceOfficerEmail||defaultPolicies.grievanceOfficerEmail,
-   grievanceOfficerPhone:rawPol.grievanceOfficerPhone||defaultPolicies.grievanceOfficerPhone,
-   grievanceOfficerAddress:rawPol.grievanceOfficerAddress||defaultPolicies.grievanceOfficerAddress,
-   customPages:{
-    ...defaultPolicies.customPages,
-    ...rawCustom
-   },
+   grievanceEmail:rawPol.grievanceOfficerEmail||value?.email||defaultPolicies.grievanceOfficerEmail,
+   grievancePhone:rawPol.grievanceOfficerPhone||value?.contactNumber||defaultPolicies.grievanceOfficerPhone,
+   grievanceOfficerAddress:rawPol.grievanceOfficerAddress||value?.address||defaultPolicies.grievanceOfficerAddress,
+   customPages:policyNav.reduce((acc,item)=>{
+    const pKey=item.type;
+    const rawPage=rawCustom[pKey]||{};
+    const fallbackTemplate=getPolicyContent({
+     storeName:value?.storeName||BRAND.name,
+     legalName:rawPol.legalName||(value?.storeName?`${value.storeName} Retail Pvt. Ltd.`:defaultPolicies.legalName),
+     email:value?.email||defaultPolicies.supportEmail,
+     phone:value?.contactNumber||defaultPolicies.supportPhone,
+     hours:rawPol.supportHours||defaultPolicies.supportHours,
+     address:value?.address||defaultPolicies.officeAddress,
+     fulfillmentHub:rawPol.fulfillmentHub||defaultPolicies.fulfillmentHub,
+     grievanceName:rawPol.grievanceOfficerName||defaultPolicies.grievanceOfficerName,
+     grievanceRole:rawPol.grievanceOfficerRole||defaultPolicies.grievanceOfficerRole,
+     grievanceEmail:rawPol.grievanceOfficerEmail||defaultPolicies.grievanceOfficerEmail,
+     grievancePhone:rawPol.grievanceOfficerPhone||defaultPolicies.grievanceOfficerPhone,
+     grievanceAddress:rawPol.grievanceOfficerAddress||defaultPolicies.grievanceOfficerAddress
+    })[pKey]||{};
+
+    acc[pKey]={
+     title:rawPage.title||defaultPolicies.customPages[pKey]?.title||fallbackTemplate.title||'',
+     eyebrow:rawPage.eyebrow||defaultPolicies.customPages[pKey]?.eyebrow||fallbackTemplate.eyebrow||'',
+     intro:rawPage.intro||defaultPolicies.customPages[pKey]?.intro||fallbackTemplate.intro||'',
+     metaTags:rawPage.metaTags!==undefined
+      ?(Array.isArray(rawPage.metaTags)?rawPage.metaTags.join(', '):rawPage.metaTags)
+      :(defaultPolicies.customPages[pKey]?.metaTags||(Array.isArray(fallbackTemplate.metaTags)?fallbackTemplate.metaTags.join(', '):'')),
+     customText:rawPage.customText||'',
+     sections:Array.isArray(rawPage.sections)&&rawPage.sections.length>0
+      ?rawPage.sections
+      :(fallbackTemplate.sections?JSON.parse(JSON.stringify(fallbackTemplate.sections)):[])
+    };
+    return acc;
+   },{}),
    homeLayout:normalizeHomeLayout(rawLayout)
   }
  };
@@ -231,7 +262,22 @@ export function AdminSettings(){
 
  const dirty=useMemo(()=>settings&&saved&&JSON.stringify(settings)!==JSON.stringify(saved),[settings,saved]);
 
- const change=(key,value)=>setSettings(current=>({...current,[key]:value}));
+ const change=(key,value)=>setSettings(current=>{
+  const next={...current,[key]:value};
+  if(key==='contactNumber'&&(!current.policies?.supportPhone||current.policies.supportPhone==='+91 80000 10001')){
+   next.policies={...next.policies,supportPhone:value};
+  }
+  if(key==='email'&&(!current.policies?.supportEmail||current.policies.supportEmail==='support@r2cart.in')){
+   next.policies={...next.policies,supportEmail:value};
+  }
+  if(key==='address'&&(!current.policies?.officeAddress||current.policies.officeAddress==='Bailey Road, Patna, Bihar — 800001, India')){
+   next.policies={...next.policies,officeAddress:value};
+  }
+  if(key==='storeName'&&(!current.policies?.legalName||current.policies.legalName==='R2Cart Retail Pvt. Ltd.')){
+   next.policies={...next.policies,legalName:`${value} Retail Pvt. Ltd.`};
+  }
+  return next;
+ });
  const toggle=key=>setSettings(current=>({...current,notifications:{...current.notifications,[key]:!current.notifications[key]}}));
 
  const changePolicyTop=(field,val)=>{
@@ -252,12 +298,138 @@ export function AdminSettings(){
     customPages:{
      ...curr.policies.customPages,
      [pKey]:{
-      ...(curr.policies.customPages?.[pKey]||defaultPolicies.customPages[pKey]),
+      ...(curr.policies.customPages?.[pKey]||defaultPolicies.customPages[pKey]||{}),
       [field]:val
      }
     }
    }
   }));
+ };
+
+ const updatePolicySection=(pKey,secIndex,field,val)=>{
+  setSettings(curr=>{
+   const page=curr.policies.customPages?.[pKey]||{};
+   const sections=[...(page.sections||[])];
+   if(!sections[secIndex])return curr;
+   sections[secIndex]={...sections[secIndex],[field]:val};
+   return {
+    ...curr,
+    policies:{
+     ...curr.policies,
+     customPages:{
+      ...curr.policies.customPages,
+      [pKey]:{
+       ...page,
+       sections
+      }
+     }
+    }
+   };
+  });
+ };
+
+ const addPolicySection=pKey=>{
+  setSettings(curr=>{
+   const page=curr.policies.customPages?.[pKey]||{};
+   const sections=[...(page.sections||[])];
+   sections.push({
+    title:`${sections.length + 1}. New Policy Clause`,
+    text:'Enter the clause explanation or detailed terms here…',
+    bullets:[]
+   });
+   return {
+    ...curr,
+    policies:{
+     ...curr.policies,
+     customPages:{
+      ...curr.policies.customPages,
+      [pKey]:{
+       ...page,
+       sections
+      }
+     }
+    }
+   };
+  });
+ };
+
+ const removePolicySection=(pKey,secIndex)=>{
+  setSettings(curr=>{
+   const page=curr.policies.customPages?.[pKey]||{};
+   const sections=(page.sections||[]).filter((_,idx)=>idx!==secIndex);
+   return {
+    ...curr,
+    policies:{
+     ...curr.policies,
+     customPages:{
+      ...curr.policies.customPages,
+      [pKey]:{
+       ...page,
+       sections
+      }
+     }
+    }
+   };
+  });
+ };
+
+ const movePolicySection=(pKey,secIndex,direction)=>{
+  setSettings(curr=>{
+   const page=curr.policies.customPages?.[pKey]||{};
+   const sections=[...(page.sections||[])];
+   const target=secIndex+direction;
+   if(target<0||target>=sections.length)return curr;
+   const temp=sections[secIndex];
+   sections[secIndex]=sections[target];
+   sections[target]=temp;
+   return {
+    ...curr,
+    policies:{
+     ...curr.policies,
+     customPages:{
+      ...curr.policies.customPages,
+      [pKey]:{
+       ...page,
+       sections
+      }
+     }
+    }
+   };
+  });
+ };
+
+ const savePolicyNow=async pKey=>{
+  setSaving(true);
+  try{
+   const payload={
+    storeName:settings.storeName,
+    logo:settings.logo,
+    contactNumber:settings.contactNumber,
+    email:settings.email,
+    address:settings.address,
+    openingTime:settings.openingTime,
+    closingTime:settings.closingTime,
+    currency:settings.currency,
+    minimumOrder:Number(settings.minimumOrder),
+    deliveryFee:Number(settings.deliveryFee),
+    freeDeliveryThreshold:Number(settings.freeDeliveryThreshold),
+    estimatedDelivery:settings.estimatedDelivery,
+    globalDeliveryRadius:Number(settings.globalDeliveryRadius),
+    notifications:settings.notifications,
+    policies:settings.policies
+   };
+   const data=normalize(await adminService.saveSettings(payload));
+   setSettings(data);
+   setSaved(data);
+   window.dispatchEvent(new Event('grocify:settings-updated'));
+   window.dispatchEvent(new Event('grocify:delivery-updated'));
+   const navObj=policyNav.find(p=>p.type===pKey);
+   notify(`Saved and published ${navObj?.label || pKey} live!`);
+  }catch(error){
+   notify(error.message,'error');
+  }finally{
+   setSaving(false);
+  }
  };
 
  const resetPolicyPage=pKey=>{
@@ -273,8 +445,13 @@ export function AdminSettings(){
    grievanceRole:settings.policies.grievanceOfficerRole||defaultPolicies.grievanceOfficerRole,
    grievanceEmail:settings.policies.grievanceOfficerEmail||defaultPolicies.grievanceOfficerEmail,
    grievancePhone:settings.policies.grievanceOfficerPhone||defaultPolicies.grievanceOfficerPhone,
+   deliveryFee:settings.deliveryFee!=null?Number(settings.deliveryFee):30,
+   freeDeliveryThreshold:settings.freeDeliveryThreshold!=null?Number(settings.freeDeliveryThreshold):499,
+   minimumOrder:settings.minimumOrder!=null?Number(settings.minimumOrder):150,
+   globalRadius:settings.globalDeliveryRadius!=null?Number(settings.globalDeliveryRadius):5.0,
+   estimatedDelivery:settings.estimatedDelivery||'15–30 minutes',
   };
-  const standard=getPolicyContent(storeInfo)[pKey]||defaultPolicies.customPages[pKey];
+  const standard=getPolicyContent(storeInfo)[pKey]||{};
   setSettings(curr=>({
    ...curr,
    policies:{
@@ -282,16 +459,18 @@ export function AdminSettings(){
     customPages:{
      ...curr.policies.customPages,
      [pKey]:{
-      title:standard.title,
-      eyebrow:standard.eyebrow,
-      intro:standard.intro,
-      metaTags:Array.isArray(standard.metaTags)?standard.metaTags.join(', '):standard.metaTags,
-      customText:''
+      title:standard.title||'',
+      eyebrow:standard.eyebrow||'',
+      intro:standard.intro||'',
+      metaTags:Array.isArray(standard.metaTags)?standard.metaTags.join(', '):(standard.metaTags||''),
+      customText:'',
+      sections:standard.sections?JSON.parse(JSON.stringify(standard.sections)):[]
      }
     }
    }
   }));
-  notify(`Reset ${pKey} page to verified legal template`);
+  const navObj=policyNav.find(p=>p.type===pKey);
+  notify(`Reset ${navObj?.label || pKey} page to verified legal template`);
  };
 
  // Storefront & Home Layout Modifiers
@@ -404,6 +583,11 @@ export function AdminSettings(){
     openingTime:settings.openingTime,
     closingTime:settings.closingTime,
     currency:settings.currency,
+    minimumOrder:Number(settings.minimumOrder),
+    deliveryFee:Number(settings.deliveryFee),
+    freeDeliveryThreshold:Number(settings.freeDeliveryThreshold),
+    estimatedDelivery:settings.estimatedDelivery,
+    globalDeliveryRadius:Number(settings.globalDeliveryRadius),
     notifications:settings.notifications,
     policies:settings.policies
    };
@@ -411,6 +595,7 @@ export function AdminSettings(){
    setSettings(data);
    setSaved(data);
    window.dispatchEvent(new Event('grocify:settings-updated'));
+   window.dispatchEvent(new Event('grocify:delivery-updated'));
    notify('Store settings, storefront layout and policy CMS saved');
   }catch(error){
    notify(error.message,'error');
@@ -422,7 +607,8 @@ export function AdminSettings(){
  if(loading)return <><Header/><div className="admin-card settings-loading"><LoaderCircle className="spin"/><b>Loading store settings & CMS…</b><small>Fetching configuration from the database.</small></div></>;
  if(!settings)return <><Header/><div className="admin-card settings-loading"><b>Settings could not be loaded</b><small>Check the backend connection and try again.</small><Button type="button" variant="outline" onClick={load}><RefreshCcw/> Try again</Button></div></>;
 
- const currentPolicyPage=settings.policies.customPages?.[policyKey]||defaultPolicies.customPages[policyKey];
+ const currentPolicyPage=settings.policies.customPages?.[policyKey]||defaultPolicies.customPages[policyKey]||{};
+ const currentSections=Array.isArray(currentPolicyPage.sections)?currentPolicyPage.sections:[];
  const selectedNavItem=policyNav.find(p=>p.type===policyKey)||policyNav[0];
  const currentHomeLayout=settings.policies?.homeLayout||defaultHomeLayout;
  const sectionsList=currentHomeLayout.sections||defaultHomeSections;
@@ -435,7 +621,7 @@ export function AdminSettings(){
   <div className="tabs admin-tabs" style={{marginBottom:'20px'}}>
    <button type="button" className={activeTab==='general'?'active':''} onClick={()=>setActiveTab('general')}>
     <Store size={16}/>
-    <span>Store Identity & Operations</span>
+    <span>Store Profile & Branding</span>
    </button>
    <button type="button" className={activeTab==='storefront'?'active':''} onClick={()=>setActiveTab('storefront')}>
     <LayoutTemplate size={16}/>
@@ -461,11 +647,11 @@ export function AdminSettings(){
 
   <form className="settings-form proper-settings" onSubmit={submit}>
 
-   {/* TAB 1: GENERAL & STORE IDENTITY */}
+   {/* TAB 1: STORE PROFILE & BRAND IDENTITY */}
    {activeTab==='general'&&(
     <>
      <section className="admin-card">
-      <SectionTitle icon={Store} title="Store identity" text="Information customers use to identify and contact your store."/>
+      <SectionTitle icon={Store} title="Store Profile & Brand Identity" text="Logo, business name, customer support contact info, and dark-store operating address."/>
       <div className="settings-logo-row">
        <div className="settings-logo-preview">
         {settings.logo?<img src={settings.logo} alt="Store logo"/>:<><ImageIcon/><small>No logo</small></>}
@@ -494,10 +680,157 @@ export function AdminSettings(){
      </section>
 
      <section className="admin-card">
-      <SectionTitle icon={Clock3} title="Operating schedule" text="Opening and closing hours displayed to shoppers."/>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:'10px',marginBottom:'12px'}}>
+       <div>
+        <SectionTitle icon={Clock3} title="Standard Store Hours" text="Default opening and closing hours displayed on storefront contact & footer sections."/>
+       </div>
+       <Link
+        to="/scheduling"
+        style={{
+         display:'inline-flex',
+         alignItems:'center',
+         gap:'6px',
+         fontSize:'12px',
+         fontWeight:700,
+         color:'#059669',
+         background:'#ecfdf5',
+         border:'1px solid #a7f3d0',
+         padding:'6px 12px',
+         borderRadius:'8px',
+         textDecoration:'none',
+         boxShadow:'0 1px 2px rgba(0,0,0,0.03)'
+        }}
+       >
+        <CalendarClock size={14}/> Manage Delivery Slots & Capacity in Store Operations →
+       </Link>
+      </div>
       <div className="form-grid">
        <Field required type="time" label="Opening time" value={settings.openingTime} onChange={e=>change('openingTime',e.target.value)}/>
        <Field required type="time" label="Closing time" value={settings.closingTime} onChange={e=>change('closingTime',e.target.value)}/>
+      </div>
+      <div style={{fontSize:'12px',color:'#64748b',marginTop:'12px',background:'#f8fafc',padding:'10px 14px',borderRadius:'8px',border:'1px solid #e2e8f0',display:'flex',alignItems:'center',gap:'8px'}}>
+       <Info size={14} style={{color:'#059669',flexShrink:0}}/>
+       <span>
+        To configure active delivery slots (e.g. 7-10 AM), order capacity limits, and cutoff minutes, visit <Link to="/scheduling" style={{color:'#059669',fontWeight:700}}>Store Operations</Link>.
+       </span>
+      </div>
+     </section>
+
+     <section className="admin-card">
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:'10px',marginBottom:'12px'}}>
+       <div>
+        <SectionTitle icon={Truck} title="Global Delivery Charges & Order Thresholds" text="Live storewide delivery rates displayed across the storefront, cart, checkout, and official legal policy pages."/>
+       </div>
+       <Link
+        to="/delivery"
+        style={{
+         display:'inline-flex',
+         alignItems:'center',
+         gap:'6px',
+         fontSize:'12px',
+         fontWeight:700,
+         color:'#2563eb',
+         background:'#eff6ff',
+         border:'1px solid #bfdbfe',
+         padding:'6px 12px',
+         borderRadius:'8px',
+         textDecoration:'none',
+         boxShadow:'0 1px 2px rgba(0,0,0,0.03)'
+        }}
+       >
+        <Truck size={14}/> Zone & Village Overrides in Delivery Manager →
+       </Link>
+      </div>
+      <div className="form-grid">
+       <label>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}}>
+         <span style={{fontSize:'13px',fontWeight:600}}>Standard Delivery Fee</span>
+         <span style={{fontSize:'11px',fontWeight:700,color:'#059669',background:'#ecfdf5',padding:'1px 6px',borderRadius:'4px'}}>₹ INR</span>
+        </div>
+        <input
+         type="number"
+         min="0"
+         step="1"
+         required
+         value={settings.deliveryFee}
+         onChange={e=>change('deliveryFee',e.target.value)}
+         placeholder="e.g. 30"
+        />
+        <small style={{color:'#64748b',fontSize:'11px',marginTop:'4px',display:'block'}}>Nominal fee applied when cart value is below free threshold</small>
+       </label>
+
+       <label>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}}>
+         <span style={{fontSize:'13px',fontWeight:600}}>Free Delivery Threshold</span>
+         <span style={{fontSize:'11px',fontWeight:700,color:'#059669',background:'#ecfdf5',padding:'1px 6px',borderRadius:'4px'}}>₹ INR</span>
+        </div>
+        <input
+         type="number"
+         min="0"
+         step="1"
+         required
+         value={settings.freeDeliveryThreshold}
+         onChange={e=>change('freeDeliveryThreshold',e.target.value)}
+         placeholder="e.g. 499"
+        />
+        <small style={{color:'#64748b',fontSize:'11px',marginTop:'4px',display:'block'}}>Orders with cart value at or above this amount get FREE delivery</small>
+       </label>
+
+       <label>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}}>
+         <span style={{fontSize:'13px',fontWeight:600}}>Minimum Order Value</span>
+         <span style={{fontSize:'11px',fontWeight:700,color:'#059669',background:'#ecfdf5',padding:'1px 6px',borderRadius:'4px'}}>₹ INR</span>
+        </div>
+        <input
+         type="number"
+         min="0"
+         step="1"
+         required
+         value={settings.minimumOrder}
+         onChange={e=>change('minimumOrder',e.target.value)}
+         placeholder="e.g. 150"
+        />
+        <small style={{color:'#64748b',fontSize:'11px',marginTop:'4px',display:'block'}}>Minimum subtotal required for a customer to checkout</small>
+       </label>
+
+       <label>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}}>
+         <span style={{fontSize:'13px',fontWeight:600}}>Service Delivery Radius</span>
+         <span style={{fontSize:'11px',fontWeight:700,color:'#059669',background:'#ecfdf5',padding:'1px 6px',borderRadius:'4px'}}>km</span>
+        </div>
+        <input
+         type="number"
+         min="0.5"
+         step="0.5"
+         required
+         value={settings.globalDeliveryRadius}
+         onChange={e=>change('globalDeliveryRadius',e.target.value)}
+         placeholder="e.g. 5.0"
+        />
+        <small style={{color:'#64748b',fontSize:'11px',marginTop:'4px',display:'block'}}>Default operational service radius from dark-store hub</small>
+       </label>
+
+       <label className="full">
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}}>
+         <span style={{fontSize:'13px',fontWeight:600}}>Estimated Delivery Time</span>
+         <span style={{fontSize:'11px',fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'1px 6px',borderRadius:'4px'}}>Customer SLA</span>
+        </div>
+        <input
+         type="text"
+         required
+         value={settings.estimatedDelivery}
+         onChange={e=>change('estimatedDelivery',e.target.value)}
+         placeholder="e.g. 15–30 minutes"
+        />
+        <small style={{color:'#64748b',fontSize:'11px',marginTop:'4px',display:'block'}}>Standard delivery promise displayed across header, cart & policy page</small>
+       </label>
+      </div>
+
+      <div style={{fontSize:'12px',color:'#1e293b',marginTop:'14px',background:'#f0fdf4',padding:'12px 14px',borderRadius:'8px',border:'1px solid #bbf7d0',display:'flex',alignItems:'center',gap:'8px'}}>
+       <CheckCircle2 size={16} style={{color:'#16a34a',flexShrink:0}}/>
+       <span>
+        <b>Auto-Synced:</b> Updating these charges here automatically updates your checkout delivery calculations and updates Section 3 of your <Link to="/delivery-info" target="_blank" style={{color:'#16a34a',fontWeight:700}}>Shipping & Delivery Policy</Link>.
+       </span>
       </div>
      </section>
 
@@ -912,6 +1245,17 @@ export function AdminSettings(){
    {activeTab==='legal'&&(
     <section className="admin-card">
      <SectionTitle icon={Building2} title="Legal corporate entity & statutory details" text="Required by Ministry of Consumer Affairs under Consumer Protection (E-Commerce) Rules, 2020."/>
+     <div style={{fontSize:'12px',color:'#1e293b',marginBottom:'16px',background:'#f0fdf4',padding:'12px 14px',borderRadius:'8px',border:'1px solid #bbf7d0',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+       <CheckCircle2 size={16} style={{color:'#16a34a',flexShrink:0}}/>
+       <span>
+        <b>Live Customer Desk Sync:</b> These company, support hotline, and address details power your <Link to="/contact" target="_blank" style={{color:'#16a34a',fontWeight:700}}>Contact Us Page (/contact)</Link>, footer, and legal policies in real time.
+       </span>
+      </div>
+      <Link to="/contact" target="_blank" style={{fontSize:'12px',fontWeight:700,color:'#16a34a',display:'inline-flex',alignItems:'center',gap:'4px'}}>
+       Preview /contact <ExternalLink size={12}/>
+      </Link>
+     </div>
      <div className="form-grid">
       <Field required label="Registered corporate entity name" value={settings.policies.legalName} onChange={e=>changePolicyTop('legalName',e.target.value)} placeholder="e.g. R2Cart Retail Pvt. Ltd."/>
       <Field required label="Statutory support hotline" value={settings.policies.supportPhone} onChange={e=>changePolicyTop('supportPhone',e.target.value)} placeholder="+91 80000 10001"/>
@@ -961,18 +1305,21 @@ export function AdminSettings(){
      </div>
 
      {/* Active Policy Header & Reset */}
-     <div className="cms-policy-header">
+     <div className="cms-policy-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'12px',padding:'14px 16px',background:'#f8fafc',borderRadius:'10px',border:'1px solid #e2e8f0',marginBottom:'20px'}}>
       <div>
-       <b>Currently Editing: {selectedNavItem.label}</b>
+       <b style={{fontSize:'15px',color:'#0f172a'}}>Currently Editing: {selectedNavItem.label}</b>
        <small style={{display:'block',color:'var(--muted)'}}>Publishes live at {selectedNavItem.path}</small>
       </div>
-      <div className="row gap" style={{alignItems:'center'}}>
-       <Button type="button" variant="ghost" onClick={()=>resetPolicyPage(policyKey)} title="Restore statutory baseline template">
-        <RotateCcw size={15}/> Reset to verified template
+      <div className="row gap" style={{alignItems:'center',flexWrap:'wrap'}}>
+       <Button type="button" variant="outline" onClick={()=>resetPolicyPage(policyKey)} title="Restore statutory baseline template" style={{fontSize:'12px',height:'36px'}}>
+        <RotateCcw size={14}/> Reset to template
        </Button>
-       <Link to={selectedNavItem.path} target="_blank" rel="noopener noreferrer">
+       <Link to={selectedNavItem.path} target="_blank" rel="noopener noreferrer" style={{fontSize:'12px',fontWeight:700,color:'#2563eb',display:'inline-flex',alignItems:'center',gap:'4px',padding:'8px 12px',borderRadius:'6px',background:'#eff6ff',border:'1px solid #bfdbfe',textDecoration:'none'}}>
         Live preview <ExternalLink size={13}/>
        </Link>
+       <Button type="button" disabled={saving} onClick={()=>savePolicyNow(policyKey)} style={{fontSize:'12px',height:'36px',background:'#059669',color:'#fff',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'6px'}}>
+        {saving?<LoaderCircle className="spin" size={14}/>:<Save size={14}/>} Save & Publish
+       </Button>
       </div>
      </div>
 
@@ -981,14 +1328,14 @@ export function AdminSettings(){
       <Field
        required
        label="Page Main Headline (H1)"
-       value={currentPolicyPage.title}
+       value={currentPolicyPage.title||''}
        onChange={e=>changePolicyPage(policyKey,'title',e.target.value)}
        placeholder="e.g. Privacy Policy"
       />
       <Field
        required
        label="Category / Eyebrow Badge"
-       value={currentPolicyPage.eyebrow}
+       value={currentPolicyPage.eyebrow||''}
        onChange={e=>changePolicyPage(policyKey,'eyebrow',e.target.value)}
        placeholder="e.g. LEGAL & DATA PRIVACY"
       />
@@ -996,7 +1343,7 @@ export function AdminSettings(){
        <span>Page Overview / Introduction Paragraph</span>
        <textarea
         required
-        value={currentPolicyPage.intro}
+        value={currentPolicyPage.intro||''}
         onChange={e=>changePolicyPage(policyKey,'intro',e.target.value)}
         placeholder="Introductory text describing this policy…"
         style={{minHeight:'90px'}}
@@ -1005,7 +1352,7 @@ export function AdminSettings(){
       <label className="full">
        <span>Header Meta Badges (comma-separated)</span>
        <input
-        value={currentPolicyPage.metaTags}
+        value={currentPolicyPage.metaTags||''}
         onChange={e=>changePolicyPage(policyKey,'metaTags',e.target.value)}
         placeholder="e.g. Strict 5 km Radius, 15–30 Mins Delivery, Instant Handover"
        />
@@ -1017,11 +1364,130 @@ export function AdminSettings(){
         value={currentPolicyPage.customText||''}
         onChange={e=>changePolicyPage(policyKey,'customText',e.target.value)}
         placeholder="Add any custom rules, exceptions, operational notes, or specific store terms here. If filled, this appears in a highlighted card at the top of the policy page."
-        style={{minHeight:'110px'}}
+        style={{minHeight:'90px'}}
        />
-       <small>Use this to write custom rules specific to your store. The standard statutory legal framework continues to serve as the baseline below it.</small>
+       <small>Use this to write custom rules specific to your store. Appears in a dedicated notice card at the top of the policy page.</small>
       </label>
      </div>
+
+     {/* Policy Sections & Clauses List */}
+     <div style={{marginTop:'28px',paddingTop:'22px',borderTop:'1px solid var(--line)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
+       <div>
+        <h4 style={{margin:0,fontSize:'15px',fontWeight:800,color:'#0f172a'}}>
+         Policy Clauses & Structured Sections ({currentSections.length})
+        </h4>
+        <p style={{margin:'2px 0 0',fontSize:'12px',color:'var(--muted)'}}>
+         Customize the numbered sections, headings, clause paragraphs, and bullet points displayed on the live customer page.
+        </p>
+       </div>
+       <Button type="button" variant="outline" onClick={()=>addPolicySection(policyKey)} style={{fontSize:'12px',height:'34px',display:'inline-flex',alignItems:'center',gap:'5px'}}>
+        <Plus size={14}/> Add Clause / Section
+       </Button>
+      </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+       {currentSections.map((sec,idx)=>(
+        <div key={idx} style={{background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'16px',boxShadow:'0 1px 3px rgba(0,0,0,0.03)'}}>
+         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',paddingBottom:'8px',borderBottom:'1px solid #f1f5f9'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+           <span style={{background:'#e0f2fe',color:'#0369a1',fontWeight:800,fontSize:'11px',padding:'2px 8px',borderRadius:'5px'}}>
+            Clause {String(idx + 1).padStart(2,'0')}
+           </span>
+           <b style={{fontSize:'13px',color:'#1e293b'}}>{sec.title || 'Untitled Section'}</b>
+          </div>
+          <div style={{display:'flex',gap:'4px',alignItems:'center'}}>
+           <button
+            type="button"
+            disabled={idx===0}
+            onClick={()=>movePolicySection(policyKey,idx,-1)}
+            className="icon-btn"
+            title="Move Up"
+            style={{opacity:idx===0?0.3:1}}
+           >
+            <MoveUp size={14}/>
+           </button>
+           <button
+            type="button"
+            disabled={idx===currentSections.length-1}
+            onClick={()=>movePolicySection(policyKey,idx,1)}
+            className="icon-btn"
+            title="Move Down"
+            style={{opacity:idx===currentSections.length-1?0.3:1}}
+           >
+            <MoveDown size={14}/>
+           </button>
+           <button
+            type="button"
+            onClick={()=>removePolicySection(policyKey,idx)}
+            className="icon-btn text-danger"
+            title="Delete Section"
+           >
+            <Trash2 size={14}/>
+           </button>
+          </div>
+         </div>
+
+         <div style={{display:'grid',gap:'12px'}}>
+          <label style={{display:'flex',flexDirection:'column',gap:'4px',fontSize:'11.5px',fontWeight:700}}>
+           <span>Section Heading (Title)</span>
+           <input
+            value={sec.title || ''}
+            onChange={e=>updatePolicySection(policyKey,idx,'title',e.target.value)}
+            placeholder="e.g. 1. Account Eligibility & Responsibilities"
+            style={{padding:'7px 10px',fontSize:'13px'}}
+           />
+          </label>
+
+          <label style={{display:'flex',flexDirection:'column',gap:'4px',fontSize:'11.5px',fontWeight:700}}>
+           <span>Section Clause Description (Body Text)</span>
+           <textarea
+            value={sec.text || ''}
+            onChange={e=>updatePolicySection(policyKey,idx,'text',e.target.value)}
+            placeholder="Write the full description or clause wording here…"
+            style={{minHeight:'65px',padding:'7px 10px',fontSize:'12.5px',lineHeight:'1.5'}}
+           />
+          </label>
+
+          <label style={{display:'flex',flexDirection:'column',gap:'4px',fontSize:'11.5px',fontWeight:700}}>
+           <span>Bullet Points (Optional - 1 bullet point per line)</span>
+           <textarea
+            value={Array.isArray(sec.bullets)?sec.bullets.join('\n'):(sec.bullets||'')}
+            onChange={e=>updatePolicySection(policyKey,idx,'bullets',e.target.value.split('\n'))}
+            placeholder="First bullet point&#10;Second bullet point&#10;Third bullet point"
+            style={{minHeight:'60px',padding:'7px 10px',fontSize:'12px',lineHeight:'1.5'}}
+           />
+           <small style={{fontSize:'10.5px',color:'var(--muted)'}}>Each new line in this box renders as an item with a green check dot on the customer page.</small>
+          </label>
+         </div>
+        </div>
+       ))}
+
+       {!currentSections.length&&(
+        <div style={{padding:'24px',textAlign:'center',background:'#f8fafc',borderRadius:'8px',border:'1px dashed #cbd5e1',color:'var(--muted)',fontSize:'13px'}}>
+         No sections in this policy yet. Click below to add your first clause or click "Reset to template" to load standard legal clauses.
+        </div>
+       )}
+
+       <Button
+        type="button"
+        variant="outline"
+        onClick={()=>addPolicySection(policyKey)}
+        style={{height:'42px',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',fontWeight:700,borderStyle:'dashed'}}
+       >
+        <Plus size={16}/> Add New Policy Clause / Section
+       </Button>
+      </div>
+     </div>
+
+     {policyKey==='contact'&&(
+      <div style={{fontSize:'12px',color:'#1e293b',marginTop:'20px',background:'#eff6ff',padding:'12px 14px',borderRadius:'8px',border:'1px solid #bfdbfe',display:'flex',alignItems:'flex-start',gap:'10px'}}>
+       <Info size={16} style={{color:'#2563eb',flexShrink:0,marginTop:2}}/>
+       <div>
+        <b>Real-Time Contact Channels Sync:</b> The customer helpline ({settings.policies.supportPhone || settings.contactNumber}), support email ({settings.policies.supportEmail || settings.email}), operational hours ({settings.policies.supportHours || 'Daily'}), and registered office address shown on your <Link to="/contact" target="_blank" style={{color:'#2563eb',fontWeight:700}}>Contact Us Page (/contact)</Link> are live and managed from <button type="button" onClick={()=>setActiveTab('legal')} style={{background:'none',border:'none',padding:0,color:'#2563eb',fontWeight:700,cursor:'pointer',textDecoration:'underline'}}>Company & Grievance Details</button> and <button type="button" onClick={()=>setActiveTab('general')} style={{background:'none',border:'none',padding:0,color:'#2563eb',fontWeight:700,cursor:'pointer',textDecoration:'underline'}}>Store Profile</button>. Messages sent through the contact form are logged directly to your <Link to="/admin/support" style={{color:'#2563eb',fontWeight:700}}>Support Desk</Link>.
+       </div>
+      </div>
+     )}
     </section>
    )}
 
@@ -1081,5 +1547,5 @@ export function AdminSettings(){
  </>;
 }
 
-const Header=({action})=><div className="admin-title"><div><h1>Store Settings & Storefront Layout</h1><p>Manage storefront homepage layout, banner placements, store identity, operations, and statutory legal CMS.</p></div>{action}</div>;
+const Header=({action})=><div className="admin-title"><div><h1>Store Settings & Storefront Layout</h1><p>Manage storefront homepage layout, banner placements, store profile & branding, and statutory legal CMS.</p></div>{action}</div>;
 const Notification=({checked,onChange,title,text})=><label className="switch-row"><span><b>{title}</b><small>{text}</small></span><input type="checkbox" checked={checked} onChange={onChange}/><i/></label>;

@@ -1,29 +1,169 @@
-import {ChevronDown,ChevronLeft,ChevronRight,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,X,Zap} from 'lucide-react';
+import {AlertCircle,AlertTriangle,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Trash2,X,Zap} from 'lucide-react';
 import {Link} from 'react-router-dom'; import {useApp} from '../context/AppContext';
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import {createPortal} from 'react-dom';
 import {packOptions} from '../utils/products';
 export const money=n=>`₹${Number(n).toLocaleString('en-IN')}`;
 export function Button({children,variant='primary',className='',...p}){return <button className={`btn btn-${variant} ${className}`} {...p}>{children}</button>}
 export function Badge({children,tone='green'}){return <span className={`badge badge-${tone}`}>{children}</span>}
-export function Modal({open,onClose,title,children,size=''}){if(!open)return null;return createPortal(<div className="modal-backdrop" onMouseDown={onClose}><div className={`modal ${size}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><h3>{title}</h3><button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><X size={20}/></button></div>{children}</div></div>,document.body)}
-export function ConfirmDialog({open,onClose,onConfirm,title='Are you sure?',message='This action cannot be undone.'}){const [busy,setBusy]=useState(false),[error,setError]=useState('');return <Modal open={open} onClose={()=>{if(!busy){setError('');onClose()}}} title={title}><div className="modal-body"><p className="muted">{message}</p>{error&&<p role="alert" className="text-danger">{error}</p>}<div className="row end gap"><Button disabled={busy} variant="ghost" onClick={()=>{setError('');onClose()}}>Cancel</Button><Button disabled={busy} variant="danger" onClick={async()=>{setBusy(true);setError('');try{const result=await onConfirm();if(result!==false)onClose()}catch(reason){setError(reason.message)}finally{setBusy(false)}}}>{busy?'Deleting…':'Delete'}</Button></div></div></Modal>}
+export function Modal({open,onClose,title,children,size=''}){
+  useEffect(() => {
+    if (!open) return;
+    const onKey = e => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if(!open)return null;
+  const labelText = typeof title === 'string' ? title : 'Modal dialog';
+  return createPortal(
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className={`modal ${size}`} role="dialog" aria-modal="true" aria-label={labelText} onMouseDown={e=>e.stopPropagation()}>
+        {title&&<div className="modal-head"><h3>{title}</h3><button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><X size={20}/></button></div>}
+        {children}
+      </div>
+    </div>,
+    document.body
+  )
+}
+export function ConfirmDialog({
+  open,
+  onClose,
+  onConfirm,
+  title = 'Are you sure?',
+  message = 'This action cannot be undone.',
+  warningNote = '',
+  itemName = '',
+  itemType = '',
+  confirmText = 'Delete',
+  cancelText = 'Cancel',
+  variant = 'danger'
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!open) return null;
+  const isDanger = variant === 'danger';
+
+  return (
+    <Modal
+      open={open}
+      onClose={() => {
+        if (!busy) {
+          setError('');
+          onClose();
+        }
+      }}
+      size="confirm-modal"
+    >
+      <div className="confirm-dialog-wrap">
+        <button
+          type="button"
+          className="confirm-dialog-close"
+          onClick={() => {
+            if (!busy) {
+              setError('');
+              onClose();
+            }
+          }}
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+
+        <div className="confirm-dialog-top">
+          <div className={`confirm-dialog-icon ${variant}`}>
+            {isDanger ? <Trash2 size={22} strokeWidth={2.2} /> : <AlertTriangle size={22} strokeWidth={2.2} />}
+          </div>
+          <div className="confirm-dialog-titles">
+            <h3 className="confirm-dialog-heading">{title}</h3>
+            {itemName && (
+              <span className={`confirm-dialog-pill ${variant}`}>
+                {itemType ? `${itemType}: ` : ''}{itemName}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="confirm-dialog-body">
+          <p className="confirm-dialog-message">{message}</p>
+
+          {warningNote && (
+            <div className={`confirm-dialog-notice ${variant}`}>
+              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span>{warningNote}</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="confirm-dialog-error" role="alert">
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="confirm-dialog-actions">
+          <Button
+            type="button"
+            disabled={busy}
+            variant="ghost"
+            className="confirm-cancel-btn"
+            onClick={() => {
+              setError('');
+              onClose();
+            }}
+          >
+            {cancelText}
+          </Button>
+          <Button
+            type="button"
+            disabled={busy}
+            variant={isDanger ? 'danger' : 'primary'}
+            className="confirm-submit-btn"
+            onClick={async () => {
+              setBusy(true);
+              setError('');
+              try {
+                const result = await onConfirm();
+                if (result !== false) onClose();
+              } catch (reason) {
+                setError(reason.message || 'Operation failed. Please try again.');
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="confirm-loader-spin" />
+                <span>Processing…</span>
+              </span>
+            ) : (
+              confirmText
+            )}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 export function EmptyState({icon='cart',title,text,action,to='/'}){const Icon=icon==='package'?PackageOpen:icon==='search'?SearchX:ShoppingBag;return <div className="empty"><div className="empty-icon"><Icon/></div><h2>{title}</h2><p>{text}</p>{action&&<Link className="btn btn-primary" to={to}>{action}</Link>}</div>}
-export function QuantitySelector({id,small=false,choosePacks=small}){
+export function QuantitySelector({id,small=false,choosePacks=small,product:propProduct}){
  const {cart,add,qty,products}=useApp();const [open,setOpen]=useState(false);
- const product=products.find(item=>item.id===id);const n=cart[id]||0;
+ const product=propProduct||products.find(item=>item.id===id);const n=cart[id]||0;
  const options=product?packOptions(product,products):[];
  const unavailable=!product||product.stock<=0||product.status==='INACTIVE';const maximum=Math.min(99,Number(product?.stock||0));
  const canChoose=choosePacks&&options.length>1;
- return <>{n?<div className={`qty ${small?'small':''}`}><button type="button" onClick={()=>qty(id,n-1)} aria-label="Decrease"><Minus size={15}/></button><b>{n}</b><button type="button" disabled={unavailable||n>=maximum} onClick={()=>qty(id,n+1)} aria-label="Increase"><Plus size={15}/></button></div>:<Button type="button" disabled={canChoose?options.every(pack=>pack.stock<=0):unavailable} className={small?'small-add':''} variant="outline" onClick={()=>canChoose?setOpen(true):add(id)}>{unavailable&&!canChoose?'Unavailable':<>ADD <Plus size={15}/></>}</Button>}<Modal open={open} onClose={()=>setOpen(false)} title="Choose pack sizes" size="pack-choice-modal"><div className="modal-body"><p className="muted">{product?.name} · Add either size, or both.</p><div className="pack-choice-list">{options.map(pack=><div className="pack-choice-row" key={pack.id}><div className="pack-choice-copy"><b>{pack.unit}</b><div><strong>{money(pack.price)}</strong>{pack.mrp>pack.price&&<del>{money(pack.mrp)}</del>}</div><small className={pack.stock>0?(pack.stock<=5?'cart-stock-low':'muted'):'cart-stock-warning'}>{pack.stock>0?(pack.stock<=5?`Only ${pack.stock} left`:`${pack.stock} in stock`):'Out of stock'}</small></div><QuantitySelector id={pack.id} choosePacks={false}/></div>)}</div><Button type="button" className="pack-choice-done" onClick={()=>setOpen(false)}>Done</Button></div></Modal></>;
+ return <>{n?<div className={`qty ${small?'small':''}`}><button type="button" onClick={()=>qty(id,n-1)} aria-label="Decrease"><Minus size={15}/></button><b>{n}</b><button type="button" disabled={unavailable||n>=maximum} onClick={()=>qty(id,n+1)} aria-label="Increase"><Plus size={15}/></button></div>:<Button type="button" disabled={canChoose?options.every(pack=>pack.stock<=0):unavailable} className={small?'small-add':''} variant="outline" onClick={()=>canChoose?setOpen(true):add(id)}>{unavailable&&!canChoose?'Unavailable':<>ADD <Plus size={15}/></>}</Button>}<Modal open={open} onClose={()=>setOpen(false)} title="Choose pack sizes" size="pack-choice-modal"><div className="modal-body"><p className="muted">{product?.name} · Add either size, or both.</p><div className="pack-choice-list">{options.map(pack=><div className="pack-choice-row" key={pack.id}><div className="pack-choice-copy"><b>{pack.unit}</b><div><strong>{money(pack.price)}</strong>{pack.mrp>pack.price&&<del>{money(pack.mrp)}</del>}</div><small className={pack.stock>0?(pack.stock<=5?'cart-stock-low':'muted'):'cart-stock-warning'}>{pack.stock>0?(pack.stock<=5?`Only ${pack.stock} left`:`${pack.stock} in stock`):'Out of stock'}</small></div><QuantitySelector id={pack.id} choosePacks={false} product={pack}/></div>)}</div><Button type="button" className="pack-choice-done" onClick={()=>setOpen(false)}>Done</Button></div></Modal></>;
 }
-function BaseProductCard({product,packSelector}){const {favorites,toggleFavorite,activeDeliveryRules,deliveryConfig}=useApp();const eta=(activeDeliveryRules||deliveryConfig).estimatedDelivery;const off=Math.round((1-product.price/product.mrp)*100);const fallback=e=>{e.currentTarget.onerror=null;e.currentTarget.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22240%22 viewBox=%220 0 320 240%22%3E%3Crect width=%22320%22 height=%22240%22 fill=%22%23E6FBF3%22/%3E%3Cpath d=%22M160 178c-43-31-48-86 0-116 48 30 43 85 0 116Z%22 fill=%22%2310B981%22/%3E%3Cpath d=%22M160 178c0-48 16-77 39-98%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%228%22 stroke-linecap=%22round%22/%3E%3C/svg%3E'};return <article className="product-card"><div className="product-media">{off>0&&<span className="discount">{off}% OFF</span>}<button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'currentColor':'none'}/></button><Link to={`/product/${product.id}`}><img src={product.image} alt={product.name} loading="lazy" decoding="async" onError={fallback}/></Link></div><div className="product-copy"><span className="delivery-pill"><Zap/> {eta}</span><Link to={`/product/${product.id}`} className="product-name">{product.name}</Link>{packSelector||<div className="product-meta-row"><span className="unit">{product.unit}</span>{product.stock>0?<span className={`stock-tag ${product.stock<=(product.lowStockThreshold||5)?'low':''}`}>{product.stock<=(product.lowStockThreshold||5)?`Only ${product.stock} left`:`${product.stock} in stock`}</span>:<span className="stock-tag out">Out of stock</span>}</div>}<div className="product-foot"><div><strong>{money(product.price)}</strong>{product.mrp>product.price&&<del>{money(product.mrp)}</del>}</div><QuantitySelector id={product.id} small/></div></div></article>}
+function BaseProductCard({product,packSelector}){const {favorites,toggleFavorite,activeDeliveryRules,deliveryConfig}=useApp();const eta=(activeDeliveryRules||deliveryConfig).estimatedDelivery;const off=Math.round((1-product.price/product.mrp)*100);const fallback=e=>{e.currentTarget.onerror=null;e.currentTarget.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22240%22 viewBox=%220 0 320 240%22%3E%3Crect width=%22320%22 height=%22240%22 fill=%22%23E6FBF3%22/%3E%3Cpath d=%22M160 178c-43-31-48-86 0-116 48 30 43 85 0 116Z%22 fill=%22%2310B981%22/%3E%3Cpath d=%22M160 178c0-48 16-77 39-98%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%228%22 stroke-linecap=%22round%22/%3E%3C/svg%3E'};return <article className="product-card"><div className="product-media">{off>0&&<span className="discount">{off}% OFF</span>}<button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'currentColor':'none'}/></button><Link to={`/product/${product.id}`}><img src={product.image} alt={product.name} loading="lazy" decoding="async" onError={fallback}/></Link></div><div className="product-copy"><span className="delivery-pill"><Zap/> {eta}</span><Link to={`/product/${product.id}`} className="product-name">{product.name}</Link>{packSelector||<div className="product-meta-row"><span className="unit">{product.unit}</span>{product.stock>0?<span className={`stock-tag ${product.stock<=(product.lowStockThreshold||5)?'low':''}`}>{product.stock<=(product.lowStockThreshold||5)?`Only ${product.stock} left`:`${product.stock} in stock`}</span>:<span className="stock-tag out">Out of stock</span>}</div>}<div className="product-foot"><div><strong>{money(product.price)}</strong>{product.mrp>product.price&&<del>{money(product.mrp)}</del>}</div><QuantitySelector id={product.id} small product={product}/></div></div></article>}
 export function ProductCard({product}){
  return <BaseProductCard product={product}/>;
 }
 export function ProductGrid({items}){return <div className="product-grid">{items.map(p=><ProductCard key={p.id} product={p}/>)}</div>}
 export function ProductRail({title,subtitle,items,to}){const id=title.replaceAll(' ','-');const scroll=n=>document.getElementById(id)?.scrollBy({left:n,behavior:'smooth'});return <section className="section"><div className="section-head"><div><h2>{title}</h2><p>{subtitle||'Handpicked quality, delivered quickly'}</p></div><div className="rail-actions"><Link to={to||'/search'}>See all</Link><button type="button" aria-label="Scroll left" onClick={()=>scroll(-500)}><ChevronLeft/></button><button type="button" aria-label="Scroll right" onClick={()=>scroll(500)}><ChevronRight/></button></div></div><div className="product-rail" id={id}>{items.map(p=><ProductCard key={p.id} product={p}/>)}</div></section>}
 export function SearchInput({value,onChange,onSubmit,onFocus,onBlur,placeholder='Search for milk, fruits, snacks…'}){return <form className="search-box" onSubmit={e=>{e.preventDefault();onSubmit?.()}}><Search size={20}/><input value={value} onChange={e=>onChange?.(e.target.value)} onFocus={onFocus} onBlur={onBlur} placeholder={placeholder}/>{value&&<button type="button" onClick={()=>onChange('')}><X size={17}/></button>}</form>}
-export function StatusBadge({status}){const tone=status==='Delivered'||status==='Active'||status==='Resolved'?'green':status==='Cancelled'||status==='Out of stock'||status==='Expired'?'red':status==='Out for Delivery'?'blue':'amber';return <Badge tone={tone}>{status}</Badge>}
+export function StatusBadge({status}){const s=String(status||'').toLowerCase();const tone=['delivered','active','resolved','confirmed','open'].includes(s)?'green':['cancelled','out of stock','expired','inactive','closed','disabled'].includes(s)?'red':['out for delivery','in transit','shipped'].includes(s)?'blue':'amber';return <Badge tone={tone}>{status}</Badge>}
 export function Pagination({page,setPage,total=1}){const pages=[...new Set([1,...Array.from({length:5},(_,i)=>page-2+i).filter(value=>value>0&&value<=total),total])].sort((a,b)=>a-b);return <nav className="pagination" aria-label="Pagination"><button type="button" aria-label="Previous page" disabled={page<=1} onClick={()=>setPage(page-1)}><ChevronLeft/></button>{pages.map((value,index)=><span className="pagination-part" key={value}>{index>0&&value>pages[index-1]+1&&<span aria-hidden="true">…</span>}<button type="button" className={page===value?'active':''} aria-current={page===value?'page':undefined} onClick={()=>setPage(value)}>{value}</button></span>)}<button type="button" aria-label="Next page" disabled={page>=total} onClick={()=>setPage(page+1)}><ChevronRight/></button></nav>}
 export function Skeletons(){return <div className="product-grid">{[1,2,3,4,5].map(x=><div className="skeleton-card" key={x}><i/><span/><span/></div>)}</div>}

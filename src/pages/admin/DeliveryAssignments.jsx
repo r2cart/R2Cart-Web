@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Truck,
@@ -42,9 +42,10 @@ const formatDateTime = (val) => {
 
 export function DeliveryAssignmentsView() {
   const { notify } = useApp();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const preselectedOrderNum = searchParams.get('orderNumber');
   const preselectedOrderId = searchParams.get('orderId');
+  const autoOpenedRef = useRef(false);
 
   const [subTab, setSubTab] = useState('unassigned'); // 'unassigned' | 'assignments' | 'staff'
   const [loading, setLoading] = useState(true);
@@ -70,8 +71,30 @@ export function DeliveryAssignmentsView() {
   const [reassignReason, setReassignReason] = useState('Staff workload balancing');
   const [reassignNotes, setReassignNotes] = useState('');
 
+  const handleCloseAssignModal = () => {
+    if (busy) return;
+    autoOpenedRef.current = true;
+    setAssignModalOrder(null);
+    setSelectedStaffId('');
+    setAssignNotes('');
+    if (searchParams.get('orderNumber') || searchParams.get('orderId')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('orderNumber');
+      newParams.delete('orderId');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
+
+  const handleCloseReassignModal = () => {
+    if (busy) return;
+    setReassignModalTarget(null);
+    setNewStaffId('');
+    setReassignNotes('');
+  };
+
   // Auto-open assign modal if redirected from order details page
   useEffect(() => {
+    if (autoOpenedRef.current) return;
     if (!preselectedOrderNum && !preselectedOrderId) return;
     if (assignModalOrder) return;
 
@@ -81,6 +104,7 @@ export function DeliveryAssignmentsView() {
         (preselectedOrderNum && o.orderNumber === preselectedOrderNum)
       );
       if (match) {
+        autoOpenedRef.current = true;
         setAssignModalOrder(match);
         setSubTab('unassigned');
         return;
@@ -89,6 +113,7 @@ export function DeliveryAssignmentsView() {
 
     // Fallback: If not in current unassigned list, fetch directly
     if (!loading && preselectedOrderId && !assignModalOrder) {
+      autoOpenedRef.current = true;
       adminService.order(preselectedOrderId)
         .then(ord => {
           if (ord) {
@@ -111,7 +136,7 @@ export function DeliveryAssignmentsView() {
         })
         .catch(() => {});
     }
-  }, [unassignedOrders, loading, preselectedOrderNum, preselectedOrderId, assignModalOrder]);
+  }, [unassignedOrders, loading, preselectedOrderNum, preselectedOrderId]);
 
   const loadData = async (page = 1) => {
     setLoading(true);
@@ -162,9 +187,7 @@ export function DeliveryAssignmentsView() {
         notes: assignNotes
       });
       notify(`Order ${assignModalOrder.orderNumber} successfully assigned to ${chosenStaff.name}!`);
-      setAssignModalOrder(null);
-      setSelectedStaffId('');
-      setAssignNotes('');
+      handleCloseAssignModal();
       await loadData(pagination.page);
     } catch (err) {
       notify(err.message || 'Failed to assign order', 'error');
@@ -194,9 +217,7 @@ export function DeliveryAssignmentsView() {
         notes: reassignNotes
       });
       notify(`Order ${reassignModalTarget.orderNumber} reassigned to ${chosenStaff.name} successfully!`);
-      setReassignModalTarget(null);
-      setNewStaffId('');
-      setReassignNotes('');
+      handleCloseReassignModal();
       await loadData(pagination.page);
     } catch (err) {
       notify(err.message || 'Failed to reassign order', 'error');
@@ -712,7 +733,7 @@ export function DeliveryAssignmentsView() {
       {/* ================= MODAL: ASSIGN ORDER ================= */}
       <Modal
         open={!!assignModalOrder}
-        onClose={() => !busy && setAssignModalOrder(null)}
+        onClose={handleCloseAssignModal}
         size="assign-order-modal"
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -987,7 +1008,7 @@ export function DeliveryAssignmentsView() {
               }}>
                 <button
                   type="button"
-                  onClick={() => setAssignModalOrder(null)}
+                  onClick={handleCloseAssignModal}
                   disabled={busy}
                   style={{
                     height: '42px',
@@ -1039,7 +1060,7 @@ export function DeliveryAssignmentsView() {
       {/* ================= MODAL: REASSIGN ORDER ================= */}
       <Modal
         open={!!reassignModalTarget}
-        onClose={() => !busy && setReassignModalTarget(null)}
+        onClose={handleCloseReassignModal}
         size="assign-order-modal"
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1247,7 +1268,7 @@ export function DeliveryAssignmentsView() {
               }}>
                 <button
                   type="button"
-                  onClick={() => setReassignModalTarget(null)}
+                  onClick={handleCloseReassignModal}
                   disabled={busy}
                   style={{
                     height: '42px',

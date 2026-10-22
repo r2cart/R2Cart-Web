@@ -235,22 +235,22 @@ export function getPolicyContent(s){
    eyebrow:'LOGISTICS & FULFILLMENT',
    title:'Shipping & Delivery Policy',
    intro:`${s.storeName} operates a dedicated hyper-local fulfillment network delivering farm-fresh produce and daily grocery essentials straight to your doorstep in minutes.`,
-   metaTags:['Strict 5 km Service Radius','15–30 Mins Instant Delivery','Scheduled Time Slots Available'],
+   metaTags:[`Strict ${s.globalRadius || 5} km Service Radius`,`${s.estimatedDelivery || '15–30 Mins'} Instant Delivery`,'Scheduled Time Slots Available'],
    sections:[
     {
-     title:'1. Hyper-Local 5 km Service Area',
-     text:`To guarantee maximum freshness and meet our 15–30 minute speed commitment, ${s.storeName} operates within a strict 5 km radius from our local fulfillment hubs.`,
+     title:`1. Hyper-Local ${s.globalRadius || 5} km Service Area`,
+     text:`To guarantee maximum freshness and meet our ${s.estimatedDelivery || '15–30 minute'} speed commitment, ${s.storeName} operates within a strict ${s.globalRadius || 5} km radius from our local fulfillment hubs.`,
      bullets:[
       `Coverage Zones: Currently servicing ${s.fulfillmentHub}. Check your delivery address at checkout to confirm serviceability.`,
-      'Why 5 km? Keeping our delivery radius within 5 kilometers ensures fresh dairy, leafy greens, and produce spend minimal time on the road, arriving chilled and fresh.'
+      `Why ${s.globalRadius || 5} km? Keeping our delivery radius within ${s.globalRadius || 5} kilometers ensures fresh dairy, leafy greens, and produce spend minimal time on the road, arriving chilled and fresh.`
      ],
-     callout:{type:'green',text:'We do not service addresses outside our active 5 km boundary. Enter your locality during address creation to see live delivery availability.'}
+     callout:{type:'green',text:`We do not service addresses outside our active ${s.globalRadius || 5} km boundary. Enter your locality during address creation to see live delivery availability.`}
     },
     {
      title:'2. Delivery Options & Estimates',
      text:'We offer two flexible delivery modes tailored to your daily schedule:',
      bullets:[
-      '⚡ Instant Delivery: Handpicked, packed, and delivered to your door in 15 to 30 minutes from the moment of order confirmation.',
+      `⚡ Instant Delivery: Handpicked, packed, and delivered to your door in ${s.estimatedDelivery || '15 to 30 minutes'} from the moment of order confirmation.`,
       '📅 Scheduled Delivery: Choose any future delivery date (up to 3 days in advance) and select a convenient 3-hour time slot (e.g. 07:00 AM – 10:00 AM, 10:00 AM – 01:00 PM, 01:00 PM – 04:00 PM, 04:00 PM – 07:00 PM, 07:00 PM – 10:00 PM).'
      ]
     },
@@ -258,10 +258,16 @@ export function getPolicyContent(s){
      title:'3. Delivery Fees & Free Delivery Threshold',
      text:'Our delivery pricing is transparent and affordable:',
      bullets:[
-      'Free Delivery: Orders with a cart value meeting our free delivery threshold (e.g., ₹499 and above) are delivered completely FREE.',
-      'Standard Delivery Fee: A nominal delivery fee of ₹35 applies to orders below the free delivery threshold. Minimum order value is ₹199.',
+      Number(s.freeDeliveryThreshold) > 0
+        ? `Free Delivery: Orders with a cart value meeting our free delivery threshold (₹${s.freeDeliveryThreshold} and above) are delivered completely FREE.`
+        : 'Free Delivery: All orders qualify for completely FREE delivery.',
+      `Standard Delivery Fee: A nominal delivery fee of ₹${s.deliveryFee} applies to orders below the free delivery threshold. Minimum order value is ₹${s.minimumOrder}.`,
       'Zero Surge Pricing: We do not charge surge fees, rain fees, or peak-hour convenience surcharges.'
-     ]
+     ],
+     callout:{
+      type:'green',
+      text:`Live Store Rates: Free Delivery on orders ₹${s.freeDeliveryThreshold}+ | Standard Delivery Fee: ₹${s.deliveryFee} | Minimum Order Value: ₹${s.minimumOrder}`
+     }
     },
     {
      title:'4. Failed Delivery & Customer Unreachability',
@@ -311,7 +317,7 @@ export function getPolicyContent(s){
    sections:[
     {
      title:'1. Registered & Operational Office',
-     text:`${s.legalName} operates local fulfillment hubs in Bihar, delivering fresh groceries across ${s.fulfillmentHub}.`,
+     text:`${s.legalName} operates dedicated fulfillment hubs delivering fresh groceries across ${s.fulfillmentHub}.`,
      bullets:[
       `Corporate Legal Entity: ${s.legalName}`,
       `Brand Name: ${s.storeName}`,
@@ -398,45 +404,112 @@ export function getPolicyContent(s){
 }
 
 export function StaticPage({type}){
- const {notify,storeSettings,user}=useApp();
- const [contactForm,setContactForm]=useState({name:user?.name||'',email:user?.email||'',subject:'',message:''});
+ const {notify,storeSettings,refreshDelivery,user}=useApp();
+ const [contactForm,setContactForm]=useState({name:user?.name||'',email:user?.email||'',phone:user?.mobile||'',subject:'',message:''});
  const [sending,setSending]=useState(false);
 
  useEffect(()=>{
-  if(user?.name||user?.email){
+  if(!storeSettings && refreshDelivery){
+   refreshDelivery();
+  }
+ },[storeSettings,refreshDelivery]);
+
+ useEffect(()=>{
+  if(user?.name||user?.email||user?.mobile){
    setContactForm(prev=>({
     ...prev,
     name:prev.name||user.name||'',
-    email:prev.email||user.email||''
+    email:prev.email||user.email||'',
+    phone:prev.phone||user.mobile||''
    }));
   }
- },[user?.name,user?.email]);
+ },[user?.name,user?.email,user?.mobile]);
+
+ const formatTime=t=>{
+  if(!t)return '';
+  const [h,m]=t.split(':').map(Number);
+  if(isNaN(h))return t;
+  const ampm=h>=12?'PM':'AM';
+  const h12=h%12||12;
+  return `${String(h12).padStart(2,'0')}:${String(m||0).padStart(2,'0')} ${ampm}`;
+ };
+
+ const formattedHours=(storeSettings?.openingTime&&storeSettings?.closingTime)
+  ?`${formatTime(storeSettings.openingTime)} – ${formatTime(storeSettings.closingTime)} IST (Daily)`
+  :null;
+
+ const storeName=storeSettings?.storeName?.trim()||BRAND.name;
+ const legalName=storeSettings?.policies?.legalName?.trim()||`${storeName} Retail Pvt. Ltd.`;
+ const phone=storeSettings?.policies?.supportPhone?.trim()||storeSettings?.contactNumber?.trim()||BRAND.phone||'+91 80000 10001';
+ const email=storeSettings?.policies?.supportEmail?.trim()||storeSettings?.email?.trim()||BRAND.email||'support@r2cart.in';
+ const hours=storeSettings?.policies?.supportHours?.trim()||formattedHours||'07:00 AM – 11:00 PM IST (Daily)';
+ const address=storeSettings?.policies?.officeAddress?.trim()||storeSettings?.address?.trim()||BRAND.address||'Bailey Road, Patna, Bihar — 800001, India';
+ const fulfillmentHub=storeSettings?.policies?.fulfillmentHub?.trim()||(address?`${storeName} Hub (${address.split(',')[0]})`:`${storeName} Central Hub`);
+
+ const grievanceEmail=storeSettings?.policies?.grievanceOfficerEmail?.trim()||email;
+ const grievancePhone=storeSettings?.policies?.grievanceOfficerPhone?.trim()||phone;
+ const grievanceName=storeSettings?.policies?.grievanceOfficerName?.trim()||'Grievance Redressal Officer';
+ const grievanceRole=storeSettings?.policies?.grievanceOfficerRole?.trim()||'Operations & Grievance Lead';
+ const grievanceAddress=storeSettings?.policies?.grievanceOfficerAddress?.trim()||address;
 
  const storeInfo={
-  storeName:storeSettings?.storeName||BRAND.name,
-  legalName:storeSettings?.policies?.legalName||`${storeSettings?.storeName||BRAND.name} Retail Pvt. Ltd.`,
-  phone:storeSettings?.contactNumber||storeSettings?.policies?.supportPhone||'+91 80000 10001',
-  email:storeSettings?.email||storeSettings?.policies?.supportEmail||'support@r2cart.in',
-  hours:storeSettings?.policies?.supportHours||(storeSettings?.openingTime&&storeSettings?.closingTime?`${storeSettings.openingTime} – ${storeSettings.closingTime} IST (Daily)`:'07:00 AM – 11:00 PM IST (Daily)'),
-  address:storeSettings?.address||storeSettings?.policies?.officeAddress||'Bailey Road, Patna, Bihar — 800001, India',
-  fulfillmentHub:storeSettings?.policies?.fulfillmentHub||'Hathua Service Zone & Patna Central Hub',
-  grievanceName:storeSettings?.policies?.grievanceOfficerName||'Mr. Nadeem Ahmad',
-  grievanceRole:storeSettings?.policies?.grievanceOfficerRole||'Grievance Redressal Officer & Operations Lead',
-  grievanceEmail:storeSettings?.policies?.grievanceOfficerEmail||'grievance@r2cart.in',
-  grievancePhone:storeSettings?.policies?.grievanceOfficerPhone||(storeSettings?.contactNumber||'+91 80000 10001'),
+  storeName,
+  legalName,
+  phone,
+  email,
+  hours,
+  address,
+  fulfillmentHub,
+  grievanceName,
+  grievanceRole,
+  grievanceEmail,
+  grievancePhone,
+  grievanceAddress,
+  deliveryFee:storeSettings?.deliveryFee != null ? Number(storeSettings.deliveryFee) : 30,
+  freeDeliveryThreshold:storeSettings?.freeDeliveryThreshold != null ? Number(storeSettings.freeDeliveryThreshold) : 499,
+  minimumOrder:storeSettings?.minimumOrder != null ? Number(storeSettings.minimumOrder) : 150,
+  globalRadius:storeSettings?.globalDeliveryRadius != null ? Number(storeSettings.globalDeliveryRadius) : 5.0,
+  estimatedDelivery:storeSettings?.estimatedDelivery || '15–30 minutes',
  };
 
  const allPolicies=getPolicyContent(storeInfo);
  const base=allPolicies[type]||allPolicies.about;
  const custom=storeSettings?.policies?.customPages?.[type]||{};
 
+ const interpolate=text=>{
+  if(typeof text!=='string')return text;
+  return text
+   .replace(/{storeName}/g,storeInfo.storeName)
+   .replace(/{legalName}/g,storeInfo.legalName)
+   .replace(/{email}/g,storeInfo.email)
+   .replace(/{phone}/g,storeInfo.phone)
+   .replace(/{hours}/g,storeInfo.hours)
+   .replace(/{address}/g,storeInfo.address)
+   .replace(/{fulfillmentHub}/g,storeInfo.fulfillmentHub);
+ };
+
+ const customMetaList = custom.metaTags !== undefined && custom.metaTags !== null && custom.metaTags !== ''
+  ? (Array.isArray(custom.metaTags) ? custom.metaTags : String(custom.metaTags).split(',').map(s => s.trim()).filter(Boolean))
+  : null;
+
+ const resolvedSections = (Array.isArray(custom.sections) && custom.sections.length > 0)
+  ? custom.sections.map(sec => ({
+      title: interpolate(sec.title || ''),
+      text: interpolate(sec.text || ''),
+      bullets: Array.isArray(sec.bullets)
+        ? sec.bullets.map(interpolate).filter(Boolean)
+        : (typeof sec.bullets === 'string' ? sec.bullets.split('\n').map(s => interpolate(s.trim())).filter(Boolean) : undefined),
+      callout: sec.callout ? { ...sec.callout, text: interpolate(sec.callout.text || '') } : undefined
+    }))
+  : (base.sections || []);
+
  const content={
-  eyebrow:custom.eyebrow||base.eyebrow,
-  title:custom.title||base.title,
-  intro:custom.intro||base.intro,
-  metaTags:custom.metaTags?custom.metaTags.split(',').map(s=>s.trim()).filter(Boolean):base.metaTags,
-  customText:custom.customText||'',
-  sections:base.sections||[]
+  eyebrow:custom.eyebrow ? interpolate(custom.eyebrow) : base.eyebrow,
+  title:custom.title ? interpolate(custom.title) : base.title,
+  intro:custom.intro ? interpolate(custom.intro) : base.intro,
+  metaTags:customMetaList ? customMetaList.map(interpolate) : (base.metaTags || []),
+  customText:custom.customText ? interpolate(custom.customText) : '',
+  sections:resolvedSections
  };
 
  const handleContactSubmit=async e=>{
@@ -446,7 +519,7 @@ export function StaticPage({type}){
    const res=await catalogService.sendContactMessage(contactForm);
    const ticketNo=res?.ticketNumber||'';
    notify(ticketNo?`Message sent! Support Ticket #${ticketNo} created. We will get back to you shortly.`:'Thank you! Your message has been sent successfully.');
-   setContactForm({name:user?.name||'',email:user?.email||'',subject:'',message:''});
+   setContactForm({name:user?.name||'',email:user?.email||'',phone:user?.mobile||'',subject:'',message:''});
   }catch(error){
    notify(error.message||'Failed to send message. Please try again.','error');
   }finally{
@@ -540,7 +613,7 @@ export function StaticPage({type}){
      <article className="policy-card custom-policy-card" style={{marginTop:'22px'}}>
       <div className="policy-card-head">
        <span className="policy-num">★</span>
-       <h2>Official Store Policy Notice & Terms</h2>
+       <h2>{type==='contact'?'Customer Support Notice':'Official Store Policy Notice & Terms'}</h2>
       </div>
       <div className="policy-card-body">
        <p style={{whiteSpace:'pre-line',margin:0,fontSize:'14px',lineHeight:'1.7'}}>{content.customText}</p>
@@ -606,18 +679,31 @@ export function StaticPage({type}){
          />
         </div>
         <div className="contact-field-group">
-         <label htmlFor="contact-email" className="contact-field-label">
-          <span>Email Address</span> <i className="required-star">*</i>
+         <label htmlFor="contact-phone" className="contact-field-label">
+          <span>Mobile Number</span> <i className="required-star">*</i>
          </label>
          <input
-          id="contact-email"
+          id="contact-phone"
           required
-          type="email"
-          placeholder="name@example.com"
-          value={contactForm.email}
-          onChange={e=>setContactForm(prev=>({...prev,email:e.target.value}))}
+          type="tel"
+          placeholder="e.g. 9876543210"
+          value={contactForm.phone}
+          onChange={e=>setContactForm(prev=>({...prev,phone:e.target.value}))}
          />
         </div>
+       </div>
+       <div className="contact-field-group">
+        <label htmlFor="contact-email" className="contact-field-label">
+         <span>Email Address</span> <i className="required-star">*</i>
+        </label>
+        <input
+         id="contact-email"
+         required
+         type="email"
+         placeholder="name@example.com"
+         value={contactForm.email}
+         onChange={e=>setContactForm(prev=>({...prev,email:e.target.value}))}
+        />
        </div>
        <div className="contact-field-group">
         <label htmlFor="contact-subject" className="contact-field-label">

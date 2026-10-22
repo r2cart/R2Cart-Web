@@ -36,8 +36,8 @@ export function AdminCategories(){
    setEdit(null);
    await refreshCategories();
    window.dispatchEvent(new Event('grocify:categories-updated'));
-   notify(edit?.id?'Category updated':'New category added');
-  }catch(err){notify(err.message,'error');return false}
+   notify(edit?.id?`Category "${category.name}" updated successfully`:`Category "${category.name}" added successfully`,'success');
+  }catch(err){notify(err.message || 'Failed to save category','error');return false}
   finally{setSaving(false)}
  };
 
@@ -47,10 +47,11 @@ export function AdminCategories(){
   try{
    await adminService.deleteCategory(category.id);
    setList(current=>current.filter(item=>item.id!==category.id));
+   setRemove(null);
    await refreshCategories();
    window.dispatchEvent(new Event('grocify:categories-updated'));
-   notify('Category deleted');
-  }catch(err){notify(err.message,'error');return false}
+   notify(`Category "${category.name}" deleted successfully`,'success');
+  }catch(err){notify(err.message || 'Failed to delete category','error');return false}
  };
 
  return <>
@@ -81,6 +82,17 @@ export function AdminCategories(){
     <div className="row end gap"><Button type="button" variant="ghost" disabled={saving} onClick={()=>setEdit(null)}>Cancel</Button><Button disabled={saving}>{saving?'Saving…':'Save category'}</Button></div>
    </form>
   </Modal>
-  <ConfirmDialog open={!!remove} onClose={()=>setRemove(null)} onConfirm={destroy} title={`Delete ${remove?.name||'category'}?`} message="This permanently removes an empty category. Categories containing products or subcategories cannot be deleted."/>
+  <ConfirmDialog
+    open={!!remove}
+    onClose={()=>setRemove(null)}
+    onConfirm={destroy}
+    title="Delete Category?"
+    itemName={remove?.name}
+    itemType="Category"
+    message={`Are you sure you want to permanently delete "${remove?.name || 'this category'}" from your storefront navigation?`}
+    warningNote="Categories containing active products or subcategories cannot be deleted."
+    confirmText="Delete Category"
+    cancelText="Cancel"
+  />
  </>;
 }

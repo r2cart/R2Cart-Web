@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Banknote,
   Calendar,
@@ -28,11 +28,11 @@ import { catalogService } from '../../services/catalog.service';
 import { addressPayload, addressView } from '../../utils/address';
 
 const TIME_SLOTS = [
-  { id: 'morning', label: 'Morning Slot', time: '07:00 AM - 10:00 AM', endHour: 10 },
-  { id: 'midday', label: 'Midday Slot', time: '10:00 AM - 01:00 PM', endHour: 13 },
-  { id: 'afternoon', label: 'Afternoon Slot', time: '01:00 PM - 04:00 PM', endHour: 16 },
-  { id: 'evening', label: 'Evening Slot', time: '04:00 PM - 07:00 PM', endHour: 19 },
-  { id: 'night', label: 'Night Slot', time: '07:00 PM - 10:00 PM', endHour: 22 }
+  { id: 'morning', label: 'Morning Slot (07:00 AM – 11:00 AM)', time: '07:00 AM - 11:00 AM', startTime: '07:00', endTime: '11:00', startHour: 7, endHour: 11 },
+  { id: 'midday', label: 'Midday Slot (10:00 AM - 01:00 PM)', time: '10:00 AM - 01:00 PM', startTime: '10:00', endTime: '13:00', startHour: 10, endHour: 13 },
+  { id: 'afternoon', label: 'Afternoon Slot (01:00 PM - 04:00 PM)', time: '01:00 PM - 04:00 PM', startTime: '13:00', endTime: '16:00', startHour: 13, endHour: 16 },
+  { id: 'evening', label: 'Evening Slot (04:00 PM - 07:00 PM)', time: '04:00 PM - 07:00 PM', startTime: '16:00', endTime: '19:00', startHour: 16, endHour: 19 },
+  { id: 'night', label: 'Night Slot (07:00 PM – 11:00 PM)', time: '07:00 PM - 11:00 PM', startTime: '19:00', endTime: '23:00', startHour: 19, endHour: 23 }
 ];
 
 const PRESET_INSTRUCTIONS = [
@@ -42,26 +42,68 @@ const PRESET_INSTRUCTIONS = [
   { id: 'with-guard', label: 'Leave with guard', sub: 'Security desk / gate', icon: '🛡️' }
 ];
 
-function isSlotAvailable(slot, isToday) {
-  if (!isToday) return true;
-  const currentHour = new Date().getHours();
-  return currentHour < slot.endHour - 1;
+export function formatSlotTime(timeStr) {
+  if (!timeStr) return '';
+  const [hStr, mStr] = timeStr.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr || '00';
+  if (isNaN(h)) return timeStr;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
 }
 
-function getAvailableDates(holidayDates = []) {
+function isSlotAvailable(slot, isToday, sameDayCutoffMinutes = 60) {
+  if (!isToday) return true;
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let endMinutes;
+  if (slot.endTime) {
+    const [h, m] = slot.endTime.split(':').map(Number);
+    endMinutes = h * 60 + (m || 0);
+  } else {
+    const endH = slot.endHour !== undefined ? slot.endHour : ((slot.startHour || 7) + 3);
+    endMinutes = endH * 60;
+  }
+  const cutoff = (slot.cutoffMinutes !== undefined && slot.cutoffMinutes !== null)
+    ? Number(slot.cutoffMinutes)
+    : Number(sameDayCutoffMinutes || 60);
+  // Cutoff is evaluated against slot END time (e.g. 1 hour before 11:00 = 10:00 cutoff)
+  const cutoffThreshold = endMinutes - cutoff;
+  return currentMinutes < cutoffThreshold;
+}
+
+function formatLocalYMD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getAvailableDates(holidayDates = [], advanceBookingDays = 4, sameDayCutoffMinutes = 60, todaySlots = null) {
   const dates = [];
   const now = new Date();
-  for (let i = 0; i < 4; i++) {
+  const daysLimit = Math.max(1, Math.min(30, parseInt(advanceBookingDays, 10) || 4));
+  for (let i = 0; i < daysLimit; i++) {
     const d = new Date(now);
     d.setDate(now.getDate() + i);
-    const id = d.toISOString().split('T')[0];
+    const id = formatLocalYMD(d);
     const isToday = i === 0;
     const isTomorrow = i === 1;
     const isHoliday = Array.isArray(holidayDates) && holidayDates.includes(id);
     const dayName = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'short' });
     const dateFormatted = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
     const label = `${dayName}, ${dateFormatted}`;
-    const hasAvailableSlot = !isHoliday && (isToday ? TIME_SLOTS.some((s) => isSlotAvailable(s, true)) : true);
+
+    let isTodayAvailable;
+    if (todaySlots !== null && Array.isArray(todaySlots) && todaySlots.length > 0) {
+      isTodayAvailable = todaySlots.some((s) => s.isAvailable);
+    } else {
+      isTodayAvailable = TIME_SLOTS.some((s) => isSlotAvailable(s, true, sameDayCutoffMinutes));
+    }
+
+    const hasAvailableSlot = !isHoliday && (isToday ? isTodayAvailable : true);
     dates.push({
       id,
       dayName,
@@ -105,6 +147,8 @@ export function CheckoutPage() {
   const allowImmediate = effectiveStatus ? Boolean(effectiveStatus.allowImmediateOrders) : true;
   const allowScheduled = effectiveStatus ? Boolean(effectiveStatus.allowScheduledOrders) : true;
   const holidayDates = Array.isArray(emergencyPause?.holidayDates) ? emergencyPause.holidayDates : [];
+  const advanceBookingDays = Math.max(1, Math.min(30, Number(storeSettings?.advanceBookingDays || storeSettings?.effectiveStatus?.globalDefault?.advanceBookingDays || 4)));
+  const sameDayCutoffMinutes = Math.max(0, Number(storeSettings?.sameDayCutoffMinutes ?? storeSettings?.effectiveStatus?.globalDefault?.sameDayCutoffMinutes ?? 60));
 
   const nav = useNavigate();
   const [selected, setSelected] = useState(() => activeAddress?.id || null);
@@ -133,8 +177,39 @@ export function CheckoutPage() {
     return code ? { code, discount } : null;
   });
 
+  const todayId = useMemo(() => formatLocalYMD(new Date()), []);
+  const [todaySlots, setTodaySlots] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const fetchTodaySlots = () => {
+      catalogService
+        .listDeliverySlots(todayId)
+        .then((slots) => {
+          if (!active) return;
+          if (Array.isArray(slots)) {
+            setTodaySlots(slots);
+          }
+        })
+        .catch(() => {});
+    };
+    fetchTodaySlots();
+    window.addEventListener('grocify:slots-updated', fetchTodaySlots);
+    window.addEventListener('grocify:settings-updated', fetchTodaySlots);
+    window.addEventListener('focus', fetchTodaySlots);
+    return () => {
+      active = false;
+      window.removeEventListener('grocify:slots-updated', fetchTodaySlots);
+      window.removeEventListener('grocify:settings-updated', fetchTodaySlots);
+      window.removeEventListener('focus', fetchTodaySlots);
+    };
+  }, [todayId]);
+
   // Scheduling state
-  const dates = useMemo(() => getAvailableDates(holidayDates), [holidayDates]);
+  const dates = useMemo(
+    () => getAvailableDates(holidayDates, advanceBookingDays, sameDayCutoffMinutes, todaySlots),
+    [holidayDates, advanceBookingDays, sameDayCutoffMinutes, todaySlots]
+  );
   const [deliveryType, setDeliveryType] = useState(() => {
     if (effectiveStatus && !effectiveStatus.allowImmediateOrders && effectiveStatus.allowScheduledOrders) {
       return 'SCHEDULED';
@@ -148,13 +223,23 @@ export function CheckoutPage() {
     }
   }, [allowImmediate, allowScheduled, deliveryType]);
 
+  const [userSelectedDateManually, setUserSelectedDateManually] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
-    return dates.find((d) => d.hasAvailableSlot) || dates[1] || dates[0];
+    return dates.find((d) => d.hasAvailableSlot) || dates[0];
   });
+
+  useEffect(() => {
+    if (!userSelectedDateManually && dates[0]?.hasAvailableSlot && selectedDate?.id !== dates[0]?.id) {
+      setSelectedDate(dates[0]);
+    } else if (selectedDate && !dates.some((d) => d.id === selectedDate.id)) {
+      setSelectedDate(dates.find((d) => d.hasAvailableSlot) || dates[0]);
+    }
+  }, [dates, userSelectedDateManually]);
+
   const [dynamicSlots, setDynamicSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(() => {
     const isToday = dates[0]?.hasAvailableSlot;
-    return TIME_SLOTS.find((s) => isSlotAvailable(s, isToday)) || TIME_SLOTS[0];
+    return TIME_SLOTS.find((s) => isSlotAvailable(s, isToday, sameDayCutoffMinutes)) || TIME_SLOTS[0];
   });
 
   // Require login on checkout
@@ -166,30 +251,53 @@ export function CheckoutPage() {
     }
   }, [user]);
 
-  // Load slots for selected date
-  useEffect(() => {
-    let mounted = true;
-    if (selectedDate?.id) {
-      catalogService
-        .listDeliverySlots(selectedDate.id)
-        .then((slots) => {
-          if (!mounted) return;
-          if (Array.isArray(slots) && slots.length > 0) {
-            setDynamicSlots(slots);
-            setSelectedSlot((curr) => {
-              const match = slots.find((s) => (s.id === curr?.id || s.label === curr?.label || s.label === curr?.time) && s.isAvailable);
-              return match || slots.find((s) => s.isAvailable) || slots[0];
-            });
-          } else {
-            setDynamicSlots([]);
-          }
-        })
-        .catch(() => {
-          if (mounted) setDynamicSlots([]);
-        });
-    }
-    return () => { mounted = false; };
+  // Load slots for selected date with real-time listeners for instant admin reflection
+  const loadDeliverySlots = useCallback((dateId) => {
+    const targetDateId = dateId || selectedDate?.id;
+    if (!targetDateId) return;
+    catalogService
+      .listDeliverySlots(targetDateId)
+      .then((slots) => {
+        if (Array.isArray(slots) && slots.length > 0) {
+          setDynamicSlots(slots);
+          setSelectedSlot((curr) => {
+            const match = slots.find((s) => (s.id === curr?.id || s.label === curr?.label || s.label === curr?.time) && s.isAvailable);
+            return match || slots.find((s) => s.isAvailable) || slots[0];
+          });
+        } else {
+          setDynamicSlots([]);
+        }
+      })
+      .catch(() => {
+        setDynamicSlots([]);
+      });
   }, [selectedDate?.id]);
+
+  useEffect(() => {
+    loadDeliverySlots(selectedDate?.id);
+  }, [selectedDate?.id, loadDeliverySlots]);
+
+  // Real-time synchronization when admin changes delivery slots or when switching tabs
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (selectedDate?.id) loadDeliverySlots(selectedDate.id);
+    };
+    const handleStorage = (e) => {
+      if (e.key === 'grocify-slots-updated' && selectedDate?.id) {
+        loadDeliverySlots(selectedDate.id);
+      }
+    };
+    window.addEventListener('grocify:slots-updated', handleRefresh);
+    window.addEventListener('grocify:settings-updated', handleRefresh);
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('focus', handleRefresh);
+    return () => {
+      window.removeEventListener('grocify:slots-updated', handleRefresh);
+      window.removeEventListener('grocify:settings-updated', handleRefresh);
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('focus', handleRefresh);
+    };
+  }, [selectedDate?.id, loadDeliverySlots]);
 
   // Auto select default address
   useEffect(() => {
@@ -286,9 +394,13 @@ export function CheckoutPage() {
   };
 
   const handleDateSelect = (date) => {
+    setUserSelectedDateManually(true);
     setSelectedDate(date);
-    if (!isSlotAvailable(selectedSlot, date.isToday)) {
-      const firstAvail = TIME_SLOTS.find((s) => isSlotAvailable(s, date.isToday));
+    const activeSlotList = dynamicSlots.length > 0 ? dynamicSlots : TIME_SLOTS;
+    if (!isSlotAvailable(selectedSlot, date.isToday, sameDayCutoffMinutes)) {
+      const firstAvail = activeSlotList.find((s) =>
+        s.isAvailable !== undefined ? s.isAvailable : isSlotAvailable(s, date.isToday, sameDayCutoffMinutes)
+      );
       if (firstAvail) setSelectedSlot(firstAvail);
     }
   };
@@ -371,7 +483,7 @@ export function CheckoutPage() {
 
   const slotsToRender = dynamicSlots.length > 0 ? dynamicSlots : TIME_SLOTS.map((s) => ({
     ...s,
-    isAvailable: isSlotAvailable(s, selectedDate?.isToday)
+    isAvailable: isSlotAvailable(s, selectedDate?.isToday, sameDayCutoffMinutes)
   }));
 
   const scrollToBill = () => {
@@ -816,7 +928,9 @@ export function CheckoutPage() {
                     {slotsToRender.map((s) => {
                       const available = Boolean(s.isAvailable);
                       const isCur = (selectedSlot?.id === s.id || selectedSlot?.label === s.label) && available;
-                      const timeStr = s.startTime && s.endTime ? `${s.startTime} - ${s.endTime}` : (s.time || '');
+                      const timeStr = s.startTime && s.endTime
+                        ? `${formatSlotTime(s.startTime)} – ${formatSlotTime(s.endTime)}`
+                        : (s.time || '');
 
                       return (
                         <button
@@ -826,16 +940,21 @@ export function CheckoutPage() {
                           className={`slot-chip-v2 ${isCur ? 'active' : ''} ${!available ? 'disabled' : ''}`}
                           onClick={() => available && setSelectedSlot(s)}
                         >
-                          <div style={{ minWidth: 0 }}>
+                          <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
                             <b style={{ fontSize: '12px', color: '#0f172a', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</b>
-                            <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '1px' }}>{timeStr}</div>
+                            <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '1px', fontWeight: 600 }}>{timeStr}</div>
+                            {available && s.remainingOrders !== undefined && (
+                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px', fontWeight: 700 }}>
+                                {s.remainingOrders} slots left
+                              </div>
+                            )}
                           </div>
                           {available && isCur && (
                             <Check size={14} color="#059669" strokeWidth={3} style={{ flexShrink: 0, marginLeft: '4px' }} />
                           )}
                           {!available && (
                             <span style={{ fontSize: '9.5px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', background: '#fee2e2', color: '#b91c1c', flexShrink: 0 }}>
-                              Closed
+                              {s.isFull ? 'Full' : 'Closed'}
                             </span>
                           )}
                         </button>

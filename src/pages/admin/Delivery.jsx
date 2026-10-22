@@ -160,6 +160,7 @@ export function AdminDelivery() {
 
   const publishUpdate = () => {
     window.dispatchEvent(new Event('grocify:delivery-updated'));
+    window.dispatchEvent(new Event('grocify:settings-updated'));
   };
 
   // Village Handlers
@@ -552,31 +553,60 @@ export function AdminDelivery() {
                     <span><small>Radius</small><b>{v.radiusKm || 5.0} km</b></span>
                   </div>
 
-                  <div className="delivery-zone-actions" style={{ marginTop: '14px', flexWrap: 'wrap', gap: '8px' }}>
-                    <Button variant="outline" size="sm" onClick={() => handleOpenVillagePreview(v)}>
-                      <Eye size={13} /> Preview Rules
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setEditVillage({ ...v })}>
-                      <Edit2 size={13} /> Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      style={{ color: v.isPaused ? '#10b981' : '#f59e0b' }}
-                      onClick={() => {
-                        setPauseVillageTarget(v);
-                        setPauseReason('');
-                      }}
-                    >
-                      <PauseCircle size={13} /> {v.isPaused ? 'Resume' : 'Pause'}
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleToggleVillageStatus(v)}>
-                      {v.status === 'ACTIVE' ? <PlayCircle size={13} /> : <PauseCircle size={13} />}
-                      {v.status === 'ACTIVE' ? 'Disable' : 'Enable'}
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-danger" onClick={() => setRemoveVillage(v)}>
-                      <Trash2 size={13} />
-                    </Button>
+                  <div className="village-action-toolbar">
+                    <div className="village-action-group">
+                      <button
+                        type="button"
+                        className="v-action-btn v-btn-primary"
+                        onClick={() => handleOpenVillagePreview(v)}
+                        title="Preview delivery rules"
+                      >
+                        <Eye size={13} />
+                        <span>Preview Rules</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="v-action-btn v-btn-secondary"
+                        onClick={() => setEditVillage({ ...v })}
+                        title="Edit village details"
+                      >
+                        <Edit2 size={13} />
+                        <span>Edit</span>
+                      </button>
+                    </div>
+
+                    <div className="village-action-group">
+                      <button
+                        type="button"
+                        className={`v-action-btn ${v.isPaused ? 'v-btn-resume' : 'v-btn-pause'}`}
+                        onClick={() => {
+                          setPauseVillageTarget(v);
+                          setPauseReason('');
+                        }}
+                        title={v.isPaused ? 'Resume deliveries' : 'Temporarily pause deliveries'}
+                      >
+                        {v.isPaused ? <PlayCircle size={13} /> : <PauseCircle size={13} />}
+                        <span>{v.isPaused ? 'Resume' : 'Pause'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`v-action-btn ${v.status === 'ACTIVE' ? 'v-btn-disable' : 'v-btn-enable'}`}
+                        onClick={() => handleToggleVillageStatus(v)}
+                        title={v.status === 'ACTIVE' ? 'Disable village' : 'Enable village'}
+                      >
+                        {v.status === 'ACTIVE' ? <PauseCircle size={13} /> : <PlayCircle size={13} />}
+                        <span>{v.status === 'ACTIVE' ? 'Disable' : 'Enable'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="v-action-btn v-btn-delete"
+                        onClick={() => setRemoveVillage(v)}
+                        title="Delete village"
+                        aria-label="Delete village"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -621,13 +651,29 @@ export function AdminDelivery() {
                     <span><small>ETA</small><b>{zone.estimatedMinutes} min</b></span>
                   </div>
 
-                  <div className="delivery-zone-actions">
-                    <Button variant="outline" onClick={() => setEditArea({ ...zone })}>
-                      <Edit2 /> Edit
-                    </Button>
-                    <Button variant="ghost" className="text-danger" onClick={() => setRemoveArea(zone)}>
-                      <Trash2 /> Delete
-                    </Button>
+                  <div className="village-action-toolbar">
+                    <div className="village-action-group">
+                      <button
+                        type="button"
+                        className="v-action-btn v-btn-secondary"
+                        onClick={() => setEditArea({ ...zone })}
+                        title="Edit delivery zone"
+                      >
+                        <Edit2 size={13} />
+                        <span>Edit Zone</span>
+                      </button>
+                    </div>
+                    <div className="village-action-group">
+                      <button
+                        type="button"
+                        className="v-action-btn v-btn-delete"
+                        onClick={() => setRemoveArea(zone)}
+                        title="Delete delivery zone"
+                        aria-label="Delete delivery zone"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -1273,14 +1319,24 @@ export function AdminDelivery() {
         onClose={() => setRemoveVillage(null)}
         onConfirm={handleDeleteVillage}
         title="Delete Delivery Village?"
-        message={`“${removeVillage?.name || ''}” and its custom delivery charges will be permanently removed.`}
+        itemName={removeVillage?.name}
+        itemType="Village"
+        message={`Are you sure you want to delete delivery village “${removeVillage?.name || ''}”? Its custom delivery charges will be permanently removed.`}
+        warningNote="Active routing rules and specific fee configurations for this village will be cleared."
+        confirmText="Delete Village"
+        cancelText="Cancel"
       />
       <ConfirmDialog
         open={!!removeArea}
         onClose={() => setRemoveArea(null)}
         onConfirm={handleDeleteArea}
         title="Delete Delivery Zone?"
-        message={`“${removeArea?.name || ''}” and all its grouped localities will be permanently removed.`}
+        itemName={removeArea?.name}
+        itemType="Zone"
+        message={`Are you sure you want to delete delivery zone “${removeArea?.name || ''}”? All grouped localities under this zone will be permanently removed.`}
+        warningNote="Localities mapped to this zone will need to be reassigned to continue taking orders."
+        confirmText="Delete Zone"
+        cancelText="Cancel"
       />
 
       {/* Village Live Rules Preview Modal */}

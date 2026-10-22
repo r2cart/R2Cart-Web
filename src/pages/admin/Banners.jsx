@@ -149,7 +149,7 @@ export function AdminBanners(){
    await adminService.deleteBanner(remove.id);
    setList(current=>current.filter(item=>item.id!==remove.id));
    publish();
-   notify('Banner permanently deleted');
+   notify(`Banner "${remove?.heading || ''}" deleted successfully`,'success');
   }catch(error){
    notify(error.message,'error');
    return false;
@@ -256,6 +256,17 @@ export function AdminBanners(){
    </form>
   </Modal>
 
-  <ConfirmDialog open={!!remove} onClose={()=>setRemove(null)} onConfirm={deleteBanner} title="Delete banner permanently?" message={`“${remove?.heading||''}” will immediately disappear from the storefront.`}/>
+  <ConfirmDialog
+    open={!!remove}
+    onClose={() => setRemove(null)}
+    onConfirm={deleteBanner}
+    title="Delete Banner?"
+    itemName={remove?.heading}
+    itemType="Banner"
+    message={`Are you sure you want to permanently delete banner "${remove?.heading || 'this banner'}"?`}
+    warningNote="It will be immediately removed from customer home carousels and promotional sections."
+    confirmText="Delete Banner"
+    cancelText="Cancel"
+  />
  </>;
 }

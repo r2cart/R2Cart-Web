@@ -20,8 +20,13 @@ import {
   UserCheck,
   UserMinus,
   Users,
-  XCircle,
-  Sliders
+  Sliders,
+  Crown,
+  EyeOff,
+  Copy,
+  Check,
+  FileCode,
+  XCircle
 } from 'lucide-react';
 import { Button, ConfirmDialog, Modal, StatusBadge } from '../../components/ui';
 import { useApp } from '../../context/AppContext';
@@ -101,6 +106,7 @@ export function AdminSecurity() {
   const [staffRoleFilter, setStaffRoleFilter] = useState('');
   const [villagesList, setVillagesList] = useState([]);
   const [editStaff, setEditStaff] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [removeStaff, setRemoveStaff] = useState(null);
   const [confirmToggleActive, setConfirmToggleActive] = useState(null);
 
@@ -110,6 +116,21 @@ export function AdminSecurity() {
   const [moduleFilter, setModuleFilter] = useState('');
   const [searchAudit, setSearchAudit] = useState('');
   const [viewLogDetails, setViewLogDetails] = useState(null);
+  const [copiedDiff, setCopiedDiff] = useState(false);
+
+  const handleCopyDiff = () => {
+    if (!viewLogDetails?.details) return;
+    navigator.clipboard.writeText(JSON.stringify(viewLogDetails.details, null, 2));
+    setCopiedDiff(true);
+    setTimeout(() => setCopiedDiff(false), 2000);
+  };
+
+  const getActionTone = (action = '') => {
+    const act = String(action).toUpperCase();
+    if (act.includes('SUCCESS') || act.includes('CREATE') || act.includes('SETTLE')) return 'success';
+    if (act.includes('FAIL') || act.includes('DELETE') || act.includes('REVOKE') || act.includes('DEACTIVATE')) return 'danger';
+    return 'info';
+  };
 
   // Login history state
   const [logins, setLogins] = useState([]);
@@ -858,133 +879,210 @@ export function AdminSecurity() {
       {/* ================= MODAL: CREATE / EDIT ADMIN & STAFF ================= */}
       <Modal
         open={!!editStaff}
-        onClose={() => !busy && setEditStaff(null)}
+        onClose={() => {
+          if (!busy) {
+            setEditStaff(null);
+            setShowPassword(false);
+          }
+        }}
+        size={`admin-account-modal ${editStaff?.staffRole !== 'SUPER_ADMIN' && editStaff?.staffRole !== 'DELIVERY_PERSON' ? 'with-permissions' : ''}`}
         title={
-          editStaff?.staffRole === 'SUPER_ADMIN'
-            ? 'Super Admin Account Details (Owner)'
-            : editStaff?.id
-            ? 'Edit Admin Account & Role-Based Permissions'
-            : 'Create New Admin / Staff Account'
-        }
-      >
-        <form
-          className="modal-body admin-form"
-          onSubmit={handleSaveStaff}
-          style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '80vh', overflowY: 'auto' }}
-        >
-          {editStaff?.staffRole === 'SUPER_ADMIN' && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '12px 16px', borderRadius: '8px', color: '#991b1b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <ShieldAlert size={20} style={{ flexShrink: 0 }} />
+          editStaff?.staffRole === 'SUPER_ADMIN' ? (
+            <div className="admin-modal-title-row">
+              <div className="admin-modal-icon-badge owner">
+                <Crown size={20} />
+              </div>
               <div>
-                <b>Platform Owner Account:</b> The Super Admin possesses full authorized control over R2Cart. Roles and access permissions cannot be altered or restricted.
+                <div className="admin-modal-title-text">Super Admin Account Details (Owner)</div>
+                <div className="admin-modal-subtitle-text">Master Platform Owner · Full Unrestricted Control</div>
               </div>
             </div>
-          )}
-
-          <div className="form-grid" style={{ gap: '16px', alignItems: 'flex-start' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>
-                Full Name <span style={{ color: '#ef4444' }}>*</span>
-              </span>
-              <input
-                required
-                value={editStaff?.name || ''}
-                onChange={e => setEditStaff(curr => ({ ...curr, name: e.target.value }))}
-                placeholder="e.g. Rahul Sharma"
-                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13.5px' }}
-              />
-            </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>
-                Email Address <span style={{ color: '#ef4444' }}>*</span>
-              </span>
-              <input
-                type="email"
-                required
-                disabled={editStaff?.staffRole === 'SUPER_ADMIN'}
-                value={editStaff?.email || ''}
-                onChange={e => setEditStaff(curr => ({ ...curr, email: e.target.value }))}
-                placeholder="staff@r2cart.com"
-                style={{
-                  width: '100%',
-                  height: '42px',
-                  padding: '0 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #d1d5db',
-                  fontSize: '13.5px',
-                  background: editStaff?.staffRole === 'SUPER_ADMIN' ? '#f3f4f6' : '#fff'
-                }}
-              />
-            </label>
-          </div>
-
-          <div className="form-grid" style={{ gap: '16px', alignItems: 'flex-start' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>Mobile Number</span>
-                <span style={{ fontSize: '11px', color: '#6b7280' }}>(10 Digits)</span>
+          ) : (
+            <div className="admin-modal-title-row">
+              <div className="admin-modal-icon-badge staff">
+                <ShieldCheck size={20} />
               </div>
-              <input
-                type="tel"
-                maxLength="10"
-                value={editStaff?.mobile || ''}
-                onChange={e => setEditStaff(curr => ({ ...curr, mobile: e.target.value }))}
-                placeholder="e.g. 9876543210"
-                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13.5px' }}
-              />
-            </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>
-                  Account Password {editStaff?.id ? '' : <span style={{ color: '#ef4444' }}>*</span>}
-                </span>
-                {editStaff?.id && (
-                  <span style={{ fontSize: '11px', color: '#6b7280' }}>(Leave blank to keep current)</span>
-                )}
+              <div>
+                <div className="admin-modal-title-text">
+                  {editStaff?.id ? 'Edit Admin / Staff Account' : 'Create New Admin / Staff Account'}
+                </div>
+                <div className="admin-modal-subtitle-text">Role-Based Access Control & Permissions</div>
               </div>
-              <input
-                type="password"
-                required={!editStaff?.id}
-                minLength="6"
-                value={editStaff?.password || ''}
-                onChange={e => setEditStaff(curr => ({ ...curr, password: e.target.value }))}
-                placeholder={editStaff?.id ? '••••••••' : 'Min 6 characters'}
-                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13.5px' }}
-              />
-            </label>
-          </div>
+            </div>
+          )
+        }
+      >
+        <form onSubmit={handleSaveStaff}>
+          <div className="modal-body admin-form">
+            {/* Super Admin Prestigious Owner Security Card Banner */}
+            {editStaff?.staffRole === 'SUPER_ADMIN' && (
+              <div className="superadmin-owner-card">
+                <div className="superadmin-owner-top">
+                  <div className="superadmin-owner-badge">
+                    <Crown size={13} />
+                    <span>PLATFORM OWNER ACCOUNT</span>
+                  </div>
+                  <span className="superadmin-lock-tag">
+                    <Lock size={11} /> Unrestricted Access
+                  </span>
+                </div>
+                <div className="superadmin-owner-desc">
+                  The Super Admin possesses full authorized root control over R2Cart operations, database records, and financial settlements. Roles and core access permissions cannot be altered or restricted.
+                </div>
+              </div>
+            )}
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>
-              Account Staff Role <span style={{ color: '#ef4444' }}>*</span>
-            </span>
-            <select
-              value={editStaff?.staffRole || 'ADMIN'}
-              disabled={editStaff?.staffRole === 'SUPER_ADMIN'}
-              onChange={e => setEditStaff(curr => ({ ...curr, staffRole: e.target.value }))}
-              style={{
-                width: '100%',
-                height: '42px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1px solid #d1d5db',
-                fontSize: '13.5px',
-                background: editStaff?.staffRole === 'SUPER_ADMIN' ? '#f1f5f9' : '#fff',
-                cursor: editStaff?.staffRole === 'SUPER_ADMIN' ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {editStaff?.staffRole === 'SUPER_ADMIN' && (
-                <option value="SUPER_ADMIN">★ Primary Super Admin (Platform Owner)</option>
-              )}
-              <option value="ADMIN">Staff Administrator (Granular Role-Based Permissions)</option>
-              <option value="DELIVERY_PERSON">Delivery Staff (Field Delivery Partner)</option>
-              <option value="INVENTORY_MANAGER">Inventory Manager (Stock & Expiry Specialist)</option>
-              <option value="ORDER_MANAGER">Order Manager (Fulfillment & Packing Specialist)</option>
-              <option value="DELIVERY_MANAGER">Delivery Manager (Dispatch & Routing Specialist)</option>
-              <option value="MARKETING_MANAGER">Marketing Manager (Promos & Coupons)</option>
-              <option value="SUPPORT_STAFF">Customer Support Staff</option>
-            </select>
-          </label>
+            {/* Row 1: Full Name & Email Address */}
+            <div className="form-grid" style={{ gap: '14px', alignItems: 'flex-start' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="admin-field-label-row">
+                  <span className="admin-field-title">
+                    Full Name <span className="admin-field-req">*</span>
+                  </span>
+                </div>
+                <input
+                  required
+                  value={editStaff?.name || ''}
+                  onChange={e => setEditStaff(curr => ({ ...curr, name: e.target.value }))}
+                  placeholder="e.g. Platform Super Admin"
+                  className="admin-input-control"
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="admin-field-label-row">
+                  <span className="admin-field-title">
+                    Email Address <span className="admin-field-req">*</span>
+                  </span>
+                  {editStaff?.staffRole === 'SUPER_ADMIN' && (
+                    <span className="admin-field-badge locked">
+                      <Lock size={10} style={{ display: 'inline', marginRight: '3px' }} />
+                      Primary Master ID
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="email"
+                  required
+                  disabled={editStaff?.staffRole === 'SUPER_ADMIN'}
+                  value={editStaff?.email || ''}
+                  onChange={e => setEditStaff(curr => ({ ...curr, email: e.target.value }))}
+                  placeholder="staff@r2cart.com"
+                  className="admin-input-control"
+                />
+              </label>
+            </div>
+
+            {/* Row 2: Mobile Number & Password */}
+            <div className="form-grid" style={{ gap: '14px', alignItems: 'flex-start' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="admin-field-label-row">
+                  <span className="admin-field-title">Mobile Number</span>
+                  <span className="admin-field-badge">10 Digits</span>
+                </div>
+                <div className="admin-input-group">
+                  <span className="admin-input-prefix-box">+91</span>
+                  <input
+                    type="tel"
+                    maxLength="10"
+                    value={editStaff?.mobile || ''}
+                    onChange={e => setEditStaff(curr => ({ ...curr, mobile: e.target.value.replace(/\D/g, '') }))}
+                    placeholder="9876543210"
+                    className="admin-input-control with-prefix"
+                  />
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="admin-field-label-row">
+                  <span className="admin-field-title">
+                    Account Password {!editStaff?.id && <span className="admin-field-req">*</span>}
+                  </span>
+                  {editStaff?.id && (
+                    <span className="admin-field-badge">Leave blank to keep current</span>
+                  )}
+                </div>
+                <div className="admin-input-group">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required={!editStaff?.id}
+                    minLength="6"
+                    value={editStaff?.password || ''}
+                    onChange={e => setEditStaff(curr => ({ ...curr, password: e.target.value }))}
+                    placeholder={editStaff?.id ? '••••••••' : 'Min 6 characters'}
+                    className="admin-input-control with-action"
+                  />
+                  <button
+                    type="button"
+                    className="admin-input-toggle-btn"
+                    onClick={() => setShowPassword(v => !v)}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex="-1"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            {/* Role Display: Readonly badge for Super Admin or Dropdown for other roles */}
+            {editStaff?.staffRole === 'SUPER_ADMIN' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="admin-field-label-row">
+                  <span className="admin-field-title">Account Staff Role</span>
+                  <span className="admin-field-badge locked">Permanent Owner</span>
+                </div>
+                <div className="superadmin-role-display">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '9px',
+                      background: '#fef3c7',
+                      color: '#b45309',
+                      border: '1px solid #fde68a',
+                      display: 'grid',
+                      placeItems: 'center',
+                      flexShrink: 0
+                    }}>
+                      <Crown size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                        ★ Primary Super Admin (Platform Owner)
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
+                        Master administrator with root authorization across R2Cart
+                      </div>
+                    </div>
+                  </div>
+                  <span className="superadmin-role-badge-tag">
+                    <CheckCircle2 size={12} /> Root Access
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="admin-field-label-row">
+                  <span className="admin-field-title">
+                    Account Staff Role <span className="admin-field-req">*</span>
+                  </span>
+                </div>
+                <select
+                  value={editStaff?.staffRole || 'ADMIN'}
+                  onChange={e => setEditStaff(curr => ({ ...curr, staffRole: e.target.value }))}
+                  className="admin-select-control"
+                >
+                  <option value="ADMIN">Staff Administrator (Granular Role-Based Permissions)</option>
+                  <option value="DELIVERY_PERSON">Delivery Staff (Field Delivery Partner)</option>
+                  <option value="INVENTORY_MANAGER">Inventory Manager (Stock & Expiry Specialist)</option>
+                  <option value="ORDER_MANAGER">Order Manager (Fulfillment & Packing Specialist)</option>
+                  <option value="DELIVERY_MANAGER">Delivery Manager (Dispatch & Routing Specialist)</option>
+                  <option value="MARKETING_MANAGER">Marketing Manager (Promos & Coupons)</option>
+                  <option value="SUPPORT_STAFF">Customer Support Staff</option>
+                </select>
+              </label>
+            )}
 
           {/* Delivery Staff Specific Configuration */}
           {editStaff?.staffRole === 'DELIVERY_PERSON' && (
@@ -1209,66 +1307,175 @@ export function AdminSecurity() {
               </div>
             </div>
           )}
+          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', marginTop: '10px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+          {/* Fixed Modal Action Footer */}
+          <div className="modal-foot">
             <Button
               type="button"
               variant="ghost"
               disabled={busy}
-              onClick={() => setEditStaff(null)}
-              style={{ height: '42px', padding: '0 20px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600 }}
+              onClick={() => {
+                setEditStaff(null);
+                setShowPassword(false);
+              }}
+              style={{ height: '42px', padding: '0 20px', borderRadius: '10px', fontSize: '13.5px', fontWeight: 700 }}
             >
               Cancel
             </Button>
-            <Button
+            <button
               type="submit"
               disabled={busy}
-              style={{
-                height: '42px',
-                padding: '0 22px',
-                borderRadius: '8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: '#10b981',
-                color: '#fff',
-                fontSize: '13.5px',
-                fontWeight: 700,
-                boxShadow: '0 2px 6px rgba(16,185,129,0.3)'
-              }}
+              className="admin-modal-save-btn"
             >
-              {busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />} Save Account & Permissions
-            </Button>
+              {busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}
+              {editStaff?.staffRole === 'SUPER_ADMIN' ? 'Save Account Details' : 'Save Account & Permissions'}
+            </button>
           </div>
         </form>
       </Modal>
 
       {/* Modal: View Audit Diff */}
-      <Modal open={!!viewLogDetails} onClose={() => setViewLogDetails(null)} title="Audit Event Diff & Metadata">
-        <div style={{ padding: '8px 0' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px', fontSize: '13px' }}>
-            <div><b>Action:</b> {viewLogDetails?.action}</div>
-            <div><b>Module:</b> {viewLogDetails?.module}</div>
-            <div><b>Performed By:</b> {viewLogDetails?.userName} ({viewLogDetails?.userRole})</div>
-            <div><b>Timestamp:</b> {viewLogDetails?.createdAt && new Date(viewLogDetails.createdAt).toLocaleString('en-IN')}</div>
+      <Modal
+        open={!!viewLogDetails}
+        onClose={() => {
+          setViewLogDetails(null);
+          setCopiedDiff(false);
+        }}
+        size="audit-diff-modal"
+        title={
+          <div className="admin-modal-title-row">
+            <div className="admin-modal-icon-badge staff" style={{ background: '#f1f5f9', color: '#0f172a', borderColor: '#e2e8f0' }}>
+              <FileCode size={20} />
+            </div>
+            <div>
+              <div className="admin-modal-title-text">Audit Event Diff & Metadata</div>
+              <div className="admin-modal-subtitle-text">Cryptographically verifiable immutable audit trail</div>
+            </div>
           </div>
-          <b style={{ fontSize: '13px' }}>Sanitized Changes & Details:</b>
-          <pre
-            style={{
-              background: '#111827',
-              color: '#10b981',
-              padding: '12px 16px',
-              borderRadius: '8px',
-              overflowX: 'auto',
-              maxHeight: '260px',
-              fontSize: '12px',
-              marginTop: '8px',
-              fontFamily: 'monospace'
-            }}
-          >
-            {JSON.stringify(viewLogDetails?.details || {}, null, 2)}
-          </pre>
-        </div>
+        }
+      >
+        {viewLogDetails && (
+          <>
+            <div className="modal-body">
+              {/* 4-Stat Metadata Grid */}
+              <div className="audit-meta-grid">
+                <div className="audit-meta-item">
+                  <span className="audit-meta-label">
+                    <ShieldCheck size={12} /> Recorded Action
+                  </span>
+                  <div className="audit-meta-value">
+                    <span className={`audit-action-pill ${getActionTone(viewLogDetails.action)}`}>
+                      {viewLogDetails.action || 'EVENT_LOG'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="audit-meta-item">
+                  <span className="audit-meta-label">
+                    <KeyRound size={12} /> Target Module
+                  </span>
+                  <div className="audit-meta-value">
+                    <span style={{ fontSize: '12px', background: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '5px', fontWeight: 700 }}>
+                      {viewLogDetails.module || 'SYSTEM'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="audit-meta-item">
+                  <span className="audit-meta-label">
+                    <UserCheck size={12} /> Performed By
+                  </span>
+                  <div className="audit-meta-value" style={{ fontSize: '13px' }}>
+                    <span>{viewLogDetails.userName || 'System / Anonymous'}</span>
+                    {viewLogDetails.userRole && (
+                      <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                        ({viewLogDetails.userRole})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="audit-meta-item">
+                  <span className="audit-meta-label">
+                    <Clock size={12} /> Event Timestamp
+                  </span>
+                  <div className="audit-meta-value" style={{ fontSize: '12.5px', color: '#334155' }}>
+                    {viewLogDetails.createdAt
+                      ? new Date(viewLogDetails.createdAt).toLocaleString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })
+                      : 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Code Inspector Box */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1e293b', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <FileCode size={14} style={{ color: '#059669' }} /> Sanitized Changes & Details
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>
+                    JSON Payload
+                  </span>
+                </div>
+
+                <div className="audit-code-box">
+                  <div className="audit-code-header">
+                    <div className="audit-code-dots">
+                      <span className="audit-code-dot red" />
+                      <span className="audit-code-dot yellow" />
+                      <span className="audit-code-dot green" />
+                      <span className="audit-code-filename">event_diff.json</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={`audit-code-copy-btn ${copiedDiff ? 'copied' : ''}`}
+                      onClick={handleCopyDiff}
+                    >
+                      {copiedDiff ? (
+                        <>
+                          <Check size={12} /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} /> Copy JSON
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="audit-code-pre">
+                    {JSON.stringify(viewLogDetails.details || {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="modal-foot">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#059669', fontWeight: 600 }}>
+                <CheckCircle2 size={14} /> Immutable audit trail
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setViewLogDetails(null);
+                  setCopiedDiff(false);
+                }}
+                style={{ height: '38px', padding: '0 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 700 }}
+              >
+                Close
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
 
       {/* Delete Staff Confirmation */}
@@ -1277,7 +1484,12 @@ export function AdminSecurity() {
         onClose={() => setRemoveStaff(null)}
         onConfirm={handleDeleteStaff}
         title="Revoke Staff Account?"
-        message={`“${removeStaff?.name || ''}” will be removed from store staff and downgraded to a standard customer account.`}
+        itemName={removeStaff?.name}
+        itemType="Staff"
+        message={`Are you sure you want to revoke staff access for “${removeStaff?.name || ''}”? This account will be downgraded to a standard customer account.`}
+        warningNote="They will immediately lose access to all admin consoles, tools, and operational controls."
+        confirmText="Revoke Access"
+        cancelText="Cancel"
       />
 
       {/* Toggle Active Confirmation */}
@@ -1286,11 +1498,16 @@ export function AdminSecurity() {
         onClose={() => setConfirmToggleActive(null)}
         onConfirm={() => confirmToggleActive && handleToggleStaffActive(confirmToggleActive)}
         title={confirmToggleActive?.isStaffActive !== false ? 'Deactivate Account Privileges?' : 'Reactivate Account Privileges?'}
+        itemName={confirmToggleActive?.name}
+        itemType="Staff"
+        variant={confirmToggleActive?.isStaffActive !== false ? 'warning' : 'primary'}
         message={
           confirmToggleActive?.isStaffActive !== false
-            ? `Are you sure you want to deactivate “${confirmToggleActive?.name || ''}”? They will immediately be blocked from calling any admin APIs and cannot sign in.`
-            : `Reactivate account privileges for “${confirmToggleActive?.name || ''}”? They will be able to access their assigned permissions again.`
+            ? `Are you sure you want to deactivate “${confirmToggleActive?.name || ''}”? They will immediately be blocked from signing into the admin portal.`
+            : `Reactivate account privileges for “${confirmToggleActive?.name || ''}”? They will regain access to their assigned operational permissions.`
         }
+        confirmText={confirmToggleActive?.isStaffActive !== false ? 'Deactivate Privileges' : 'Reactivate Privileges'}
+        cancelText="Cancel"
       />
     </div>
   );

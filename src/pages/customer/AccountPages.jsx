@@ -532,8 +532,12 @@ export function AddressesPage() {
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
-        title="Delete this address?"
+        title="Delete Address?"
+        itemName={deleting?.name || deleting?.label || (deleting?.line1 ? `${deleting.line1}, ${deleting.city}` : '')}
+        itemType="Address"
         message="Are you sure you want to remove this delivery address? You can always add it back later."
+        confirmText="Delete Address"
+        cancelText="Cancel"
         onConfirm={remove}
       />
     </AccountShell>
