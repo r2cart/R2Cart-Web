@@ -173,14 +173,23 @@ export function HomePage(){
         <Link to={`/category/${orderedCategories[0]?.slug||'fruits-vegetables'}`}>See all</Link>
        </div>
        <div className="category-grid">
-        {orderedCategories.map(category=>(
-         <Link to={`/category/${category.slug}`} key={category.slug}>
-          <div style={{background:category.color}}>
-           <img src={category.image} alt="" loading="lazy"/>
+        {orderedCategories.length === 0 ? (
+         Array.from({length: 8}).map((_, i) => (
+          <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',padding:'8px'}}>
+           <div style={{width:'64px',height:'64px',borderRadius:'50%',background:'var(--surface-hover,#f1f5f9)',opacity:0.7}}/>
+           <div style={{width:'52px',height:'10px',borderRadius:'4px',background:'var(--surface-hover,#f1f5f9)',opacity:0.7}}/>
           </div>
-          <b>{category.name}</b>
-         </Link>
-        ))}
+         ))
+        ) : (
+         orderedCategories.map(category=>(
+          <Link to={`/category/${category.slug}`} key={category.slug}>
+           <div style={{background:category.color}}>
+            <img src={category.image} alt="" loading="lazy"/>
+           </div>
+           <b>{category.name}</b>
+          </Link>
+         ))
+        )}
        </div>
       </section>
      );

@@ -100,49 +100,69 @@ async function refreshSession(isAdmin){
  }
 }
 
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
 export async function request(path,options={}){
  if(!env.apiBaseUrl)throw new ApiError('API is not configured. Mock services are active.',0);
- const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),options.body instanceof FormData?65000:path.startsWith('/admin/products/import')?75000:env.requestTimeout);
+ const method=(options.method||'GET').toUpperCase();
+ const isSafeToRetry=method==='GET'||options.retry===true;
+ const maxRetries=isSafeToRetry?2:0;
  const isAdmin=isAdminPath(path);
 
- try{
-  let result=await parse(await fetch(`${env.apiBaseUrl}${path}`,{
-   ...options,
-   credentials:'include',
-   headers:headersFor(path,options),
-   signal:controller.signal
-  }));
+ for(let attempt=0;attempt<=maxRetries;attempt++){
+  const controller=new AbortController();
+  const timeoutMs=options.body instanceof FormData?65000:path.startsWith('/admin/products/import')?75000:env.requestTimeout;
+  const timeout=setTimeout(()=>controller.abort(),timeoutMs);
 
-  // Automatic silent session recovery on 401
-  if(result.response.status===401&&path!=='/auth/login'&&path!=='/admin/auth/login'&&path!=='/auth/refresh'&&path!=='/auth/logout'){
-   try{
-    await refreshSession(isAdmin);
-    result=await parse(await fetch(`${env.apiBaseUrl}${path}`,{
-     ...options,
-     credentials:'include',
-     headers:headersFor(path,options),
-     signal:controller.signal
-    }));
-   }catch(refreshErr){
-    // If refresh failed because server is temporarily restarting (502/503/network), do NOT log out
-    if(refreshErr.status>=500||refreshErr.name==='AbortError'||refreshErr instanceof TypeError){
-     throw new ApiError('Server is temporarily updating. Reconnecting…',refreshErr.status||503);
+  try{
+   let result=await parse(await fetch(`${env.apiBaseUrl}${path}`,{
+    ...options,
+    credentials:'include',
+    headers:headersFor(path,options),
+    signal:controller.signal
+   }));
+
+   // Automatic silent session recovery on 401
+   if(result.response.status===401&&path!=='/auth/login'&&path!=='/admin/auth/login'&&path!=='/auth/refresh'&&path!=='/auth/logout'){
+    try{
+     await refreshSession(isAdmin);
+     result=await parse(await fetch(`${env.apiBaseUrl}${path}`,{
+      ...options,
+      credentials:'include',
+      headers:headersFor(path,options),
+      signal:controller.signal
+     }));
+    }catch(refreshErr){
+     if(refreshErr.status>=500||refreshErr.name==='AbortError'||refreshErr instanceof TypeError){
+      throw new ApiError('Server is temporarily updating. Reconnecting…',refreshErr.status||503);
+     }
+     throw refreshErr;
     }
-    throw refreshErr;
    }
-  }
 
-  if(!result.response.ok){
-   throw new ApiError(result.data?.message||'Request failed',result.response.status,result.data);
+   // Server cold start or restart: 502/503/504
+   if([502,503,504].includes(result.response.status)&&attempt<maxRetries){
+    clearTimeout(timeout);
+    await wait(1500*(attempt+1));
+    continue;
+   }
+
+   if(!result.response.ok){
+    throw new ApiError(result.data?.message||'Request failed',result.response.status,result.data);
+   }
+   clearTimeout(timeout);
+   return result.data?.data??result.data;
+  }catch(error){
+   clearTimeout(timeout);
+   const isNetworkOrTimeout=error.name==='AbortError'||error instanceof TypeError||error.status===408||[502,503,504].includes(error.status);
+   if(isNetworkOrTimeout&&attempt<maxRetries){
+    await wait(1500*(attempt+1));
+    continue;
+   }
+   if(error.name==='AbortError')throw new ApiError('Server response timed out. Please try again.',408);
+   if(error instanceof TypeError)throw new ApiError('Connecting to R2Cart server…',0);
+   throw error;
   }
-  return result.data?.data??result.data;
- }catch(error){
-  if(error.name==='AbortError')throw new ApiError('Server response timed out. Please try again.',408);
-  if(error instanceof TypeError)throw new ApiError('Connecting to R2Cart server…',0);
-  throw error;
- }finally{
-  clearTimeout(timeout);
  }
 }
 

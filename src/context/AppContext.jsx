@@ -33,13 +33,13 @@ export function AppProvider({children}){
  const [addressesLoaded,setAddressesLoaded]=useState(false);
  const [activeAddressId,setActiveAddressId]=useState(()=>storage.get('active_address_id',null));
  const [orderList,setOrderList]=useState([]);
- const [categories,setCategories]=useState([]);
- const [products,setProducts]=useState([]);
- const [banners,setBanners]=useState([]);
+ const [categories,setCategories]=useState(()=>storage.get('cached_categories',[]));
+ const [products,setProducts]=useState(()=>storage.get('cached_products',[]));
+ const [banners,setBanners]=useState(()=>storage.get('cached_banners',[]));
  const [catalogErrors,setCatalogErrors]=useState({});
  const catalogResult=(key,error)=>setCatalogErrors(current=>({...current,[key]:error||''}));
- const [storeSettings,setStoreSettings]=useState(null);
- const [deliveryZones,setDeliveryZones]=useState([]);
+ const [storeSettings,setStoreSettings]=useState(()=>storage.get('cached_store_settings',null));
+ const [deliveryZones,setDeliveryZones]=useState(()=>storage.get('cached_delivery_zones',[]));
  const [toast,setToast]=useState(null);const [locationOpen,setLocationOpen]=useState(false);const [cartOpen,setCartOpen]=useState(false);
  const [authModalOpen,setAuthModalOpen]=useState(false);
  const [authModalReason,setAuthModalReason]=useState('welcome');
@@ -114,13 +114,62 @@ export function AppProvider({children}){
  };
  const refreshOrders=async()=>{if(!online())return;try{setOrderList(await orderService.list())}catch(error){if(error.status!==401)notify(error.message,'error')}};
  useEffect(()=>{if(!user?.id)return;window.addEventListener('focus',refreshOrders);window.addEventListener('grocify:orders-updated',refreshOrders);return()=>{window.removeEventListener('focus',refreshOrders);window.removeEventListener('grocify:orders-updated',refreshOrders)}},[user?.id]);
- const refreshCategories=async()=>{try{const rows=await catalogService.listCategories();setCategories(rows.map(category=>({...category,image:mediaUrl(category.image)||grocifyLogo})));catalogResult('categories');return rows}catch(error){catalogResult('categories',error.message);return []}};
- const refreshProducts=async()=>{try{const rows=await catalogService.listProducts();setProducts(rows.map(product=>({...product,image:mediaUrl(product.image)||grocifyLogo,images:(product.images||[]).map(mediaUrl)})));catalogResult('products');return rows}catch(error){catalogResult('products',error.message);return []}};
- const refreshBanners=async()=>{try{const rows=await catalogService.listBanners();setBanners(rows.map(banner=>({...banner,image:mediaUrl(banner.image)})));catalogResult('banners');return rows}catch(error){catalogResult('banners',error.message);return []}};
- const refreshDelivery=async()=>{
+ const refreshCategories=async(retryCount=0)=>{
+  try{
+   const rows=await catalogService.listCategories();
+   const mapped=rows.map(category=>({...category,image:mediaUrl(category.image)||grocifyLogo}));
+   setCategories(mapped);
+   storage.set('cached_categories',mapped);
+   catalogResult('categories');
+   return rows;
+  }catch(error){
+   if(retryCount<2){
+    setTimeout(()=>refreshCategories(retryCount+1),2500);
+   }else if(!storage.get('cached_categories',[]).length){
+    catalogResult('categories',error.message);
+   }
+   return [];
+  }
+ };
+ const refreshProducts=async(retryCount=0)=>{
+  try{
+   const rows=await catalogService.listProducts();
+   const mapped=rows.map(product=>({...product,image:mediaUrl(product.image)||grocifyLogo,images:(product.images||[]).map(mediaUrl)}));
+   setProducts(mapped);
+   storage.set('cached_products',mapped);
+   catalogResult('products');
+   return rows;
+  }catch(error){
+   if(retryCount<2){
+    setTimeout(()=>refreshProducts(retryCount+1),2500);
+   }else if(!storage.get('cached_products',[]).length){
+    catalogResult('products',error.message);
+   }
+   return [];
+  }
+ };
+ const refreshBanners=async(retryCount=0)=>{
+  try{
+   const rows=await catalogService.listBanners();
+   const mapped=rows.map(banner=>({...banner,image:mediaUrl(banner.image)}));
+   setBanners(mapped);
+   storage.set('cached_banners',mapped);
+   catalogResult('banners');
+   return rows;
+  }catch(error){
+   if(retryCount<2){
+    setTimeout(()=>refreshBanners(retryCount+1),2500);
+   }else if(!storage.get('cached_banners',[]).length){
+    catalogResult('banners',error.message);
+   }
+   return [];
+  }
+ };
+ const refreshDelivery=async(retryCount=0)=>{
   try{
     const [settings,deliveryData]=await Promise.all([catalogService.getStoreSettings(),catalogService.listDelivery()]);
     setStoreSettings(settings);
+    storage.set('cached_store_settings',settings);
     // Prioritize village overrides FIRST before broader area zones
     const villageZones=(deliveryData?.villages||[]).map(v=>({
       id:v.id,
@@ -153,11 +202,17 @@ export function AppProvider({children}){
       suspendedLocalities:a.suspendedLocalities||[]
     }));
     const rawZones=Array.isArray(deliveryData)?deliveryData:[...villageZones,...areaZones];
-    setDeliveryZones(rawZones.map(zone=>({...zone,localities:zone.localities||zone.pincodes||[zone.name]})));
+    const mappedZones=rawZones.map(zone=>({...zone,localities:zone.localities||zone.pincodes||[zone.name]}));
+    setDeliveryZones(mappedZones);
+    storage.set('cached_delivery_zones',mappedZones);
     catalogResult('delivery');
     return rawZones;
   }catch(error){
-    catalogResult('delivery',error.message);
+    if(retryCount<2){
+     setTimeout(()=>refreshDelivery(retryCount+1),2500);
+    }else if(!storage.get('cached_store_settings',null)){
+     catalogResult('delivery',error.message);
+    }
     return [];
   }
  };
@@ -169,7 +224,7 @@ export function AppProvider({children}){
  const toggleFavorite=async id=>{const saved=favorites.includes(id);if(!online())return notify('Please sign in to use your wishlist','error');setFavorites(current=>saved?current.filter(value=>value!==id):[...current,id]);try{await(saved?customerService.removeFavorite(id):customerService.addFavorite(id));notify(saved?'Removed from favourites':'Saved to favourites')}catch(error){setFavorites(current=>saved?[...new Set([...current,id])]:current.filter(value=>value!==id));notify(error.message,'error')}};
  const cartItems=useMemo(()=>products.filter(p=>cart[p.id]).map(p=>({...p,qty:cart[p.id]})),[cart,products]);
  const subtotal=cartItems.reduce((sum,p)=>sum+p.price*p.qty,0),mrpTotal=cartItems.reduce((sum,p)=>sum+p.mrp*p.qty,0);
- const deliveryConfig=useMemo(()=>({minimumOrder:Number(storeSettings?.minimumOrder||0),deliveryFee:Number(storeSettings?.deliveryFee||0),freeDeliveryThreshold:Number(storeSettings?.freeDeliveryThreshold||0),estimatedDelivery:storeSettings?.estimatedDelivery||'Delivery estimate unavailable'}),[storeSettings]);
+ const deliveryConfig=useMemo(()=>({minimumOrder:Number(storeSettings?.minimumOrder||0),deliveryFee:Number(storeSettings?.deliveryFee||0),freeDeliveryThreshold:Number(storeSettings?.freeDeliveryThreshold||0),estimatedDelivery:storeSettings?.estimatedDelivery||'15–20 mins'}),[storeSettings]);
  const availableLocalities=useMemo(()=>{
   const set=new Set();
   deliveryZones.forEach(zone=>{
