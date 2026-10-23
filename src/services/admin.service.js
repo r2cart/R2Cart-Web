@@ -100,7 +100,11 @@ export const adminService = {
   // ==========================================
   getStoreSchedule: () => api.get('/admin/scheduling/store-hours'),
   updateStoreHours: value => api.patch('/admin/scheduling/store-hours', value),
-  getOperationsPreview: (query = {}) => api.get(`/admin/scheduling/preview?${new URLSearchParams(query)}`),
+  getOperationsPreview: (query = {}) => {
+    const clean = Object.fromEntries(Object.entries(query).filter(([_, v]) => Boolean(v) && v !== 'undefined'));
+    const qs = new URLSearchParams(clean).toString();
+    return api.get(`/admin/scheduling/preview${qs ? `?${qs}` : ''}`);
+  },
   getSeasonalSchedules: () => api.get('/admin/scheduling/seasonal'),
   saveSeasonalSchedule: value => api.post('/admin/scheduling/seasonal', value),
   deleteSeasonalSchedule: id => api.delete(`/admin/scheduling/seasonal/${id}`),

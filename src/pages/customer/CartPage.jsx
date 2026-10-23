@@ -186,8 +186,10 @@ export function CartPage() {
     const popularProducts = (products && products.length > 0 ? products : []).filter((p) => p.stock > 0).slice(0, 4);
 
     return (
-      <div className="empty-cart-page" style={{ maxWidth: '640px', margin: '0 auto', padding: '24px 16px 80px', boxSizing: 'border-box', width: '100%' }}>
-        <style>{`
+      <div className="container" style={{ padding: '0 0 30px', boxSizing: 'border-box' }}>
+        <div className="checkout-empty-wrapper">
+          <div className="checkout-empty-card">
+          <style>{`
           @keyframes floatBag {
             0% { transform: translateY(0px) rotate(0deg); }
             50% { transform: translateY(-6px) rotate(2deg); }
@@ -515,8 +517,10 @@ export function CartPage() {
             <b style={{ fontSize: '11.5px', color: '#0f172a' }}>Safe Delivery</b>
             <span style={{ fontSize: '10px', color: '#64748b' }}>Hygienic Packing</span>
           </div>
+          </div>
         </div>
       </div>
+    </div>
     );
   }
 

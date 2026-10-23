@@ -5,7 +5,8 @@ import {
  KeyRound,LoaderCircle,RefreshCcw,Save,ShieldCheck,Store,Trash2,
  Upload,ExternalLink,RotateCcw,Truck,XCircle,AlertCircle,Cookie,Phone,CheckCircle2,
  LayoutTemplate,ArrowUp,ArrowDown,Sliders,Sparkles,Layers,Grid,ShoppingBag,
- Tag,Check,MoveUp,MoveDown,Info,ShieldAlert,AlertOctagon,CalendarClock,Plus
+ Tag,Check,MoveUp,MoveDown,Info,ShieldAlert,AlertOctagon,CalendarClock,Plus,
+ Smartphone,Search,ChevronDown,ChevronUp,SlidersHorizontal,Flame,Star,HelpCircle,Crown,Medal,Award
 } from 'lucide-react';
 import {Button} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
@@ -183,6 +184,75 @@ const Field=({label,hint,...props})=><label><span>{label}</span><input {...props
 const PasswordField=({label,hint,show,onToggle,...props})=><label><span>{label}</span><div style={{position:'relative',display:'flex',alignItems:'center'}}><input {...props} type={show?'text':'password'} style={{width:'100%',paddingRight:'2.5rem'}}/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={onToggle} style={{position:'absolute',right:'0.75rem',background:'none',border:'none',cursor:'pointer',padding:'0.25rem',color:'#64748b',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div>{hint&&<small>{hint}</small>}</label>;
 const SectionTitle=({icon:Icon,title,text})=><div className="settings-section-title"><i><Icon/></i><div><h3>{title}</h3><p>{text}</p></div></div>;
 
+const SECTION_META = {
+ heroBanners: {
+  icon: '🎠',
+  badge: 'Hero Slider',
+  concept: 'Full-width visual banners with action buttons rotating at the top of the customer homepage.',
+  customerLabel: 'Top Hero Banners Carousel'
+ },
+ campaignOffers: {
+  icon: '🏷️',
+  badge: 'Offers Rail',
+  concept: 'Horizontal card rail highlighting discounts, coupons, and seasonal campaigns ("Offers picked for you").',
+  customerLabel: 'Offers Picked For You Rail'
+ },
+ shopCategories: {
+  icon: '🗂️',
+  badge: 'Category Grid',
+  concept: 'Circular category icons and capsules (Fruits, Dairy, Snacks) allowing fast catalog browsing.',
+  customerLabel: 'Shop by Category Grid'
+ },
+ recommended: {
+  icon: '💡',
+  badge: 'Personalized',
+  concept: 'Personalized product recommendations dynamically tailored to customer browsing and buying history.',
+  customerLabel: 'Recommended For You'
+ },
+ bestSellers: {
+  icon: '🔥',
+  badge: 'Top Sellers',
+  concept: 'Trending high-volume grocery essentials and customer favorites with fast turnaround.',
+  customerLabel: 'Best Sellers Product Rail'
+ },
+ topPicks: {
+  icon: '⭐',
+  badge: 'Curated Picks',
+  concept: 'Staff-selected premium and high-margin products featured for quick conversion.',
+  customerLabel: 'Top Picks Product Rail'
+ },
+ promoStrip: {
+  icon: '🎁',
+  badge: 'Promo Banner',
+  concept: 'High-contrast promotional strip ("Stock up. Save more") directing shoppers to deals and coupons.',
+  customerLabel: 'Savings Promo Banner'
+ },
+ categoryRails: {
+  icon: '📦',
+  badge: 'Category Shelves',
+  concept: 'Dedicated product aisles grouped per category (Vegetables, Dairy & Beverages rails).',
+  customerLabel: 'Category Product Rails'
+ },
+ specialOffers: {
+  icon: '⚡',
+  badge: 'Special Deals',
+  concept: 'Deeply discounted products, clearance specials, and limited-time price drops.',
+  customerLabel: 'Special Offers Rail'
+ },
+ recentlyViewed: {
+  icon: '🕒',
+  badge: 'Browsing History',
+  concept: 'Products recently inspected by the shopper, optimized for 1-click repeat reordering.',
+  customerLabel: 'Recently Viewed Products'
+ },
+ promise: {
+  icon: '🛡️',
+  badge: 'Trust Badges',
+  concept: 'Trust guarantee badges (15-min delivery, 100% quality assurance, easy refunds) at page bottom.',
+  customerLabel: 'Quality & Delivery Promise'
+ }
+};
+
 export function AdminSettings(){
  const {notify}=useApp();
  const location=useLocation();
@@ -192,6 +262,11 @@ export function AdminSettings(){
   return 'general';
  });
  const [policyKey,setPolicyKey]=useState('privacy');
+
+ const [storefrontTab,setStorefrontTab]=useState('sections');
+ const [expandedSectionId,setExpandedSectionId]=useState(null);
+ const [catSearch,setCatSearch]=useState('');
+ const [sectionFilter,setSectionFilter]=useState('all');
 
  const [settings,setSettings]=useState(null);
  const [saved,setSaved]=useState(null);
@@ -549,9 +624,57 @@ export function AdminSettings(){
   changeHomeLayout(layout=>({...layout,categoryOrder:currentOrder}));
  };
 
+ const setCategoryPosition=(slug,targetIdx)=>{
+  const currentCats=categoriesList.length?categoriesList:[];
+  let currentOrder=settings.policies?.homeLayout?.categoryOrder?.length
+   ?[...settings.policies.homeLayout.categoryOrder]
+   :currentCats.map(c=>c.slug);
+  currentCats.forEach(c=>{
+   if(!currentOrder.includes(c.slug))currentOrder.push(c.slug);
+  });
+  const fromIdx=currentOrder.indexOf(slug);
+  if(fromIdx===-1)return;
+  const clampedTarget=Math.max(0,Math.min(targetIdx,currentOrder.length-1));
+  const [removed]=currentOrder.splice(fromIdx,1);
+  currentOrder.splice(clampedTarget,0,removed);
+  changeHomeLayout(layout=>({...layout,categoryOrder:currentOrder}));
+ };
+
+ const sortCategoriesAlphabetical=()=>{
+  const sortedSlugs=[...categoriesList].sort((a,b)=>a.name.localeCompare(b.name)).map(c=>c.slug);
+  changeHomeLayout(layout=>({...layout,categoryOrder:sortedSlugs}));
+  notify('Categories sorted alphabetically (A to Z)');
+ };
+
+ const resetCategoryOrderToDefault=()=>{
+  const defaultSlugs=categoriesList.map(c=>c.slug);
+  changeHomeLayout(layout=>({...layout,categoryOrder:defaultSlugs}));
+  notify('Category sequence reset to store default');
+ };
+
  const resetToDefaultLayout=()=>{
   changeHomeLayout(defaultHomeLayout);
   notify('Reset storefront homepage layout to default sequence');
+ };
+
+ const applyPresetTemplate=templateType=>{
+  let orderMap={};
+  if(templateType==='standard'){
+   orderMap={heroBanners:1,shopCategories:2,campaignOffers:3,bestSellers:4,recommended:5,promoStrip:6,categoryRails:7,topPicks:8,specialOffers:9,recentlyViewed:10,promise:11};
+  }else if(templateType==='offers'){
+   orderMap={campaignOffers:1,specialOffers:2,heroBanners:3,promoStrip:4,bestSellers:5,shopCategories:6,recommended:7,topPicks:8,categoryRails:9,recentlyViewed:10,promise:11};
+  }else if(templateType==='fast'){
+   orderMap={shopCategories:1,bestSellers:2,heroBanners:3,recommended:4,campaignOffers:5,topPicks:6,categoryRails:7,specialOffers:8,promoStrip:9,recentlyViewed:10,promise:11};
+  }
+  const sections=[...(settings.policies?.homeLayout?.sections||defaultHomeSections)].map(sec=>({
+   ...sec,
+   order:orderMap[sec.id]||sec.order||99,
+   enabled:true
+  }));
+  sections.sort((a,b)=>(Number(a.order)||99)-(Number(b.order)||99));
+  sections.forEach((s,idx)=>{s.order=idx+1});
+  changeHomeLayout(layout=>({...layout,sections}));
+  notify(`Applied ready-made "${templateType.toUpperCase()}" homepage layout!`);
  };
 
  const uploadLogo=async event=>{
@@ -846,398 +969,495 @@ export function AdminSettings(){
    {/* TAB 2: STOREFRONT & HOME LAYOUT (ADMIN CONTROLS) */}
    {activeTab==='storefront'&&(
     <>
-     {/* Control Center Banner */}
+     {/* Control Center Hero Card */}
      <section className="admin-card storefront-hero-card">
-      <div className="between" style={{alignItems:'flex-start',flexWrap:'wrap',gap:'14px',width:'100%'}}>
-       <div style={{flex:'1 1 320px',minWidth:0}}>
-        <div style={{display:'inline-flex',alignItems:'center',gap:'8px',background:'rgba(16,185,129,0.12)',color:'#10b981',padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:700,marginBottom:'8px'}}>
-         <Sparkles size={14}/> STOREFRONT HOMEPAGE CONTROLLER
+      <div className="between" style={{alignItems:'center',flexWrap:'wrap',gap:'16px',width:'100%'}}>
+       <div style={{flex:'1 1 400px',minWidth:0}}>
+        <div className="storefront-hero-badge">
+         <Sparkles size={14}/> STOREFRONT HOMEPAGE ARCHITECTURE
         </div>
-        <h2 style={{fontSize:'1.35rem',fontWeight:800,color:'var(--ink)',margin:'0 0 6px'}}>Customer Homepage Layout & Placements</h2>
-        <p style={{margin:0,color:'var(--muted)',fontSize:'13.5px',maxWidth:'780px',lineHeight:1.5}}>
-         Admin has full control over what appears on the customer's screen: turn sections on or off, set their top-to-bottom order numbering, rename sections (like “Offers picked for you”), and designate which banners appear in the top Hero Carousel vs the horizontal campaign rail.
+        <h2 className="storefront-hero-title">Homepage Sections & Layout Merchandising</h2>
+        <p className="storefront-hero-desc">
+         Arrange the order (#1 to #11), visibility, and item display limits of all sections on your customer homepage.
         </p>
-       </div>
-       <Button type="button" variant="outline" onClick={resetToDefaultLayout} style={{gap:'6px',flexShrink:0}}>
-        <RotateCcw size={15}/> Reset to default layout
-       </Button>
-      </div>
-
-      {/* Live Order Visual Strip */}
-      <div style={{marginTop:'20px',paddingTop:'18px',borderTop:'1px solid var(--line)'}}>
-       <span style={{fontSize:'11.5px',fontWeight:700,letterSpacing:'0.05em',textTransform:'uppercase',color:'var(--muted)',display:'block',marginBottom:'10px'}}>
-        Live Storefront Section Sequence:
-       </span>
-       <div className="layout-preview-strip">
-        {sectionsList.map((sec,idx)=>(
-         <span key={sec.id} className={`layout-chip ${sec.enabled?'is-enabled':'is-disabled'}`} title={sec.description}>
-          <b className="chip-num">#{sec.order}</b>
-          <span className="chip-name">{sec.title||sec.label}</span>
-          <i className="chip-status">{sec.enabled?'ON':'OFF'}</i>
+        <div className="storefront-stat-pills">
+         <span className="storefront-stat-pill">
+          <Layers size={13}/> 11 Sections
          </span>
-        ))}
+         <span className="storefront-stat-pill success">
+          <Eye size={13}/> {sectionsList.filter(s=>s.enabled).length} Active
+         </span>
+         <span className="storefront-stat-pill muted">
+          <EyeOff size={13}/> {sectionsList.filter(s=>!s.enabled).length} Hidden
+         </span>
+         <span className="storefront-stat-pill">
+          <Tag size={13}/> {categoriesList.length} Categories
+         </span>
+         <Link to="/admin/banners" className="storefront-stat-pill" style={{textDecoration:'none',color:'#047857',background:'#ecfdf5',borderColor:'#a7f3d0'}}>
+          <ImageIcon size={13}/> Manage Banners (/admin/banners) →
+         </Link>
+        </div>
+       </div>
+
+       <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center',flexShrink:0}}>
+        <Button type="button" variant="outline" onClick={resetToDefaultLayout} style={{gap:'6px'}}>
+         <RotateCcw size={15}/> Reset to Default
+        </Button>
+        <Button type="button" disabled={saving} onClick={submit} style={{gap:'6px',background:'#059669',color:'#fff',fontWeight:700}}>
+         {saving?<LoaderCircle className="spin" size={15}/>:<Save size={15}/>} Save Layout
+        </Button>
        </div>
       </div>
      </section>
 
-     {/* SECTIONS NUMBERING, REORDERING & VISIBILITY */}
-     <section className="admin-card">
-      <SectionTitle icon={Layers} title="Homepage Sections Ordering & Visibility" text="Reorder sections using Up/Down arrows or direct sequence numbering. Toggle visibility to show or hide sections from the storefront."/>
-
-      <div className="layout-sections-list">
-       {sectionsList.map((sec,index)=>(
-        <article key={sec.id} className={`layout-section-item ${sec.enabled?'active':'disabled'}`}>
-         <div className="layout-item-header">
-          <div className="layout-order-tools">
-           <span className="layout-order-badge">#{sec.order}</span>
-           <div className="layout-arrow-btns">
-            <button
-             type="button"
-             disabled={index===0}
-             onClick={()=>moveSection(index,-1)}
-             aria-label={`Move ${sec.label} up`}
-             className="layout-btn-arrow"
-            >
-             <ArrowUp size={14}/>
-            </button>
-            <button
-             type="button"
-             disabled={index===sectionsList.length-1}
-             onClick={()=>moveSection(index,1)}
-             aria-label={`Move ${sec.label} down`}
-             className="layout-btn-arrow"
-            >
-             <ArrowDown size={14}/>
-            </button>
-           </div>
-           <label className="layout-seq-label" title="Direct sequence order">
-            <span>Seq:</span>
-            <input
-             type="number"
-             min="1"
-             max="20"
-             value={sec.order}
-             onChange={e=>setSectionOrder(sec.id,e.target.value)}
-             className="layout-seq-input"
-            />
-           </label>
-          </div>
-
-          <div className="layout-item-info">
-           <div className="layout-item-title-row">
-            <h4>{sec.label}</h4>
-            <span className={`layout-badge-pill ${sec.enabled?'badge-on':'badge-off'}`}>
-             {sec.enabled?'● Active on screen':'○ Hidden from screen'}
-            </span>
-           </div>
-           <p className="layout-item-desc">{sec.description}</p>
-          </div>
-
-          <div className="layout-item-actions">
-           <Button
-            type="button"
-            variant={sec.enabled?'outline':'ghost'}
-            className={sec.enabled?'':'text-muted'}
-            onClick={()=>toggleSection(sec.id)}
-            style={{gap:'6px',fontSize:'13px'}}
-           >
-            {sec.enabled?<EyeOff size={15}/>:<Eye size={15}/>}
-            {sec.enabled?'Hide section':'Show section'}
-           </Button>
-          </div>
-         </div>
-
-         {/* Editable Parameters for this section */}
-         {sec.enabled&&(
-          <div className="layout-item-controls">
-           {/* Section Custom Title & Subtitle */}
-           {sec.id==='campaignOffers'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              label="Section Heading"
-              value={sec.title||'Offers picked for you'}
-              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
-              placeholder="Offers picked for you"
-             />
-             <Field
-              label="Section Subtitle"
-              value={sec.subtitle||'Fresh deals, updated from R2Cart'}
-              onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
-              placeholder="Fresh deals, updated from R2Cart"
-             />
-            </div>
-           )}
-
-           {sec.id==='shopCategories'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              label="Section Heading"
-              value={sec.title||'Shop by category'}
-              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
-              placeholder="Shop by category"
-             />
-             <Field
-              label="Section Subtitle"
-              value={sec.subtitle||'Everything your home needs'}
-              onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
-              placeholder="Everything your home needs"
-             />
-            </div>
-           )}
-
-           {sec.id==='bestSellers'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              label="Section Heading"
-              value={sec.title||'Best sellers'}
-              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
-              placeholder="Best sellers"
-             />
-             <Field
-              type="number"
-              min="2"
-              max="30"
-              label="Display Product Count"
-              value={sec.count||10}
-              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
-              hint="Maximum products to show in this rail"
-             />
-            </div>
-           )}
-
-           {sec.id==='recommended'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              label="Section Heading"
-              value={sec.title||'Recommended for you'}
-              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
-              placeholder="Recommended for you"
-             />
-             <Field
-              type="number"
-              min="2"
-              max="30"
-              label="Display Product Count"
-              value={sec.count||10}
-              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
-              hint="Maximum recommended products to show"
-             />
-            </div>
-           )}
-
-           {sec.id==='promoStrip'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              label="Eyebrow Tag"
-              value={sec.tag||'YOUR SAVINGS'}
-              onChange={e=>updateSectionField(sec.id,'tag',e.target.value)}
-              placeholder="YOUR SAVINGS"
-             />
-             <Field
-              label="Main Heading"
-              value={sec.title||'Stock up. Save more.'}
-              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
-              placeholder="Stock up. Save more."
-             />
-             <Field
-              className="full"
-              label="Description Subtitle"
-              value={sec.subtitle||'Explore the current offers available for your basket.'}
-              onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
-              placeholder="Explore the current offers available for your basket."
-             />
-             <Field
-              label="Button Label"
-              value={sec.buttonText||'Explore offers'}
-              onChange={e=>updateSectionField(sec.id,'buttonText',e.target.value)}
-              placeholder="Explore offers"
-             />
-             <Field
-              label="Button Destination"
-              value={sec.buttonLink||'/coupons'}
-              onChange={e=>updateSectionField(sec.id,'buttonLink',e.target.value)}
-              placeholder="/coupons"
-             />
-            </div>
-           )}
-
-           {sec.id==='categoryRails'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              type="number"
-              min="1"
-              max="20"
-              label="Maximum Category Rails"
-              value={sec.maxCategories||8}
-              onChange={e=>updateSectionField(sec.id,'maxCategories',Number(e.target.value))}
-              hint="How many categories to show as full horizontal product rails"
-             />
-            </div>
-           )}
-
-           {sec.id==='specialOffers'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              label="Section Heading"
-              value={sec.title||'Special offers'}
-              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
-              placeholder="Special offers"
-             />
-             <Field
-              type="number"
-              min="2"
-              max="30"
-              label="Display Product Count"
-              value={sec.count||10}
-              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
-             />
-            </div>
-           )}
-
-           {sec.id==='recentlyViewed'&&(
-            <div className="form-grid" style={{marginTop:'12px'}}>
-             <Field
-              label="Section Heading"
-              value={sec.title||'Recently viewed'}
-              onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
-              placeholder="Recently viewed"
-             />
-             <Field
-              type="number"
-              min="2"
-              max="20"
-              label="Display Product Count"
-              value={sec.count||8}
-              onChange={e=>updateSectionField(sec.id,'count',Number(e.target.value))}
-             />
-            </div>
-           )}
-          </div>
-         )}
-        </article>
+     {/* Visual Customer Homepage Blueprint */}
+     <div className="storefront-blueprint-card">
+      <div className="blueprint-header">
+       <h3>
+        <Layers size={16} style={{color:'#10b981'}}/>
+        Live Customer Homepage Sequence (Top to Bottom Flow)
+       </h3>
+       <small>Click any block below to jump directly to its card</small>
+      </div>
+      <div className="blueprint-strip">
+       {sectionsList.map((sec)=>(
+        <button
+         key={sec.id}
+         type="button"
+         onClick={()=>{
+          setStorefrontTab('sections');
+          const el=document.getElementById(`sec-card-${sec.id}`);
+          if(el){
+           el.scrollIntoView({behavior:'smooth',block:'center'});
+           el.style.boxShadow='0 0 0 3px #10b981';
+           setTimeout(()=>{if(el)el.style.boxShadow='';},1800);
+          }
+         }}
+         className={`blueprint-block ${sec.enabled?'is-active':'is-hidden'}`}
+         title={`#${sec.order} ${sec.title||sec.label} — ${sec.enabled?'Visible on storefront':'Hidden from storefront'}`}
+        >
+         <span className="blueprint-num">#{sec.order}</span>
+         <span>{SECTION_META[sec.id]?.icon || '📦'} {sec.title||sec.label}</span>
+         <small style={{fontSize:'10px',opacity:0.8}}>{sec.enabled?'ON':'OFF'}</small>
+        </button>
        ))}
       </div>
-     </section>
+     </div>
 
-     {/* BANNERS PLACEMENT CONTROLLER ("kon sa banner ko sa carasoul") */}
-     <section className="admin-card">
-      <div className="between" style={{marginBottom:'14px',flexWrap:'wrap',gap:'10px'}}>
-       <SectionTitle icon={ImageIcon} title="Storefront Banner Placements" text="Designate where each banner appears: Hero Banner Carousel (Top) vs “Offers picked for you” horizontal campaign rail."/>
-       <Link to="/admin/banners" style={{fontSize:'13px',fontWeight:700,color:'var(--green)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'4px'}}>
-        Manage Banners & Images →
-       </Link>
-      </div>
+     {/* Modern Segmented Sub-Navigation Bar */}
+     <div className="storefront-tabs-bar">
+      <button
+       type="button"
+       className={`storefront-tab-pill ${storefrontTab==='sections'?'active':''}`}
+       onClick={()=>setStorefrontTab('sections')}
+      >
+       <Layers size={15}/>
+       <span>1. Homepage Sections Sequence</span>
+       <span className="storefront-tab-count">
+        {sectionsList.filter(s=>s.enabled).length}/{sectionsList.length} Active
+       </span>
+      </button>
 
-      {!bannersList.length?(
-       <div style={{padding:'20px',background:'rgba(0,0,0,0.02)',borderRadius:'10px',textAlign:'center',color:'var(--muted)'}}>
-        No storefront banners found. <Link to="/admin/banners" style={{color:'var(--green)',fontWeight:700}}>Create your first banner here</Link>.
-       </div>
-      ):(
-       <div className="layout-banners-grid">
-        {bannersList.map((banner,idx)=>{
-         const currentPlacement=bannerPlacements[banner.id]||(idx<2?'HERO':'CAMPAIGN');
-         return (
-          <div key={banner.id} className="layout-banner-card">
-           <div
-            className="layout-banner-preview"
-            style={banner.image?{backgroundImage:`linear-gradient(90deg,rgba(6,46,31,.88),rgba(6,46,31,.2)),url(${banner.image})`}:undefined}
-           >
-            <span className="layout-banner-kicker">{banner.kicker||'OFFER'}</span>
-            <h4>{banner.heading}</h4>
-            <p>{banner.subtitle}</p>
-            <small>{banner.destination||'/'}</small>
-           </div>
+      <button
+       type="button"
+       className={`storefront-tab-pill ${storefrontTab==='categories'?'active':''}`}
+       onClick={()=>setStorefrontTab('categories')}
+      >
+       <Grid size={15}/>
+       <span>2. Category Sequence ("Shop by category")</span>
+       <span className="storefront-tab-count">
+        {categoriesList.length} Categories
+       </span>
+      </button>
+     </div>
 
-           <div className="layout-banner-controls">
-            <span style={{fontSize:'12px',fontWeight:700,color:'var(--ink)',display:'block',marginBottom:'6px'}}>
-             Placement on Storefront:
-            </span>
-            <div className="placement-options">
-             <button
-              type="button"
-              className={`placement-pill ${currentPlacement==='HERO'?'active':''}`}
-              onClick={()=>setBannerPlacement(banner.id,'HERO')}
-             >
-              👑 Top Hero Carousel
-             </button>
-             <button
-              type="button"
-              className={`placement-pill ${currentPlacement==='CAMPAIGN'?'active':''}`}
-              onClick={()=>setBannerPlacement(banner.id,'CAMPAIGN')}
-             >
-              🏷️ Offers Picked For You Rail
-             </button>
-             <button
-              type="button"
-              className={`placement-pill ${currentPlacement==='BOTH'?'active':''}`}
-              onClick={()=>setBannerPlacement(banner.id,'BOTH')}
-             >
-              🌟 Both Placements
-             </button>
-            </div>
-           </div>
-          </div>
-         );
-        })}
-       </div>
-      )}
-     </section>
+     {/* SUBTAB 1: HOMEPAGE SECTIONS SEQUENCE & VISIBILITY */}
+     {storefrontTab==='sections'&&(
+      <div>
+       {/* Full Width Sections List */}
+       <div className="layout-sections-container">
+        {/* Filter Bar */}
+        <div className="between" style={{marginBottom:'16px',flexWrap:'wrap',gap:'10px',alignItems:'center'}}>
+         <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+          <button
+           type="button"
+           onClick={()=>setSectionFilter('all')}
+           style={{padding:'6px 14px',borderRadius:'8px',fontSize:'12px',fontWeight:700,border:sectionFilter==='all'?'1.5px solid #10b981':'1px solid #cbd5e1',background:sectionFilter==='all'?'#ecfdf5':'#fff',color:sectionFilter==='all'?'#064e3b':'#475569',cursor:'pointer'}}
+          >
+           All Sections ({sectionsList.length})
+          </button>
+          <button
+           type="button"
+           onClick={()=>setSectionFilter('visible')}
+           style={{padding:'6px 14px',borderRadius:'8px',fontSize:'12px',fontWeight:700,border:sectionFilter==='visible'?'1.5px solid #10b981':'1px solid #cbd5e1',background:sectionFilter==='visible'?'#ecfdf5':'#fff',color:sectionFilter==='visible'?'#064e3b':'#475569',cursor:'pointer'}}
+          >
+           <Eye size={13} style={{marginRight:4}}/> Visible Only ({sectionsList.filter(s=>s.enabled).length})
+          </button>
+          <button
+           type="button"
+           onClick={()=>setSectionFilter('hidden')}
+           style={{padding:'6px 14px',borderRadius:'8px',fontSize:'12px',fontWeight:700,border:sectionFilter==='hidden'?'1.5px solid #10b981':'1px solid #cbd5e1',background:sectionFilter==='hidden'?'#ecfdf5':'#fff',color:sectionFilter==='hidden'?'#064e3b':'#475569',cursor:'pointer'}}
+          >
+           <EyeOff size={13} style={{marginRight:4}}/> Hidden Only ({sectionsList.filter(s=>!s.enabled).length})
+          </button>
+         </div>
 
-     {/* CATEGORY ORDERING & NUMBERING ("kis numbering me category") */}
-     <section className="admin-card">
-      <div className="between" style={{marginBottom:'14px',flexWrap:'wrap',gap:'10px'}}>
-       <SectionTitle icon={Grid} title="Homepage Category Sequence & Numbering" text="Control the display order of categories in the “Shop by category” capsules and product rails."/>
-       <Link to="/admin/categories" style={{fontSize:'13px',fontWeight:700,color:'var(--green)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'4px'}}>
-        Manage Categories & Subcategories →
-       </Link>
-      </div>
-
-      {(()=>{
-       const orderMap=new Map((currentHomeLayout.categoryOrder||[]).map((slug,idx)=>[slug,idx]));
-       const sortedCats=[...categoriesList].sort((a,b)=>{
-        const posA=orderMap.has(a.slug)?orderMap.get(a.slug):999;
-        const posB=orderMap.has(b.slug)?orderMap.get(b.slug):999;
-        return posA-posB;
-       });
-
-       return (
-        <div className="layout-cats-list">
-         {sortedCats.map((cat,cIdx)=>(
-          <div key={cat.id||cat.slug} className="layout-cat-row">
-           <div className="cat-order-num">#{cIdx+1}</div>
-           <div className="cat-icon-box" style={{background:cat.color||'rgba(16,185,129,0.1)'}}>
-            {cat.image?<img src={cat.image} alt={cat.name}/>:<Tag size={16}/>}
-           </div>
-           <div className="cat-info">
-            <b>{cat.name}</b>
-            <small>/{cat.slug}</small>
-           </div>
-           <div className="cat-actions">
-            <button
-             type="button"
-             disabled={cIdx===0}
-             onClick={()=>moveCategory(cIdx,-1)}
-             className="layout-btn-arrow"
-             aria-label={`Move ${cat.name} up`}
-            >
-             <ArrowUp size={14}/>
-            </button>
-            <button
-             type="button"
-             disabled={cIdx===sortedCats.length-1}
-             onClick={()=>moveCategory(cIdx,1)}
-             className="layout-btn-arrow"
-             aria-label={`Move ${cat.name} down`}
-            >
-             <ArrowDown size={14}/>
-            </button>
-           </div>
-          </div>
-         ))}
+         <Link to="/" target="_blank" style={{fontSize:'12px',fontWeight:700,color:'#059669',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'5px'}}>
+          Preview Live Storefront Homepage <ExternalLink size={13}/>
+         </Link>
         </div>
-       );
-      })()}
-     </section>
+
+        {/* Sections List */}
+        <div className="layout-sections-list">
+         {sectionsList
+          .filter(sec=>{
+           if(sectionFilter==='visible')return sec.enabled;
+           if(sectionFilter==='hidden')return !sec.enabled;
+           return true;
+          })
+          .map((sec,index)=>{
+           const meta=SECTION_META[sec.id]||{};
+           const isExpanded=expandedSectionId===sec.id;
+           return (
+            <article
+             key={sec.id}
+             id={`sec-card-${sec.id}`}
+             className={`enhanced-section-card ${sec.enabled?'is-active':'is-hidden'}`}
+            >
+             <div className="enhanced-card-main">
+              {/* Left: Rank Badge + Icon + Details */}
+              <div className="enhanced-left-cluster">
+               <span className={`enhanced-order-badge ${sec.order <= 3 ? 'top-order' : ''}`}>
+                #{sec.order}
+               </span>
+
+               <div className="enhanced-icon-avatar">
+                <span>{meta.icon||'📦'}</span>
+               </div>
+
+               <div className="enhanced-info-box">
+                <div className="enhanced-title-row">
+                 <h4>{sec.title||sec.label}</h4>
+                 {meta.badge&&(
+                  <span className="enhanced-type-badge">
+                   {meta.badge}
+                  </span>
+                 )}
+                </div>
+
+                {meta.concept&&(
+                 <p className="enhanced-concept-note">
+                  {meta.concept}
+                 </p>
+                )}
+
+                <div className="enhanced-meta-tags">
+                 <span><b>Section ID:</b> <code>{sec.id}</code></span>
+                 <span><b>Subtitle:</b> {sec.subtitle||'Default'}</span>
+                 {(sec.count||sec.maxProducts)&&<span><b>Display Limit:</b> {sec.count||sec.maxProducts} items</span>}
+                </div>
+               </div>
+              </div>
+
+              {/* Right: Actions */}
+              <div className="enhanced-actions-cluster">
+               {/* Up Button */}
+               <button
+                type="button"
+                disabled={index===0}
+                onClick={()=>moveSection(index,-1)}
+                aria-label={`Move ${sec.label} up`}
+                className="enhanced-nav-btn"
+                title="Move Up"
+               >
+                <ArrowUp size={15}/>
+               </button>
+
+               {/* Down Button */}
+               <button
+                type="button"
+                disabled={index===sectionsList.length-1}
+                onClick={()=>moveSection(index,1)}
+                aria-label={`Move ${sec.label} down`}
+                className="enhanced-nav-btn"
+                title="Move Down"
+               >
+                <ArrowDown size={15}/>
+               </button>
+
+               {/* Visibility Toggle */}
+               <button
+                type="button"
+                onClick={()=>toggleSection(sec.id)}
+                className={`enhanced-toggle-btn ${sec.enabled?'is-on':'is-off'}`}
+                title={sec.enabled?'Click to Hide from Storefront':'Click to Show on Storefront'}
+               >
+                {sec.enabled?(
+                 <>
+                  <Eye size={14}/> Visible (ON)
+                 </>
+                ):(
+                 <>
+                  <EyeOff size={14}/> Hidden (OFF)
+                 </>
+                )}
+               </button>
+
+               {/* Customize Drawer Toggle */}
+               <button
+                type="button"
+                onClick={()=>setExpandedSectionId(isExpanded?null:sec.id)}
+                className="enhanced-customize-btn"
+                title="Customize display text and limits"
+               >
+                <SlidersHorizontal size={14}/>
+                <span>Customize</span>
+                {isExpanded?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
+               </button>
+              </div>
+             </div>
+
+             {/* Expandable Customization Drawer */}
+             {isExpanded&&(
+              <div className="enhanced-settings-drawer">
+               <div style={{fontSize:'12px',fontWeight:700,color:'#0f172a',marginBottom:'10px',display:'flex',alignItems:'center',gap:'6px'}}>
+                <Sliders size={14} style={{color:'#10b981'}}/>
+                Customize Section Display Titles & Item Limits
+               </div>
+               <div className="form-grid">
+                <Field
+                 label="Section Display Headline"
+                 value={sec.title||''}
+                 onChange={e=>updateSectionField(sec.id,'title',e.target.value)}
+                 placeholder={sec.label||'Section headline'}
+                />
+                <Field
+                 label="Section Sub-Headline / Eyebrow"
+                 value={sec.subtitle||''}
+                 onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
+                 placeholder="e.g. Handpicked best savings for your family"
+                />
+                <Field
+                 type="number"
+                 min="2"
+                 max="30"
+                 label="Max Items To Display (Cards Limit)"
+                 value={sec.count||sec.maxProducts||sec.maxCategories||10}
+                 onChange={e=>{
+                  const val=Math.max(2,parseInt(e.target.value,10)||10);
+                  updateSectionField(sec.id,'count',val);
+                  updateSectionField(sec.id,'maxProducts',val);
+                  updateSectionField(sec.id,'maxCategories',val);
+                 }}
+                 placeholder="10"
+                />
+                {sec.id==='promoStrip'&&(
+                 <>
+                  <Field
+                   label="Promo Button Text"
+                   value={sec.buttonText||'Explore offers'}
+                   onChange={e=>updateSectionField(sec.id,'buttonText',e.target.value)}
+                   placeholder="Explore offers"
+                  />
+                  <Field
+                   label="Promo Button Link"
+                   value={sec.buttonLink||'/coupons'}
+                   onChange={e=>updateSectionField(sec.id,'buttonLink',e.target.value)}
+                   placeholder="/coupons"
+                  />
+                 </>
+                )}
+               </div>
+              </div>
+             )}
+            </article>
+           );
+          })}
+        </div>
+       </div>
+      </div>
+     )}
+
+          {/* SUBTAB 2: CATEGORY SEQUENCE & NUMBERING */}
+     {storefrontTab==='categories'&&(
+      <section className="admin-card">
+       {/* Concept Explainer Box in 100% Clean English */}
+       <div className="storefront-concept-box green">
+        <HelpCircle size={18} style={{color:'#059669',flexShrink:0,marginTop:'2px'}}/>
+        <div>
+         <b style={{fontSize:'13.5px',color:'#064e3b',display:'block',marginBottom:'3px'}}>
+          How Category Sequence & Ranking Works:
+         </b>
+         <p style={{margin:0,fontSize:'12.5px',color:'#334155',lineHeight:1.55}}>
+          This controls the sequence of categories displayed inside the <b>"Shop by category"</b> shelf and capsule grid on the customer homepage.
+          Categories ranked at <b>#1, #2, and #3</b> appear first and receive the highest visibility and customer conversions.
+         </p>
+        </div>
+       </div>
+
+       {(()=>{
+        const orderMap=new Map((currentHomeLayout.categoryOrder||[]).map((slug,idx)=>[slug,idx]));
+        const sortedCats=[...categoriesList].sort((a,b)=>{
+         const posA=orderMap.has(a.slug)?orderMap.get(a.slug):999;
+         const posB=orderMap.has(b.slug)?orderMap.get(b.slug):999;
+         return posA-posB;
+        });
+
+        const filteredCats=sortedCats.filter(c=>{
+         if(!catSearch)return true;
+         return c.name.toLowerCase().includes(catSearch.toLowerCase()) || (c.slug||'').toLowerCase().includes(catSearch.toLowerCase());
+        });
+
+        return (
+         <>
+          {/* Live Customer Capsule Preview Strip */}
+          <div className="cat-preview-strip">
+           <div className="cat-preview-header">
+            <b>
+             <Smartphone size={14} style={{color:'#10b981'}}/>
+             Live Customer Homepage Preview ("Shop by category" Shelf)
+            </b>
+            <span style={{fontSize:'11.5px',color:'#64748b'}}>Exact sequence as displayed to customers</span>
+           </div>
+           <div className="cat-capsules-scroll">
+            {sortedCats.map((cat, idx) => (
+             <div key={cat.id || cat.slug} className={`cat-capsule-chip ${idx < 3 ? 'top-rank' : ''}`}>
+              <span className="cat-capsule-badge" style={{display:'inline-flex',alignItems:'center',gap:'3px'}}>
+               {idx === 0 && <Crown size={11} style={{strokeWidth:2.4}}/>}
+               {idx === 1 && <Medal size={11} style={{strokeWidth:2.4}}/>}
+               {idx === 2 && <Award size={11} style={{strokeWidth:2.4}}/>}
+               #{idx + 1}
+              </span>
+              {cat.image ? (
+               <img src={cat.image} alt={cat.name} style={{width:'18px',height:'18px',objectFit:'contain'}}/>
+              ) : (
+               <Tag size={13} style={{color:'#10b981'}}/>
+              )}
+              <span>{cat.name}</span>
+             </div>
+            ))}
+           </div>
+          </div>
+
+          {/* Clean Toolbar: Search, Counter, Quick Sort & Actions */}
+          <div className="cat-toolbar-row">
+           <div className="cat-search-box">
+            <Search size={15} style={{position:'absolute',left:'11px',color:'#94a3b8'}}/>
+            <input
+             type="text"
+             value={catSearch}
+             onChange={e=>setCatSearch(e.target.value)}
+             placeholder="Search category by name or slug..."
+             className="cat-search-input"
+            />
+           </div>
+
+           <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+            <span style={{fontSize:'12px',fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'6px 12px',borderRadius:'8px'}}>
+             {filteredCats.length} of {categoriesList.length} Categories
+            </span>
+            <Button
+             type="button"
+             variant="outline"
+             size="sm"
+             onClick={sortCategoriesAlphabetical}
+             title="Sort all categories alphabetically A to Z"
+             style={{fontSize:'12px',gap:'5px'}}
+            >
+             A–Z Sort
+            </Button>
+            <Button
+             type="button"
+             variant="outline"
+             size="sm"
+             onClick={resetCategoryOrderToDefault}
+             title="Restore default category sequence"
+             style={{fontSize:'12px',gap:'5px'}}
+            >
+             <RotateCcw size={13}/> Reset Order
+            </Button>
+            <Link to="/admin/categories" style={{fontSize:'12px',fontWeight:700,color:'#059669',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'4px',padding:'6px 10px',background:'#ecfdf5',borderRadius:'8px',border:'1px solid #a7f3d0'}}>
+             Manage Categories →
+            </Link>
+           </div>
+          </div>
+
+          {/* Clean Category Rows */}
+          <div className="cat-clean-list">
+           {filteredCats.map(cat=>{
+            const globalIdx = sortedCats.findIndex(c => (c.id || c.slug) === (cat.id || cat.slug));
+            const isTopThree = globalIdx < 3;
+
+            return (
+             <div key={cat.id || cat.slug} className={`cat-clean-row ${isTopThree ? 'is-top-three' : ''}`}>
+              {/* Left: Rank Badge, Icon/Image, Name, Slug */}
+              <div className="cat-left-info">
+               <div className={`cat-rank-badge ${globalIdx === 0 ? 'rank-1' : globalIdx === 1 ? 'rank-2' : globalIdx === 2 ? 'rank-3' : 'rank-default'}`}>
+                {globalIdx === 0 && <Crown size={14} style={{strokeWidth: 2.4}} />}
+                {globalIdx === 1 && <Medal size={14} style={{strokeWidth: 2.4}} />}
+                {globalIdx === 2 && <Award size={14} style={{strokeWidth: 2.4}} />}
+                <span>#{globalIdx + 1}</span>
+               </div>
+
+               <div className="cat-img-box" style={{background: cat.color || '#f8fafc'}}>
+                {cat.image ? <img src={cat.image} alt={cat.name}/> : <Tag size={20} style={{color:'#10b981'}}/>}
+               </div>
+
+               <div className="cat-text-meta">
+                <b>{cat.name}</b>
+                <small>
+                 <span>Slug: <code>/{cat.slug}</code></span>
+                 {isTopThree && <span className="cat-top-tag">● High Visibility</span>}
+                </small>
+               </div>
+              </div>
+
+              {/* Right: Reorder Actions */}
+              <div className="cat-right-tools">
+               {/* Quick Top Button */}
+               <button
+                type="button"
+                disabled={globalIdx === 0}
+                onClick={() => setCategoryPosition(cat.slug, 0)}
+                className="cat-btn-top"
+                title="Move category to #1 position"
+               >
+                ⏫ Top
+               </button>
+
+               {/* Up Button */}
+               <button
+                type="button"
+                disabled={globalIdx === 0}
+                onClick={() => moveCategory(globalIdx, -1)}
+                className="cat-btn-nav"
+                title="Move Up"
+                aria-label={`Move ${cat.name} up`}
+               >
+                <ArrowUp size={15}/>
+               </button>
+
+               {/* Down Button */}
+               <button
+                type="button"
+                disabled={globalIdx === sortedCats.length - 1}
+                onClick={() => moveCategory(globalIdx, 1)}
+                className="cat-btn-nav"
+                title="Move Down"
+                aria-label={`Move ${cat.name} down`}
+               >
+                <ArrowDown size={15}/>
+               </button>
+              </div>
+             </div>
+            );
+           })}
+          </div>
+         </>
+        );
+       })()}
+      </section>
+     )}
     </>
    )}
 

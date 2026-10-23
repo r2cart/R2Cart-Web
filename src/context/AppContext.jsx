@@ -133,7 +133,9 @@ export function AppProvider({children}){
       radiusKm:Number(v.radiusKm||5),
       allowCod:v.allowCod??true,
       allowScheduled:v.allowScheduled??true,
-      isVillage:true
+      isVillage:true,
+      isPaused:Boolean(v.isPaused),
+      pauseReason:v.pauseReason||null
     }));
     const areaZones=(deliveryData?.areas||[]).map(a=>({
       ...a,
@@ -145,7 +147,10 @@ export function AppProvider({children}){
       radiusKm:Number(a.radiusKm||5),
       allowCod:a.allowCod??true,
       allowScheduled:a.allowScheduled??true,
-      isVillage:false
+      isVillage:false,
+      isPaused:Boolean(a.isPaused),
+      pauseReason:a.pauseReason||null,
+      suspendedLocalities:a.suspendedLocalities||[]
     }));
     const rawZones=Array.isArray(deliveryData)?deliveryData:[...villageZones,...areaZones];
     setDeliveryZones(rawZones.map(zone=>({...zone,localities:zone.localities||zone.pincodes||[zone.name]})));
@@ -178,12 +183,32 @@ export function AppProvider({children}){
   const clean=String(area||'').trim().toLowerCase();
   if(!clean)return deliveryConfig;
 
+  // Emergency status check
+  const em = storeSettings?.emergencySettings || storeSettings?.effectiveStatus?.emergencyDetails;
+  const isEmActive = Boolean(storeSettings?.isOrderPaused || storeSettings?.effectiveStatus?.isEmergencyActive || em?.isActive);
+  const emType = em?.type || storeSettings?.effectiveStatus?.emergencyDetails?.type;
+  const affectedList = (Array.isArray(em?.affectedVillageIds) ? em.affectedVillageIds : []).map(x => String(x).trim().toLowerCase());
+  const isAllOrdersPaused = isEmActive && (emType === 'ALL_ORDERS' || emType === 'STORE_CLOSE');
+  const isAreaEmergSuspended = isEmActive && emType === 'SELECTED_AREAS' && (
+    affectedList.includes(clean) ||
+    affectedList.some(id => id === clean)
+  );
+
   // 1. First priority: Exact Village override
   const villageMatch=deliveryZones.find(item=>item.isVillage&&String(item.name||'').trim().toLowerCase()===clean);
   if(villageMatch){
+    const isSuspended = Boolean(
+      villageMatch.isPaused ||
+      isAreaEmergSuspended ||
+      isAllOrdersPaused ||
+      affectedList.includes(String(villageMatch.id).toLowerCase()) ||
+      affectedList.includes(String(villageMatch.name).toLowerCase())
+    );
     return {
       zoneId:villageMatch.id,
-      zoneName:villageMatch.name,
+      villageId:villageMatch.id,
+      villageName:villageMatch.name,
+      name:villageMatch.name,
       minimumOrder:Number(villageMatch.minimumOrder),
       deliveryFee:Number(villageMatch.deliveryFee),
       freeDeliveryThreshold:Number(villageMatch.freeDeliveryThreshold),
@@ -191,13 +216,23 @@ export function AppProvider({children}){
       radiusKm:Number(villageMatch.radiusKm||5),
       allowCod:villageMatch.allowCod??true,
       allowScheduled:villageMatch.allowScheduled??true,
-      isVillage:true
+      isVillage:true,
+      isPaused:isSuspended,
+      pauseReason:isSuspended ? (em?.message || villageMatch.pauseReason || 'Deliveries to this village are temporarily suspended.') : null
     };
   }
 
   // 2. Second priority: Area / Zone locality match
   const areaMatch=deliveryZones.find(item=>!item.isVillage&&Array.isArray(item.localities)&&item.localities.some(loc=>String(loc||'').trim().toLowerCase()===clean));
   if(areaMatch){
+    const isSuspended = Boolean(
+      areaMatch.isPaused ||
+      isAreaEmergSuspended ||
+      isAllOrdersPaused ||
+      affectedList.includes(String(areaMatch.id).toLowerCase()) ||
+      affectedList.includes(String(areaMatch.name).toLowerCase()) ||
+      (Array.isArray(areaMatch.suspendedLocalities) && areaMatch.suspendedLocalities.some(loc => String(loc).trim().toLowerCase() === clean))
+    );
     return {
       zoneId:areaMatch.id,
       zoneName:areaMatch.name,
@@ -208,13 +243,22 @@ export function AppProvider({children}){
       radiusKm:Number(areaMatch.radiusKm||5),
       allowCod:areaMatch.allowCod??true,
       allowScheduled:areaMatch.allowScheduled??true,
-      isVillage:false
+      isVillage:false,
+      isPaused:isSuspended,
+      pauseReason:isSuspended ? (em?.message || areaMatch.pauseReason || 'Deliveries to this area are temporarily suspended.') : null
     };
   }
 
   // 3. Fallback: Any zone containing the locality
   const anyMatch=deliveryZones.find(item=>Array.isArray(item.localities)&&item.localities.some(loc=>String(loc||'').trim().toLowerCase()===clean));
   if(anyMatch){
+    const isSuspended = Boolean(
+      anyMatch.isPaused ||
+      isAreaEmergSuspended ||
+      isAllOrdersPaused ||
+      affectedList.includes(String(anyMatch.id).toLowerCase()) ||
+      affectedList.includes(String(anyMatch.name).toLowerCase())
+    );
     return {
       zoneId:anyMatch.id,
       zoneName:anyMatch.name,
@@ -225,12 +269,18 @@ export function AppProvider({children}){
       radiusKm:Number(anyMatch.radiusKm||5),
       allowCod:anyMatch.allowCod??true,
       allowScheduled:anyMatch.allowScheduled??true,
-      isVillage:Boolean(anyMatch.isVillage)
+      isVillage:Boolean(anyMatch.isVillage),
+      isPaused:isSuspended,
+      pauseReason:isSuspended ? (em?.message || anyMatch.pauseReason || 'Deliveries to this area are temporarily suspended.') : null
     };
   }
 
-  return null;
- },[deliveryZones,deliveryConfig]);
+  return {
+    ...deliveryConfig,
+    isPaused: isAreaEmergSuspended || isAllOrdersPaused,
+    pauseReason: (isAreaEmergSuspended || isAllOrdersPaused) ? (em?.message || 'Deliveries are temporarily suspended.') : null
+  };
+ },[deliveryZones,deliveryConfig,storeSettings]);
 
  const activeAddress=useMemo(()=>{
   if(!addressList.length)return null;

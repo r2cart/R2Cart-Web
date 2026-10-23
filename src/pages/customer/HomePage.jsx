@@ -13,16 +13,19 @@ export function HomePage(){
 
  const [bestSellersData, setBestSellersData] = useState(null);
  const [topPicksData, setTopPicksData] = useState(null);
+ const [festivalOffers, setFestivalOffers] = useState([]);
 
  useEffect(() => {
   let mounted = true;
   Promise.all([
    catalogService.getBestSellers().catch(() => null),
-   catalogService.getTopPicks().catch(() => null)
-  ]).then(([bs, tp]) => {
+   catalogService.getTopPicks().catch(() => null),
+   catalogService.getActiveMarketing().catch(() => null)
+  ]).then(([bs, tp, mkt]) => {
    if (!mounted) return;
    if (bs) setBestSellersData(bs);
    if (tp) setTopPicksData(tp);
+   if (mkt?.festivalOffers) setFestivalOffers(mkt.festivalOffers);
   });
   return () => { mounted = false; };
  }, []);
@@ -39,13 +42,25 @@ export function HomePage(){
  },[liveBanners,bannerPlacements]);
 
  const campaignBanners=useMemo(()=>{
-  return liveBanners.filter((banner,index)=>{
+  const promoBanners = (festivalOffers || []).map((f, idx) => ({
+   id: `fest-${f.id || idx}`,
+   kicker: f.badge || 'FESTIVAL SPECIAL',
+   heading: f.title || f.name,
+   subtitle: f.subtitle || f.content,
+   image: f.imageUrl,
+   destination: f.linkUrl && f.linkUrl !== '/' && f.linkUrl !== '#' ? f.linkUrl : '/coupons',
+   ctaText: f.metadata?.ctaText || 'Shop festival deals'
+  }));
+
+  const regularBanners = liveBanners.filter((banner,index)=>{
    const p=bannerPlacements[banner.id];
    if(p==='CAMPAIGN'||p==='BOTH')return true;
    if(p==='HERO')return false;
    return index>=2;
   });
- },[liveBanners,bannerPlacements]);
+
+  return [...promoBanners, ...regularBanners];
+ },[liveBanners,bannerPlacements,festivalOffers]);
 
  const orderedCategories=useMemo(()=>{
   if(!homeLayout.categoryOrder?.length)return categories;
@@ -83,20 +98,66 @@ export function HomePage(){
          <p>{section.subtitle||'Fresh deals, updated from R2Cart'}</p>
         </div>
        </div>
-       <div className="campaign-rail">
-        {campaignBanners.map((banner,index)=>(
-         <Link
-          className={`campaign-card campaign-${index%4}`}
-          to={banner.destination||'/'}
-          key={banner.id}
-          style={banner.image?{backgroundImage:`linear-gradient(90deg,rgba(6,46,31,.92),rgba(6,46,31,.2)),url(${banner.image})`}:undefined}
-         >
-          <span>{banner.kicker||'R2CART OFFER'}</span>
-          <h3>{banner.heading}</h3>
-          <p>{banner.subtitle}</p>
-          <b>{banner.ctaText||'Shop now'} →</b>
-         </Link>
-        ))}
+       <div className={`campaign-rail ${campaignBanners.length === 1 ? 'single-banner' : ''}`}>
+        {campaignBanners.map((banner,index)=>{
+         const hasImage = Boolean(banner.image);
+         const rawCta = banner.ctaText || 'Claim Offer Now';
+         const ctaClean = rawCta.replace(/[→\->\s]+$/, '').trim() || 'Claim Offer Now';
+
+         // Smart subtitle cleaner: if subtitle repeats the heading, extract the unique tail or omit repetition
+         const cleanSub = (() => {
+          if (!banner.subtitle) return null;
+          const cleanHead = (banner.heading || '').replace(/^[⚡🎉🔥💥\s]+/, '').trim().toLowerCase();
+          const rawSub = banner.subtitle.trim();
+          if (cleanHead === rawSub.toLowerCase()) return null;
+
+          const normWord = w => w.toLowerCase().replace(/[^a-z0-9]/g, '').replace('minute', 'min');
+          const headWords = cleanHead.split(/\s+/).map(normWord).filter(Boolean);
+          const subWords = rawSub.split(/\s+/);
+
+          let matchCount = 0;
+          for (let i = 0; i < Math.min(headWords.length, subWords.length); i++) {
+           if (headWords[i] === normWord(subWords[i])) {
+            matchCount++;
+           } else {
+            break;
+           }
+          }
+          if (matchCount >= 4) {
+           const tail = subWords.slice(matchCount).join(' ').replace(/^[\s,.\-–—]+/, '').trim();
+           if (!tail) return null;
+           return tail.charAt(0).toUpperCase() + tail.slice(1);
+          }
+          return rawSub;
+         })();
+
+         return (
+          <Link
+           className={`campaign-card campaign-${index%4}`}
+           to={banner.destination||'/'}
+           key={banner.id}
+           style={hasImage ? {
+            backgroundImage: `linear-gradient(95deg, rgba(7, 24, 16, 0.96) 0%, rgba(7, 24, 16, 0.88) 45%, rgba(7, 24, 16, 0.40) 70%, rgba(7, 24, 16, 0.10) 100%), url(${banner.image})`
+           } : undefined}
+          >
+           <div className="campaign-card-content">
+            <span className="campaign-card-kicker">
+             {banner.kicker || 'SPECIAL OFFER'}
+            </span>
+            <h3 className="campaign-card-title">{banner.heading}</h3>
+            {cleanSub && (
+             <p className="campaign-card-desc">{cleanSub}</p>
+            )}
+           </div>
+           <div className="campaign-card-action">
+            <span className="campaign-card-btn">
+             <span>{ctaClean}</span>
+             <span className="campaign-card-arrow" aria-hidden="true">→</span>
+            </span>
+           </div>
+          </Link>
+         );
+        })}
        </div>
       </section>
      );

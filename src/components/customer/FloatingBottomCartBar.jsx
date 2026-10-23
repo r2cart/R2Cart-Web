@@ -219,7 +219,7 @@ export function FloatingBottomCartBar() {
               style={{
                 fontSize: '11px',
                 fontWeight: 600,
-                color: savings > 0 ? '#fef08a' : freeThreshold > 0 && diffForFree === 0 ? '#a7f3d0' : 'rgba(255, 255, 255, 0.85)',
+                color: rules?.isPaused ? '#fca5a5' : savings > 0 ? '#fef08a' : freeThreshold > 0 && diffForFree === 0 ? '#a7f3d0' : 'rgba(255, 255, 255, 0.85)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -229,7 +229,9 @@ export function FloatingBottomCartBar() {
                 marginTop: '1px'
               }}
             >
-              {savings > 0 ? (
+              {rules?.isPaused ? (
+                <span>🚫 Delivery paused in {rules?.villageName || rules?.name || 'selected area'}</span>
+              ) : savings > 0 ? (
                 <>
                   <Sparkles size={11} color="#fef08a" />
                   <span>Saved ₹{Number(savings).toLocaleString('en-IN')} on MRP</span>

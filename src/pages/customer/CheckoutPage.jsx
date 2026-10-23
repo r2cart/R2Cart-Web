@@ -16,7 +16,8 @@ import {
   Sparkles,
   ArrowRight,
   Plus,
-  ShoppingBag
+  ShoppingBag,
+  Leaf
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
@@ -138,14 +139,43 @@ export function CheckoutPage() {
     activeAddress,
     setActiveAddress,
     activeDeliveryRules,
-    setLocationOpen
+    setLocationOpen,
+    categories,
+    products,
+    add,
+    qty
   } = useApp();
 
   const emergencyPause = storeSettings?.policies?.emergencyPause;
   const effectiveStatus = storeSettings?.effectiveStatus;
-  const isEmergencyActive = Boolean(emergencyPause?.isPaused) || effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED';
-  const allowImmediate = effectiveStatus ? Boolean(effectiveStatus.allowImmediateOrders) : true;
-  const allowScheduled = effectiveStatus ? Boolean(effectiveStatus.allowScheduledOrders) : true;
+  const emergencyType = storeSettings?.emergencySettings?.type || effectiveStatus?.emergencyDetails?.type || 'ALL_ORDERS';
+
+  // Store is completely paused for ALL orders if status is EMERGENCY_PAUSED or legacy pause without scope
+  const isStoreFullyClosed = Boolean(
+    effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED' ||
+    (storeSettings?.isOrderPaused && (emergencyType === 'ALL_ORDERS' || emergencyType === 'STORE_CLOSE'))
+  );
+
+  // Granular order type permissions derived from store schedule engine
+  const allowImmediate = !isStoreFullyClosed && (
+    effectiveStatus !== undefined && effectiveStatus !== null
+      ? Boolean(effectiveStatus.allowImmediateOrders)
+      : true
+  );
+
+  const allowScheduled = !isStoreFullyClosed && (
+    effectiveStatus !== undefined && effectiveStatus !== null
+      ? Boolean(effectiveStatus.allowScheduledOrders)
+      : true
+  );
+
+  const isEmergencyActive = Boolean(
+    storeSettings?.isOrderPaused ||
+    emergencyPause?.isPaused ||
+    storeSettings?.emergencySettings?.isActive ||
+    effectiveStatus?.isEmergencyActive
+  );
+
   const holidayDates = Array.isArray(emergencyPause?.holidayDates) ? emergencyPause.holidayDates : [];
   const advanceBookingDays = Math.max(1, Math.min(30, Number(storeSettings?.advanceBookingDays || storeSettings?.effectiveStatus?.globalDefault?.advanceBookingDays || 4)));
   const sameDayCutoffMinutes = Math.max(0, Number(storeSettings?.sameDayCutoffMinutes ?? storeSettings?.effectiveStatus?.globalDefault?.sameDayCutoffMinutes ?? 60));
@@ -220,6 +250,8 @@ export function CheckoutPage() {
   useEffect(() => {
     if (!allowImmediate && allowScheduled && deliveryType !== 'SCHEDULED') {
       setDeliveryType('SCHEDULED');
+    } else if (!allowScheduled && allowImmediate && deliveryType !== 'INSTANT') {
+      setDeliveryType('INSTANT');
     }
   }, [allowImmediate, allowScheduled, deliveryType]);
 
@@ -338,27 +370,208 @@ export function CheckoutPage() {
     return () => { active = false; };
   }, [subtotal]);
 
-  if (!cartItems.length) {
-    return (
-      <div className="container page narrow-page" style={{ padding: '60px 16px', textAlign: 'center' }}>
-        <EmptyState
-          icon="cart"
-          title="No items in basket"
-          text="Please add fresh groceries from our store before proceeding to checkout."
-          action="Browse Catalogue"
-          to="/"
-        />
-      </div>
-    );
-  }
-
   const selectedAddress = addressList.find((item) => item.id === selected) || activeAddress;
   const rules = (selectedAddress?.area ? deliveryRulesFor(selectedAddress.area) : null) || activeDeliveryRules || deliveryConfig;
+
+  const affectedVillageIds = useMemo(() => {
+    const list = storeSettings?.emergencySettings?.affectedVillageIds ||
+      effectiveStatus?.emergencyDetails?.affectedVillageIds ||
+      [];
+    return Array.isArray(list) ? list.map((id) => String(id)) : [];
+  }, [storeSettings?.emergencySettings?.affectedVillageIds, effectiveStatus?.emergencyDetails?.affectedVillageIds]);
+
+  const isSelectedAreaSuspended = useMemo(() => {
+    if (!selectedAddress) return false;
+    if (rules?.isPaused) return true;
+    const isEmerg = Boolean(storeSettings?.isOrderPaused || effectiveStatus?.isEmergencyActive || storeSettings?.emergencySettings?.isActive);
+    if (!isEmerg || emergencyType !== 'SELECTED_AREAS') return false;
+    if (!affectedVillageIds.length) return false;
+
+    const addrArea = String(selectedAddress.area || '').trim().toLowerCase();
+    const addrVillageName = String(selectedAddress.villageName || '').trim().toLowerCase();
+    const addrVillageId = String(selectedAddress.villageId || '');
+    const rulesVillageId = String(rules?.villageId || '');
+    const rulesVillageName = String(rules?.villageName || '').trim().toLowerCase();
+    const rulesZoneId = String(rules?.zoneId || '');
+    const rulesZoneName = String(rules?.zoneName || '').trim().toLowerCase();
+
+    const matchedZone = (deliveryZones || []).find(z =>
+      (z.id && (String(z.id) === addrVillageId || String(z.id) === String(selectedAddress.area))) ||
+      (z.name && String(z.name).trim().toLowerCase() === addrArea)
+    );
+
+    return Boolean(
+      affectedVillageIds.includes(addrVillageId) ||
+      affectedVillageIds.includes(rulesVillageId) ||
+      affectedVillageIds.includes(rulesZoneId) ||
+      affectedVillageIds.includes(String(selectedAddress.area || '')) ||
+      (matchedZone?.id && affectedVillageIds.includes(String(matchedZone.id))) ||
+      (matchedZone?.name && affectedVillageIds.some(id => String(id).trim().toLowerCase() === String(matchedZone.name).trim().toLowerCase())) ||
+      affectedVillageIds.some(id => {
+        const idL = String(id).trim().toLowerCase();
+        return idL === addrArea ||
+               idL === addrVillageName ||
+               idL === rulesVillageName ||
+               idL === rulesZoneName;
+      })
+    );
+  }, [selectedAddress, rules, storeSettings, effectiveStatus, emergencyType, affectedVillageIds, deliveryZones]);
+
   const deliveryFee = subtotal >= rules.freeDeliveryThreshold ? 0 : rules.deliveryFee;
   const total = Math.max(0, subtotal + deliveryFee - (coupon?.discount || 0));
   const minimumRemaining = Math.max(0, rules.minimumOrder - subtotal);
   const productSavings = Math.max(0, Number(mrpTotal || 0) - Number(subtotal || 0));
   const totalSavings = productSavings + (coupon?.discount || 0);
+
+  if (!cartItems.length) {
+    const popularCategories = (categories && categories.length > 0 ? categories : [
+      { name: 'Fruits & Vegetables', slug: 'fruits-vegetables' },
+      { name: 'Dairy & Bread', slug: 'dairy-bread' },
+      { name: 'Atta, Rice & Dal', slug: 'atta-rice-dal' },
+      { name: 'Snacks & Drinks', slug: 'snacks-drinks' },
+      { name: 'Masalas & Spices', slug: 'masalas-oils' },
+      { name: 'Cleaning & Household', slug: 'cleaning-household' }
+    ]).slice(0, 6);
+
+    const popularProducts = (products && products.length > 0 ? products : [])
+      .filter((p) => p.stock > 0 && p.status !== 'INACTIVE')
+      .slice(0, 4);
+
+    const eta = activeDeliveryRules?.estimatedDelivery || deliveryConfig?.estimatedDelivery || '15–25 mins';
+
+    return (
+      <div className="container" style={{ padding: '0 0 30px', boxSizing: 'border-box' }}>
+        <div className="checkout-empty-wrapper">
+          <div className="checkout-empty-card">
+            {/* Animated Hero Basket */}
+            <div className="checkout-empty-icon-wrap">
+              <ShoppingBag size={42} strokeWidth={2.2} />
+              <div className="checkout-empty-sparkle">
+                <Sparkles size={14} />
+              </div>
+            </div>
+
+            {/* Delivery ETA Pill */}
+            <div className="checkout-empty-eta-pill">
+              <Zap size={14} color="#059669" />
+              <span>Delivery in {eta}</span>
+            </div>
+
+            {/* Title & Subtitle */}
+            <h1 className="checkout-empty-title">Your basket is empty</h1>
+            <p className="checkout-empty-subtitle">
+              Looks like you haven't added any groceries yet. Explore farm-fresh produce, dairy, snacks & household essentials delivered in minutes.
+            </p>
+
+            {/* Primary CTA */}
+            <Link to="/" className="checkout-empty-cta">
+              <span>Explore Groceries</span>
+              <ArrowRight size={17} strokeWidth={2.4} />
+            </Link>
+
+            {/* Trust Assurance Strip */}
+            <div className="checkout-empty-assurances">
+              <div className="checkout-empty-assurance-item">
+                <Zap size={18} color="#059669" />
+                <b>15–30 Mins</b>
+                <span>Express Doorstep</span>
+              </div>
+              <div className="checkout-empty-assurance-item" style={{ borderLeft: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }}>
+                <Leaf size={18} color="#059669" />
+                <b>100% Fresh</b>
+                <span>Quality Assured</span>
+              </div>
+              <div className="checkout-empty-assurance-item">
+                <ShieldCheck size={18} color="#059669" />
+                <b>Pay on Delivery</b>
+                <span>Cash & UPI</span>
+              </div>
+            </div>
+
+            {/* Popular Categories Grid */}
+            <div style={{ marginBottom: popularProducts.length > 0 ? '24px' : '8px', width: '100%' }}>
+              <div className="checkout-empty-section-head">
+                <div>
+                  <b>Explore Categories</b>
+                  <small>Quick access to daily essentials</small>
+                </div>
+                <Link to="/">View all →</Link>
+              </div>
+
+              <div className="checkout-empty-cats-grid">
+                {popularCategories.map((cat) => (
+                  <Link key={cat.slug || cat.name} to={cat.slug ? `/category/${cat.slug}` : '/'} className="checkout-empty-cat-card">
+                    <div className="checkout-empty-cat-icon">
+                      {cat.image ? (
+                        <img src={cat.image} alt={cat.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                      ) : (
+                        <ShoppingBag size={20} color="#059669" />
+                      )}
+                    </div>
+                    <span className="checkout-empty-cat-name">{cat.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Trending Products Shelf with 1-Tap ADD */}
+            {popularProducts.length > 0 && (
+              <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                <div className="checkout-empty-section-head">
+                  <div>
+                    <b>Trending Groceries</b>
+                    <small>Add directly to checkout in 1-tap</small>
+                  </div>
+                </div>
+
+                <div className="checkout-empty-prods-grid">
+                  {popularProducts.map((p) => (
+                    <div key={p.id} className="checkout-empty-prod-card">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'contain', background: '#f8fafc', flexShrink: 0, border: '1px solid #f1f5f9' }}
+                          loading="lazy"
+                          onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2310b981%22 stroke-width=%221.75%22%3E%3Cpath d=%22M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z%22/%3E%3Cline x1=%223%22 x2=%2221%22 y1=%226%22 y2=%226%22/%3E%3Cpath d=%22M16 10a4 4 0 0 1-8 0%22/%3E%3C/svg%3E'; }}
+                        />
+                        <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                          <b style={{ fontSize: '13px', color: '#0f172a', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {p.name}
+                          </b>
+                          <small style={{ fontSize: '11px', color: '#64748b', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {p.unit || 'Standard pack'}
+                          </small>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                            <b style={{ fontSize: '13px', color: '#0f172a' }}>{money(p.price)}</b>
+                            {p.mrp > p.price && (
+                              <del style={{ fontSize: '10.5px', color: '#94a3b8' }}>{money(p.mrp)}</del>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof add === 'function') add(p.id);
+                          else if (typeof qty === 'function') qty(p.id, 1);
+                          notify?.(`Added ${p.name} to basket!`);
+                        }}
+                        className="checkout-empty-add-btn"
+                      >
+                        + ADD
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const toggleInstruction = (label) => {
     setSelectedInstructions((prev) =>
@@ -406,8 +619,16 @@ export function CheckoutPage() {
   };
 
   const placeOrder = async () => {
-    if (isEmergencyActive) {
+    if (isStoreFullyClosed) {
       return notify(effectiveStatus?.statusReason || emergencyPause?.message || 'Store orders are temporarily paused. Please check back shortly.', 'error');
+    }
+    if (isSelectedAreaSuspended) {
+      return notify(
+        effectiveStatus?.statusReason ||
+        effectiveStatus?.emergencyDetails?.message ||
+        'Deliveries to your selected area are temporarily paused. Please choose another delivery address or check back later.',
+        'error'
+      );
     }
     if (deliveryType === 'INSTANT' && !allowImmediate) {
       return notify(effectiveStatus?.statusReason || 'Store is currently closed for instant delivery. Please select a scheduled delivery slot.', 'error');
@@ -660,8 +881,8 @@ export function CheckoutPage() {
       `}</style>
 
       <div className="checkout-page-wrapper">
-        {/* Emergency Pause Warning if Active */}
-        {isEmergencyActive && (
+        {/* Contextual Emergency / Pause Notice */}
+        {isStoreFullyClosed ? (
           <div
             style={{
               background: '#fef2f2',
@@ -677,11 +898,97 @@ export function CheckoutPage() {
               <AlertCircle size={18} />
               <span>Store Orders Temporarily Paused</span>
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#991b1b' }}>
-              {effectiveStatus?.statusReason || emergencyPause?.message || 'We are temporarily not taking new orders due to high order volume. Please check back shortly.'}
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#991b1b', lineHeight: 1.4 }}>
+              {(effectiveStatus?.statusReason || emergencyPause?.message || 'We are temporarily not taking new orders due to high order volume. Please check back shortly.').trim().replace(/\s+\./g, '.')}
             </p>
           </div>
-        )}
+        ) : isSelectedAreaSuspended ? (
+          <div
+            style={{
+              background: '#fff1f2',
+              border: '1px solid #fecdd3',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              color: '#9f1239',
+              fontSize: '13px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              <AlertCircle size={18} color="#e11d48" style={{ flexShrink: 0 }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <b style={{ fontSize: '13px', color: '#881337', display: 'block', lineHeight: 1.3 }}>
+                  Delivery Closed in {selectedAddress?.area || 'Your Area'}
+                </b>
+                <span style={{ fontSize: '11.5px', color: '#be123c', lineHeight: 1.3, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {effectiveStatus?.statusReason || effectiveStatus?.emergencyDetails?.message || `Deliveries to this village are temporarily suspended.`}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLocationOpen(true)}
+              style={{
+                background: '#e11d48',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              Change →
+            </button>
+          </div>
+        ) : !allowImmediate && allowScheduled ? (
+          <div
+            style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '14px',
+              padding: '12px 16px',
+              color: '#1d4ed8',
+              fontSize: '13px',
+              marginBottom: '14px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800 }}>
+              <Calendar size={18} color="#2563eb" />
+              <span>Instant Orders Paused · Slot Booking Open</span>
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#1e40af', lineHeight: 1.4 }}>
+              {effectiveStatus?.statusReason || 'Instant 30-min delivery is temporarily paused. Please select an available delivery slot below to place your order.'}
+            </p>
+          </div>
+        ) : allowImmediate && !allowScheduled && (emergencyType === 'SCHEDULED_ONLY' || isEmergencyActive) ? (
+          <div
+            style={{
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: '14px',
+              padding: '12px 16px',
+              color: '#b45309',
+              fontSize: '13px',
+              marginBottom: '14px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800 }}>
+              <Zap size={18} color="#d97706" />
+              <span>Scheduled Orders Paused · Instant Delivery Available</span>
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#92400e', lineHeight: 1.4 }}>
+              {effectiveStatus?.statusReason || 'Advance scheduled bookings are temporarily paused. You can still order for instant delivery.'}
+            </p>
+          </div>
+        ) : null}
 
         {/* 2-Column Responsive Layout */}
         <div className="checkout-grid-container">
@@ -692,85 +999,111 @@ export function CheckoutPage() {
               className="checkout-card-v2"
               style={{
                 padding: '12px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px'
+                border: isSelectedAreaSuspended ? '1px solid #fca5a5' : '1px solid #e2e8f0',
+                background: isSelectedAreaSuspended ? '#fff5f5' : '#ffffff',
+                transition: 'all 0.2s ease'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                <span
-                  className={`checkout-step-num ${selectedAddress ? 'done' : ''}`}
-                  style={{ width: '24px', height: '24px', fontSize: '11px', flexShrink: 0 }}
-                >
-                  {selectedAddress ? <Check size={13} strokeWidth={3} /> : '1'}
-                </span>
-
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                      Deliver to
-                    </span>
-                    {selectedAddress && (
-                      <>
-                        <b style={{ fontSize: '13.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {selectedAddress.name}
-                        </b>
-                        <span
-                          style={{
-                            fontSize: '9.5px',
-                            fontWeight: 800,
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            background: '#dcfce7',
-                            color: '#15803d',
-                            textTransform: 'uppercase',
-                            flexShrink: 0
-                          }}
-                        >
-                          {selectedAddress.type || 'HOME'}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <p
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                  <span
+                    className={`checkout-step-num ${selectedAddress && !isSelectedAreaSuspended ? 'done' : ''}`}
                     style={{
-                      margin: '2px 0 0',
-                      fontSize: '12px',
-                      color: selectedAddress ? '#475569' : '#dc2626',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      lineHeight: 1.3
+                      width: '24px',
+                      height: '24px',
+                      fontSize: '11px',
+                      flexShrink: 0,
+                      background: isSelectedAreaSuspended ? '#fee2e2' : undefined,
+                      color: isSelectedAreaSuspended ? '#dc2626' : undefined
                     }}
-                    title={selectedAddress ? `${selectedAddress.line}, ${selectedAddress.cityLine || selectedAddress.city}` : 'No address selected'}
                   >
-                    {selectedAddress
-                      ? `${selectedAddress.line}, ${selectedAddress.cityLine || selectedAddress.city}`
-                      : 'Please select a delivery address'}
-                  </p>
-                </div>
-              </div>
+                    {isSelectedAreaSuspended ? <AlertCircle size={13} /> : selectedAddress ? <Check size={13} strokeWidth={3} /> : '1'}
+                  </span>
 
-              <button
-                type="button"
-                onClick={() => setLocationOpen(true)}
-                style={{
-                  background: '#f0fdf4',
-                  border: '1px solid #a7f3d0',
-                  color: '#059669',
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {selectedAddress ? 'Change' : '+ Add'}
-              </button>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                        Deliver to
+                      </span>
+                      {selectedAddress && (
+                        <>
+                          <b style={{ fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+                            {selectedAddress.name}
+                          </b>
+                          <span
+                            style={{
+                              fontSize: '9.5px',
+                              fontWeight: 800,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              background: '#dcfce7',
+                              color: '#15803d',
+                              textTransform: 'uppercase',
+                              flexShrink: 0
+                            }}
+                          >
+                            {selectedAddress.type || 'HOME'}
+                          </span>
+                          {isSelectedAreaSuspended && (
+                            <span
+                              style={{
+                                fontSize: '9.5px',
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#fee2e2',
+                                color: '#b91c1c',
+                                flexShrink: 0,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px'
+                              }}
+                            >
+                              🚫 Paused
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <p
+                      style={{
+                        margin: '2px 0 0',
+                        fontSize: '11.5px',
+                        color: selectedAddress ? '#475569' : '#dc2626',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        lineHeight: 1.3
+                      }}
+                      title={selectedAddress ? `${selectedAddress.line}, ${selectedAddress.cityLine || selectedAddress.city}` : 'No address selected'}
+                    >
+                      {selectedAddress
+                        ? `${selectedAddress.line}, ${selectedAddress.cityLine || selectedAddress.city}`
+                        : 'Please select a delivery address'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setLocationOpen(true)}
+                  style={{
+                    background: isSelectedAreaSuspended ? '#fee2e2' : '#f0fdf4',
+                    border: isSelectedAreaSuspended ? '1px solid #fca5a5' : '1px solid #a7f3d0',
+                    color: isSelectedAreaSuspended ? '#b91c1c' : '#059669',
+                    padding: '5px 12px',
+                    borderRadius: '7px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {selectedAddress ? 'Change' : '+ Add'}
+                </button>
+              </div>
             </div>
 
             {/* Step 2: Delivery Speed & Schedule Selection */}
@@ -789,22 +1122,25 @@ export function CheckoutPage() {
                 <div
                   role="button"
                   tabIndex={0}
-                  className={`delivery-type-card-v2 ${deliveryType === 'INSTANT' ? 'active' : ''}`}
+                  className={`delivery-type-card-v2 ${deliveryType === 'INSTANT' && !isSelectedAreaSuspended ? 'active' : ''}`}
                   onClick={() => {
+                    if (isSelectedAreaSuspended) {
+                      return notify(effectiveStatus?.statusReason || `Deliveries to ${selectedAddress?.area || 'your area'} are temporarily suspended.`, 'error');
+                    }
                     if (!allowImmediate) {
                       return notify(effectiveStatus?.statusReason || 'Store is currently closed for instant delivery.', 'error');
                     }
                     setDeliveryType('INSTANT');
                   }}
-                  style={!allowImmediate ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                  style={!allowImmediate || isSelectedAreaSuspended ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
                 >
                   <div
                     style={{
                       width: '36px',
                       height: '36px',
                       borderRadius: '10px',
-                      background: deliveryType === 'INSTANT' ? '#059669' : '#ecfdf5',
-                      color: deliveryType === 'INSTANT' ? '#ffffff' : '#059669',
+                      background: deliveryType === 'INSTANT' && !isSelectedAreaSuspended ? '#059669' : '#ecfdf5',
+                      color: deliveryType === 'INSTANT' && !isSelectedAreaSuspended ? '#ffffff' : '#059669',
                       display: 'grid',
                       placeItems: 'center',
                       flexShrink: 0
@@ -821,18 +1157,18 @@ export function CheckoutPage() {
                           fontWeight: 800,
                           padding: '1px 5px',
                           borderRadius: '4px',
-                          background: allowImmediate ? '#dcfce7' : '#fee2e2',
-                          color: allowImmediate ? '#15803d' : '#b91c1c'
+                          background: isSelectedAreaSuspended ? '#fee2e2' : allowImmediate ? '#dcfce7' : '#fee2e2',
+                          color: isSelectedAreaSuspended ? '#b91c1c' : allowImmediate ? '#15803d' : '#b91c1c'
                         }}
                       >
-                        {allowImmediate ? 'Fastest' : 'Closed'}
+                        {isSelectedAreaSuspended ? 'Area Closed' : allowImmediate ? 'Fastest' : 'Closed'}
                       </span>
                     </div>
                     <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-                      {allowImmediate ? `Estimated in ${rules?.estimatedDelivery || '15–30 mins'}` : 'Closed outside store hours'}
+                      {isSelectedAreaSuspended ? `Deliveries to ${selectedAddress?.area || 'this area'} suspended` : allowImmediate ? `Estimated in ${rules?.estimatedDelivery || '15–30 mins'}` : 'Closed outside store hours'}
                     </p>
                   </div>
-                  {deliveryType === 'INSTANT' && (
+                  {deliveryType === 'INSTANT' && !isSelectedAreaSuspended && (
                     <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#059669', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                       <Check size={12} strokeWidth={3} />
                     </div>
@@ -842,16 +1178,25 @@ export function CheckoutPage() {
                 <div
                   role="button"
                   tabIndex={0}
-                  className={`delivery-type-card-v2 ${deliveryType === 'SCHEDULED' ? 'active' : ''}`}
-                  onClick={() => setDeliveryType('SCHEDULED')}
+                  className={`delivery-type-card-v2 ${deliveryType === 'SCHEDULED' && allowScheduled && !isSelectedAreaSuspended ? 'active' : ''}`}
+                  onClick={() => {
+                    if (isSelectedAreaSuspended) {
+                      return notify(effectiveStatus?.statusReason || `Deliveries to ${selectedAddress?.area || 'your area'} are temporarily suspended.`, 'error');
+                    }
+                    if (!allowScheduled) {
+                      return notify(effectiveStatus?.statusReason || (isStoreFullyClosed ? 'Store orders are temporarily paused.' : 'Scheduled delivery is currently unavailable.'), 'error');
+                    }
+                    setDeliveryType('SCHEDULED');
+                  }}
+                  style={!allowScheduled || isSelectedAreaSuspended ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
                 >
                   <div
                     style={{
                       width: '36px',
                       height: '36px',
                       borderRadius: '10px',
-                      background: deliveryType === 'SCHEDULED' ? '#059669' : '#f0f9ff',
-                      color: deliveryType === 'SCHEDULED' ? '#ffffff' : '#0284c7',
+                      background: deliveryType === 'SCHEDULED' && allowScheduled && !isSelectedAreaSuspended ? '#059669' : '#f0f9ff',
+                      color: deliveryType === 'SCHEDULED' && allowScheduled && !isSelectedAreaSuspended ? '#ffffff' : '#0284c7',
                       display: 'grid',
                       placeItems: 'center',
                       flexShrink: 0
@@ -868,18 +1213,18 @@ export function CheckoutPage() {
                           fontWeight: 800,
                           padding: '1px 5px',
                           borderRadius: '4px',
-                          background: '#e0f2fe',
-                          color: '#0369a1'
+                          background: isSelectedAreaSuspended ? '#fee2e2' : allowScheduled ? '#e0f2fe' : '#fee2e2',
+                          color: isSelectedAreaSuspended ? '#b91c1c' : allowScheduled ? '#0369a1' : '#b91c1c'
                         }}
                       >
-                        Slot
+                        {isSelectedAreaSuspended ? 'Area Closed' : allowScheduled ? 'Slot' : 'Closed'}
                       </span>
                     </div>
                     <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-                      Choose preferred date & time
+                      {isSelectedAreaSuspended ? 'Bookings unavailable for this area' : allowScheduled ? 'Choose preferred date & time' : 'Advance bookings temporarily paused'}
                     </p>
                   </div>
-                  {deliveryType === 'SCHEDULED' && (
+                  {deliveryType === 'SCHEDULED' && allowScheduled && !isSelectedAreaSuspended && (
                     <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#059669', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                       <Check size={12} strokeWidth={3} />
                     </div>
@@ -887,8 +1232,17 @@ export function CheckoutPage() {
                 </div>
               </div>
 
+
+
               {/* Scheduled Date & Time Pickers */}
-              {deliveryType === 'SCHEDULED' && (
+              {deliveryType === 'SCHEDULED' && !allowScheduled && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', padding: '14px', color: '#b91c1c', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                  <span>Advance scheduled ordering is currently paused. Please check back later.</span>
+                </div>
+              )}
+
+              {deliveryType === 'SCHEDULED' && allowScheduled && (
                 <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0', boxSizing: 'border-box', width: '100%', overflow: 'hidden' }}>
                   <div style={{ fontSize: '12px', fontWeight: 800, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Calendar size={14} color="#059669" /> Select Delivery Date:
@@ -924,13 +1278,14 @@ export function CheckoutPage() {
                   </div>
 
                   {/* Slots Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
                     {slotsToRender.map((s) => {
                       const available = Boolean(s.isAvailable);
                       const isCur = (selectedSlot?.id === s.id || selectedSlot?.label === s.label) && available;
                       const timeStr = s.startTime && s.endTime
                         ? `${formatSlotTime(s.startTime)} – ${formatSlotTime(s.endTime)}`
                         : (s.time || '');
+                      const slotTitle = (s.label || '').replace(/\s*\([^)]*\)/g, '').trim() || s.name || 'Time Slot';
 
                       return (
                         <button
@@ -939,24 +1294,31 @@ export function CheckoutPage() {
                           disabled={!available}
                           className={`slot-chip-v2 ${isCur ? 'active' : ''} ${!available ? 'disabled' : ''}`}
                           onClick={() => available && setSelectedSlot(s)}
+                          style={{
+                            padding: '12px 14px',
+                            minHeight: '74px',
+                            alignItems: 'flex-start'
+                          }}
                         >
                           <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                            <b style={{ fontSize: '12px', color: '#0f172a', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</b>
-                            <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '1px', fontWeight: 600 }}>{timeStr}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '3px' }}>
+                              <b style={{ fontSize: '13px', color: isCur ? '#059669' : '#0f172a', fontWeight: 800 }}>{slotTitle}</b>
+                              {available && isCur && (
+                                <Check size={14} color="#059669" strokeWidth={3} style={{ flexShrink: 0 }} />
+                              )}
+                              {!available && (
+                                <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#fee2e2', color: '#b91c1c', flexShrink: 0 }}>
+                                  {s.isFull ? 'Full' : 'Closed'}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>{timeStr}</div>
                             {available && s.remainingOrders !== undefined && (
-                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px', fontWeight: 700 }}>
+                              <div style={{ fontSize: '10px', color: '#059669', marginTop: '4px', fontWeight: 700 }}>
                                 {s.remainingOrders} slots left
                               </div>
                             )}
                           </div>
-                          {available && isCur && (
-                            <Check size={14} color="#059669" strokeWidth={3} style={{ flexShrink: 0, marginLeft: '4px' }} />
-                          )}
-                          {!available && (
-                            <span style={{ fontSize: '9.5px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', background: '#fee2e2', color: '#b91c1c', flexShrink: 0 }}>
-                              {s.isFull ? 'Full' : 'Closed'}
-                            </span>
-                          )}
                         </button>
                       );
                     })}
@@ -1396,129 +1758,163 @@ export function CheckoutPage() {
               </div>
 
               {/* Desktop Place Order Button */}
-              <div style={{ marginTop: '16px' }} className="desktop-only-action">
-                <Button
-                  className="wide"
-                  disabled={
-                    placing ||
-                    isEmergencyActive ||
-                    (deliveryType === 'INSTANT' && !allowImmediate) ||
-                    (deliveryType === 'SCHEDULED' && !allowScheduled) ||
-                    rules?.allowCod === false ||
-                    minimumRemaining > 0 ||
-                    (deliveryType === 'SCHEDULED' && holidayDates.includes(selectedDate?.id))
-                  }
-                  onClick={placeOrder}
-                  style={{
-                    height: '46px',
-                    fontSize: '14.5px',
-                    fontWeight: 800,
-                    borderRadius: '12px',
-                    background: minimumRemaining > 0 ? '#cbd5e1' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                    boxShadow: minimumRemaining > 0 ? 'none' : '0 4px 14px rgba(5, 150, 105, 0.3)'
-                  }}
-                >
-                  {placing ? (
-                    'Placing Order…'
-                  ) : isEmergencyActive ? (
-                    'Orders Paused'
-                  ) : deliveryType === 'INSTANT' && !allowImmediate ? (
-                    'Store Closed (Schedule Only)'
-                  ) : rules?.allowCod === false ? (
-                    'COD Unavailable'
-                  ) : minimumRemaining > 0 ? (
-                    `Add ${money(minimumRemaining)} more`
-                  ) : (
-                    <span>Place Order · Pay {money(total)} →</span>
-                  )}
-                </Button>
-              </div>
+              {(() => {
+                const isOrderBlocked = Boolean(
+                  placing ||
+                  isStoreFullyClosed ||
+                  isSelectedAreaSuspended ||
+                  (!allowImmediate && !allowScheduled) ||
+                  (deliveryType === 'INSTANT' && !allowImmediate) ||
+                  (deliveryType === 'SCHEDULED' && !allowScheduled) ||
+                  rules?.allowCod === false ||
+                  minimumRemaining > 0 ||
+                  (deliveryType === 'SCHEDULED' && holidayDates.includes(selectedDate?.id))
+                );
+
+                const blockedReasonLabel = placing
+                  ? 'Placing Order…'
+                  : isStoreFullyClosed || (!allowImmediate && !allowScheduled)
+                  ? 'Orders Paused'
+                  : isSelectedAreaSuspended
+                  ? `Delivery Closed in ${selectedAddress?.area || 'Area'}`
+                  : deliveryType === 'SCHEDULED' && !allowScheduled
+                  ? 'Scheduling Paused'
+                  : deliveryType === 'INSTANT' && !allowImmediate
+                  ? 'Store Closed (Schedule Only)'
+                  : rules?.allowCod === false
+                  ? 'COD Unavailable'
+                  : minimumRemaining > 0
+                  ? `Add ${money(minimumRemaining)} more`
+                  : null;
+
+                return (
+                  <div style={{ marginTop: '16px' }} className="desktop-only-action">
+                    <Button
+                      className="wide"
+                      disabled={isOrderBlocked}
+                      onClick={placeOrder}
+                      style={{
+                        height: '46px',
+                        fontSize: '14.5px',
+                        fontWeight: 800,
+                        borderRadius: '12px',
+                        background: isOrderBlocked ? '#cbd5e1' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                        color: isOrderBlocked ? '#64748b' : '#ffffff',
+                        cursor: isOrderBlocked ? 'not-allowed' : 'pointer',
+                        boxShadow: isOrderBlocked ? 'none' : '0 4px 14px rgba(5, 150, 105, 0.3)'
+                      }}
+                    >
+                      {blockedReasonLabel || <span>Place Order · Pay {money(total)} →</span>}
+                    </Button>
+                  </div>
+                );
+              })()}
             </div>
           </aside>
         </div>
       </div>
 
       {/* Mobile Sticky Bottom Place Order Bar */}
-      <div className="mobile-checkout-sticky-footer">
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }} onClick={scrollToBill} role="button" tabIndex={0}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
-              {money(total)}
-            </span>
-            {totalSavings > 0 && (
-              <span
+      {(() => {
+        const isOrderBlocked = Boolean(
+          placing ||
+          isStoreFullyClosed ||
+          isSelectedAreaSuspended ||
+          (!allowImmediate && !allowScheduled) ||
+          (deliveryType === 'INSTANT' && !allowImmediate) ||
+          (deliveryType === 'SCHEDULED' && !allowScheduled) ||
+          rules?.allowCod === false ||
+          minimumRemaining > 0 ||
+          (deliveryType === 'SCHEDULED' && holidayDates.includes(selectedDate?.id))
+        );
+
+        const blockedReasonLabel = placing
+          ? 'Placing…'
+          : isStoreFullyClosed || (!allowImmediate && !allowScheduled)
+          ? 'Orders Paused'
+          : isSelectedAreaSuspended
+          ? 'Area Closed'
+          : deliveryType === 'SCHEDULED' && !allowScheduled
+          ? 'Scheduling Paused'
+          : deliveryType === 'INSTANT' && !allowImmediate
+          ? 'Store Closed'
+          : minimumRemaining > 0
+          ? `Add ${money(minimumRemaining)}`
+          : null;
+
+        return (
+          <div className="mobile-checkout-sticky-footer">
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }} onClick={scrollToBill} role="button" tabIndex={0}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
+                  {money(total)}
+                </span>
+                {totalSavings > 0 && (
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      background: '#ecfdf5',
+                      color: '#059669',
+                      padding: '1px 6px',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    Saved {money(totalSavings)}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); scrollToBill(); }}
                 style={{
-                  fontSize: '10px',
-                  fontWeight: 800,
-                  background: '#ecfdf5',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  fontSize: '11px',
+                  fontWeight: 700,
                   color: '#059669',
-                  padding: '1px 6px',
-                  borderRadius: '6px'
+                  textAlign: 'left',
+                  cursor: 'pointer'
                 }}
               >
-                Saved {money(totalSavings)}
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); scrollToBill(); }}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              fontSize: '11px',
-              fontWeight: 700,
-              color: '#059669',
-              textAlign: 'left',
-              cursor: 'pointer'
-            }}
-          >
-            Pay on Delivery (COD) · View Bill ▲
-          </button>
-        </div>
+                Pay on Delivery (COD) · View Bill ▲
+              </button>
+            </div>
 
-        <button
-          type="button"
-          disabled={
-            placing ||
-            isEmergencyActive ||
-            (deliveryType === 'INSTANT' && !allowImmediate) ||
-            (deliveryType === 'SCHEDULED' && !allowScheduled) ||
-            rules?.allowCod === false ||
-            minimumRemaining > 0 ||
-            (deliveryType === 'SCHEDULED' && holidayDates.includes(selectedDate?.id))
-          }
-          onClick={placeOrder}
-          style={{
-            height: '44px',
-            padding: '0 20px',
-            borderRadius: '12px',
-            background: minimumRemaining > 0 ? '#cbd5e1' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-            color: '#ffffff',
-            border: 'none',
-            fontSize: '14px',
-            fontWeight: 800,
-            cursor: minimumRemaining > 0 || placing ? 'not-allowed' : 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: minimumRemaining > 0 ? 'none' : '0 4px 14px rgba(5, 150, 105, 0.35)',
-            flexShrink: 0
-          }}
-        >
-          {placing ? (
-            'Placing…'
-          ) : minimumRemaining > 0 ? (
-            `Add ${money(minimumRemaining)}`
-          ) : (
-            <>
-              <span>Place Order</span>
-              <ArrowRight size={16} strokeWidth={2.5} />
-            </>
-          )}
-        </button>
-      </div>
+            <button
+              type="button"
+              disabled={isOrderBlocked}
+              onClick={placeOrder}
+              style={{
+                height: '44px',
+                padding: '0 20px',
+                borderRadius: '12px',
+                background: isOrderBlocked ? '#cbd5e1' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                color: isOrderBlocked ? '#64748b' : '#ffffff',
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: 800,
+                cursor: isOrderBlocked ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: isOrderBlocked ? 'none' : '0 4px 14px rgba(5, 150, 105, 0.35)',
+                flexShrink: 0
+              }}
+            >
+              {blockedReasonLabel ? (
+                <span>{blockedReasonLabel}</span>
+              ) : (
+                <>
+                  <span>Place Order</span>
+                  <ArrowRight size={16} strokeWidth={2.5} />
+                </>
+              )}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Address Form Modal */}
       <Modal

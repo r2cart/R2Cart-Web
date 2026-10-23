@@ -1,5 +1,5 @@
-import {useEffect,useState} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,UserRound,X,Zap} from 'lucide-react';
+import {useEffect, useState, useMemo, useCallback} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
+import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,UserRound,X,Zap,AlertCircle} from 'lucide-react';
 import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,money} from '../components/ui';
 import brandWordmark from '../assets/r2cart-logo.png';
 import {BRAND} from '../config/brand';
@@ -10,13 +10,50 @@ import {addressPayload,addressView} from '../utils/address';
 import {ItemPrice,PriceSummary} from '../components/customer/PriceSummary';
 export function Logo(){return <Link className="logo" to="/" aria-label={`${BRAND.name} home`}><span className="brand-wordmark"><img src={brandWordmark} alt={BRAND.name}/></span></Link>}
 function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();const [q,setQ]=useState('');const [open,setOpen]=useState(false);const [history,setHistory]=useState([]);const load=async()=>{setOpen(true);try{setHistory(user?await customerService.searchHistory():JSON.parse(localStorage.getItem('grocify-search-history')||'[]'))}catch(error){notify(error.message,'error')}};const go=value=>{const query=value.trim();if(!query)return;setOpen(false);nav(`/search?q=${encodeURIComponent(query)}`)};const remove=async value=>{try{const next=history.filter(item=>item!==value);if(user)await customerService.removeSearch(value);else localStorage.setItem('grocify-search-history',JSON.stringify(next));setHistory(next);notify('Search removed')}catch(error){notify(error.message,'error')}};const clear=async()=>{try{if(user)await customerService.clearSearchHistory();else localStorage.removeItem('grocify-search-history');setHistory([]);notify('Search history cleared')}catch(error){notify(error.message,'error')}};return <div className="header-search"><SearchInput value={q} onChange={setQ} onSubmit={()=>go(q)} onFocus={load} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&<div className="header-search-history" onMouseDown={event=>event.preventDefault()}><div className="row between"><b>Recent searches</b>{history.length>0&&<button type="button" onClick={clear}>Clear all</button>}</div>{history.length?<div>{history.map(item=><span className="header-history-row" key={item}><button type="button" onClick={()=>go(item)}><History/><span>{item}</span></button><button type="button" className="remove-history" onClick={()=>remove(item)} aria-label={`Remove ${item}`}>×</button></span>)}</div>:<p>No recent searches yet.</p>}</div>}</div>}
-export function Header(){const nav=useNavigate();const routeLocation=useLocation();const isSearchPage=routeLocation.pathname==='/search';const {cartItems,setLocationOpen,setCartOpen,user,location,activeDeliveryRules,deliveryConfig}=useApp();const count=cartItems.reduce((s,x)=>s+x.qty,0),rules=activeDeliveryRules||deliveryConfig,eta=rules.estimatedDelivery;return <><header className={`site-header ${isSearchPage?'search-route-header':''}`}><div className="header-main container"><Logo/><button className="location-btn" onClick={()=>setLocationOpen(true)}><span><MapPin size={19}/></span><span><b>Delivery in {eta}</b><small title={location}>{location} <ChevronDown size={13}/></small></span></button>{!isSearchPage?<HeaderSearch user={user}/>:<div style={{flex:1,minWidth:'160px'}}/>}<Link className="account-btn" to={user?'/account':'/login'}><UserRound/><span><small>{user?'Welcome back':'Hello, sign in'}</small><b>{user?.name?.split(' ')[0]||'Account'}</b></span></Link><button className="cart-btn" onClick={()=>setCartOpen(true)}><ShoppingCart size={19} strokeWidth={2.2}/><span>{count?<><b>{count} items</b><small>{money(cartItems.reduce((s,x)=>s+x.price*x.qty,0))}</small></>:<b>My cart</b>}</span>{count>0&&<i>{count}</i>}</button></div><div className="mobile-head container"><div className="mobile-top-bar"><Logo/><div className="mobile-head-actions"><Link className="mobile-user-btn" to={user?'/account':'/login'} aria-label={user?'My account':'Sign in'}><UserRound size={16}/><span>{user?(user.name?.split(' ')[0]||'Account'):'Sign in'}</span></Link><button className="mobile-cart" onClick={()=>setCartOpen(true)} aria-label="Shopping cart"><ShoppingCart size={19} strokeWidth={2.2}/>{count>0&&<i>{count}</i>}</button></div></div><div className="mobile-sub-row"><button className="mobile-location" onClick={()=>setLocationOpen(true)}><Clock3 size={15}/><span><b>Delivery in {eta}</b><small title={location}>{location}</small></span><ChevronDown size={14}/></button></div>{!isSearchPage&&<div onClick={()=>nav('/search')}><SearchInput value="" placeholder="Search for groceries"/></div>}</div></header></>}
+export function Header(){const nav=useNavigate();const routeLocation=useLocation();const isSearchPage=routeLocation.pathname==='/search';const {cartItems,setLocationOpen,setCartOpen,user,location,activeDeliveryRules,deliveryConfig}=useApp();const count=cartItems.reduce((s,x)=>s+x.qty,0),rules=activeDeliveryRules||deliveryConfig,eta=rules?.estimatedDelivery,isPaused=Boolean(rules?.isPaused);return <><header className={`site-header ${isSearchPage?'search-route-header':''}`}><div className="header-main container"><Logo/><button className="location-btn" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined}><span>{isPaused?<AlertCircle size={19} color="#ef4444"/>:<MapPin size={19}/>}</span><span>{isPaused?<b style={{color:'#ef4444'}}>Delivery Paused</b>:<b>Delivery in {eta}</b>}<small title={location} style={isPaused?{color:'#991b1b'}:undefined}>{location} {isPaused?<span style={{fontWeight:800}}>(Paused)</span>:null} <ChevronDown size={13}/></small></span></button>{!isSearchPage?<HeaderSearch user={user}/>:<div style={{flex:1,minWidth:'160px'}}/>}<Link className="account-btn" to={user?'/account':'/login'}><UserRound/><span><small>{user?'Welcome back':'Hello, sign in'}</small><b>{user?.name?.split(' ')[0]||'Account'}</b></span></Link><button className="cart-btn" onClick={()=>setCartOpen(true)}><ShoppingCart size={19} strokeWidth={2.2}/><span>{count?<><b>{count} items</b><small>{money(cartItems.reduce((s,x)=>s+x.price*x.qty,0))}</small></>:<b>My cart</b>}</span>{count>0&&<i>{count}</i>}</button></div><div className="mobile-head container"><div className="mobile-top-bar"><Logo/><div className="mobile-head-actions"><Link className="mobile-user-btn" to={user?'/account':'/login'} aria-label={user?'My account':'Sign in'}><UserRound size={16}/><span>{user?(user.name?.split(' ')[0]||'Account'):'Sign in'}</span></Link><button className="mobile-cart" onClick={()=>setCartOpen(true)} aria-label="Shopping cart"><ShoppingCart size={19} strokeWidth={2.2}/>{count>0&&<i>{count}</i>}</button></div></div><div className="mobile-sub-row"><button className="mobile-location" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined}>{isPaused?<AlertCircle size={15} color="#ef4444"/>:<Clock3 size={15}/>}<span>{isPaused?<b style={{color:'#ef4444'}}>Delivery Paused</b>:<b>Delivery in {eta}</b>}<small title={location} style={isPaused?{color:'#991b1b'}:undefined}>{location}</small></span><ChevronDown size={14}/></button></div>{!isSearchPage&&<div onClick={()=>nav('/search')}><SearchInput value="" placeholder="Search for groceries"/></div>}</div></header></>}
 export function Footer(){const {storeSettings}=useApp();const legalEntity=storeSettings?.policies?.legalName||BRAND.company;const legalAddress=storeSettings?.address||storeSettings?.policies?.officeAddress||'Bailey Road, Patna, Bihar — 800001';return <footer><div className="container footer-grid"><div><Logo/><p>{BRAND.tagline}</p><p style={{fontSize:'12px',color:'var(--muted)',marginTop:'6px'}}>{legalEntity} · {legalAddress}</p><div className="social"><button aria-label="Social gallery"><Camera/></button><button aria-label={`Share ${BRAND.name}`}><Share2/></button></div></div><div><h4>{BRAND.name}</h4><Link to="/about">About Us</Link><Link to="/contact">Contact Us</Link><Link to="/support">Help & Support</Link><Link to="/grievance">Grievance Redressal</Link></div><div><h4>Policies & Legal</h4><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms & Conditions</Link><Link to="/refund-policy">Return & Refund Policy</Link><Link to="/cancellation-policy">Cancellation Policy</Link><Link to="/cookie-policy">Cookie Policy</Link></div><div><h4>Delivery & Shopping</h4><Link to="/delivery-info">Shipping & Delivery</Link><Link to="/orders">Track Your Order</Link><Link to="/coupons">Offers & Coupons</Link><Link to="/search">Browse Catalogue</Link></div></div><div className="footer-bottom"><div className="container">© 2026 {legalEntity} · {BRAND.tagline} · All rights reserved.</div></div></footer>}
 export function MobileBottomNav(){const {categories,user}=useApp();const mobileNav=[{id:'nav-home',to:'/',label:'Home',Icon:Home},{id:'nav-cats',to:`/category/${categories[0]?.slug||'fruits-vegetables'}`,label:'Categories',Icon:Menu},{id:'nav-search',to:'/search',label:'Search',Icon:Search},{id:'nav-orders',to:user?'/orders':'/login',label:'Orders',Icon:Package},{id:'nav-account',to:user?'/account':'/login',label:user?'Account':'Sign in',Icon:UserRound}];return <nav className="bottom-nav">{mobileNav.map(item=><NavLink key={item.id} to={item.to} end={item.to==='/'}><item.Icon/><span>{item.label}</span></NavLink>)}</nav>}
 export function LocationModal(){
   const nav=useNavigate();
-  const {locationOpen,setLocationOpen,notify,addressList,setAddressList,addressesLoaded,user,deliveryRulesFor,activeAddress,setActiveAddress}=useApp();
+  const {locationOpen,setLocationOpen,notify,addressList,setAddressList,addressesLoaded,user,deliveryRulesFor,activeAddress,setActiveAddress,storeSettings,deliveryZones}=useApp();
   const [manual,setManual]=useState(false);
+
+  const emergencyPause = storeSettings?.policies?.emergencyPause;
+  const effectiveStatus = storeSettings?.effectiveStatus;
+  const emergencyType = storeSettings?.emergencySettings?.type || effectiveStatus?.emergencyDetails?.type;
+  const affectedVillageIds = useMemo(() => {
+    const list = storeSettings?.emergencySettings?.affectedVillageIds ||
+      effectiveStatus?.emergencyDetails?.affectedVillageIds ||
+      [];
+    return Array.isArray(list) ? list.map((id) => String(id).trim().toLowerCase()) : [];
+  }, [storeSettings?.emergencySettings?.affectedVillageIds, effectiveStatus?.emergencyDetails?.affectedVillageIds]);
+
+  const isAreaSuspended = useCallback((addr) => {
+    if (!addr) return false;
+    const isEmerg = Boolean(storeSettings?.isOrderPaused || effectiveStatus?.isEmergencyActive || storeSettings?.emergencySettings?.isActive);
+    if (!isEmerg) return false;
+    if (emergencyType === 'ALL_ORDERS' || emergencyType === 'STORE_CLOSE') return true;
+    if (emergencyType !== 'SELECTED_AREAS') return false;
+    if (!affectedVillageIds.length) return false;
+
+    const cleanArea = String(addr.area || '').trim().toLowerCase();
+    const cleanVillage = String(addr.villageName || '').trim().toLowerCase();
+    const addrVillageId = String(addr.villageId || '').trim().toLowerCase();
+    const matchedZone = (deliveryZones || []).find(z =>
+      (z.id && (String(z.id).toLowerCase() === addrVillageId || String(z.id).toLowerCase() === cleanArea)) ||
+      (z.name && String(z.name).trim().toLowerCase() === cleanArea)
+    );
+
+    return Boolean(
+      affectedVillageIds.includes(cleanArea) ||
+      affectedVillageIds.includes(cleanVillage) ||
+      affectedVillageIds.includes(addrVillageId) ||
+      (matchedZone?.id && affectedVillageIds.includes(String(matchedZone.id).toLowerCase())) ||
+      (matchedZone?.name && affectedVillageIds.includes(String(matchedZone.name).trim().toLowerCase())) ||
+      affectedVillageIds.some(id => id === cleanArea || id === cleanVillage || id === addrVillageId)
+    );
+  }, [storeSettings?.isOrderPaused, effectiveStatus?.isEmergencyActive, storeSettings?.emergencySettings?.isActive, emergencyType, affectedVillageIds, deliveryZones]);
+
   const close=()=>{
     setManual(false);
     setLocationOpen(false);
@@ -24,11 +61,16 @@ export function LocationModal(){
   };
   const select=(address,zone)=>{
     if(!zone)return notify(`Delivery is currently unavailable in ${address.area}`,'error');
+    const isSuspended = Boolean(zone?.isPaused || isAreaSuspended(address));
     setActiveAddress(address);
     setManual(false);
     setLocationOpen(false);
     localStorage.setItem('r2cart_last_address_prompt_time',String(Date.now()));
-    notify(`Delivery location set to ${address.name} · ${zone.zoneName} (Fee: ₹${zone.deliveryFee})`);
+    if (isSuspended) {
+      notify(`⚠️ Deliveries to ${address.area} are temporarily suspended due to emergency conditions.`, 'error');
+    } else {
+      notify(`Delivery location set to ${address.name} · ${zone.zoneName || zone.villageName || address.area} (Fee: ₹${zone.deliveryFee})`);
+    }
   };
   const saveManual=async value=>{
     try{
@@ -83,6 +125,8 @@ export function LocationModal(){
                 {addressList.map(address => {
                   const zone = deliveryRulesFor(address.area);
                   const isSelected = activeAddress?.id === address.id;
+                  const isSuspended = isAreaSuspended(address);
+
                   return (
                     <button
                       key={address.id}
@@ -96,9 +140,9 @@ export function LocationModal(){
                         gap: '12px',
                         padding: '14px',
                         borderRadius: '14px',
-                        border: isSelected ? '1.5px solid #059669' : '1px solid #e2e8f0',
-                        background: isSelected ? '#f0fdf4' : '#ffffff',
-                        boxShadow: isSelected ? '0 0 0 1px #059669, 0 4px 12px rgba(5, 150, 105, 0.08)' : '0 1px 3px rgba(0,0,0,0.02)',
+                        border: isSelected ? (isSuspended ? '1.5px solid #ef4444' : '1.5px solid #059669') : (isSuspended ? '1px solid #fecdd3' : '1px solid #e2e8f0'),
+                        background: isSelected ? (isSuspended ? '#fff5f5' : '#f0fdf4') : (isSuspended ? '#fffafa' : '#ffffff'),
+                        boxShadow: isSelected ? (isSuspended ? '0 0 0 1px #ef4444, 0 4px 12px rgba(239, 68, 68, 0.08)' : '0 0 0 1px #059669, 0 4px 12px rgba(5, 150, 105, 0.08)') : '0 1px 3px rgba(0,0,0,0.02)',
                         cursor: !zone ? 'not-allowed' : 'pointer',
                         position: 'relative',
                         textAlign: 'left',
@@ -112,25 +156,25 @@ export function LocationModal(){
                           width: '38px',
                           height: '38px',
                           borderRadius: '10px',
-                          background: isSelected ? '#059669' : '#ecfdf5',
+                          background: isSelected ? (isSuspended ? '#ef4444' : '#059669') : (isSuspended ? '#fee2e2' : '#ecfdf5'),
                           display: 'grid',
                           placeItems: 'center',
                           flexShrink: 0
                         }}
                       >
                         {address.type === 'Home' ? (
-                          <Home size={18} color={isSelected ? '#ffffff' : '#059669'} />
+                          <Home size={18} color={isSelected ? '#ffffff' : (isSuspended ? '#b91c1c' : '#059669')} />
                         ) : address.type === 'Work' ? (
-                          <Briefcase size={18} color={isSelected ? '#ffffff' : '#059669'} />
+                          <Briefcase size={18} color={isSelected ? '#ffffff' : (isSuspended ? '#b91c1c' : '#059669')} />
                         ) : (
-                          <MapPin size={18} color={isSelected ? '#ffffff' : '#059669'} />
+                          <MapPin size={18} color={isSelected ? '#ffffff' : (isSuspended ? '#b91c1c' : '#059669')} />
                         )}
                       </div>
 
                       {/* Address Details */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '3px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                             <b style={{ fontSize: '14px', color: '#0f172a' }}>{address.name}</b>
                             <span
                               style={{
@@ -145,6 +189,21 @@ export function LocationModal(){
                             >
                               {address.type || 'HOME'}
                             </span>
+                            {isSuspended && (
+                              <span
+                                style={{
+                                  fontSize: '9.5px',
+                                  fontWeight: 800,
+                                  padding: '2px 7px',
+                                  borderRadius: '6px',
+                                  background: '#fee2e2',
+                                  color: '#b91c1c',
+                                  textTransform: 'uppercase'
+                                }}
+                              >
+                                🚫 Area Suspended
+                              </span>
+                            )}
                           </div>
 
                           {/* Selected Radio Indicator */}
@@ -153,7 +212,7 @@ export function LocationModal(){
                               width: '20px',
                               height: '20px',
                               borderRadius: '50%',
-                              background: isSelected ? '#059669' : 'transparent',
+                              background: isSelected ? (isSuspended ? '#ef4444' : '#059669') : 'transparent',
                               border: isSelected ? 'none' : '2px solid #cbd5e1',
                               display: 'grid',
                               placeItems: 'center',
@@ -169,7 +228,27 @@ export function LocationModal(){
                           {address.line}, {address.cityLine || address.city}
                         </p>
 
-                        {zone ? (
+                        {isSuspended ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: '#b91c1c',
+                                background: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                padding: '2px 8px',
+                                borderRadius: '6px'
+                              }}
+                            >
+                              <span>⚠️</span>
+                              <span>Deliveries to {address.area} temporarily suspended</span>
+                            </span>
+                          </div>
+                        ) : zone ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                             <span
                               style={{
@@ -749,13 +828,66 @@ import {FloatingBottomCartBar} from '../components/customer/FloatingBottomCartBa
 import {subscribeToPush,playNotificationSound} from '../services/pushNotification.service';
 
 export default function CustomerLayout({children}){
- const {user,storeSettings,setLocationOpen,addressesLoaded}=useApp();
+ const {user,storeSettings,setLocationOpen,addressesLoaded,activeDeliveryRules,activeAddress,notify}=useApp();
  const nav=useNavigate();
  const [customerAlert,setCustomerAlert]=useState(null);
  const [announcement,setAnnouncement]=useState(null);
  const [announcementDismissed,setAnnouncementDismissed]=useState(false);
+ const [showAnnouncementDetails,setShowAnnouncementDetails]=useState(false);
  const [promoPopup,setPromoPopup]=useState(null);
  const [showPromoModal,setShowPromoModal]=useState(false);
+
+ const handleAnnouncementAction = (e) => {
+  if (e) e.preventDefault();
+  if (!announcement) return;
+  catalogService.trackMarketing(announcement.id, 'click').catch(() => {});
+
+  const couponCode = announcement.metadata?.couponCode ||
+    (announcement.badge && /^[A-Z0-9_-]{3,15}$/.test(announcement.badge) ? announcement.badge : null);
+  if (couponCode) {
+    navigator.clipboard?.writeText(couponCode).catch(() => {});
+    notify?.(`🎉 Coupon code "${couponCode}" copied to clipboard!`, 'success');
+  }
+
+  const rawUrl = announcement.linkUrl || announcement.ctaUrl || '';
+  const trimmed = rawUrl.trim();
+
+  if (!trimmed || trimmed === '/' || trimmed === '#details' || trimmed === '#') {
+    setShowAnnouncementDetails(true);
+  } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    window.open(trimmed, '_blank', 'noopener,noreferrer');
+  } else {
+    nav(trimmed);
+  }
+ };
+
+ const handlePromoPopupAction = (e) => {
+  if (e) e.preventDefault();
+  if (!promoPopup) return;
+  catalogService.trackMarketing(promoPopup.id, 'click').catch(() => {});
+  sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}-${promoPopup.updatedAt || '0'}`, 'true');
+  setShowPromoModal(false);
+
+  const couponCode = promoPopup.metadata?.couponCode ||
+    (promoPopup.badge && /^[A-Z0-9_-]{3,15}$/.test(promoPopup.badge) ? promoPopup.badge : null);
+  if (couponCode) {
+    navigator.clipboard?.writeText(couponCode).catch(() => {});
+    notify?.(`🎉 Offer Claimed! Coupon code "${couponCode}" copied to clipboard!`, 'success');
+  }
+
+  const rawUrl = promoPopup.linkUrl || promoPopup.ctaUrl || '';
+  const trimmed = rawUrl.trim();
+
+  if (trimmed && trimmed !== '/' && trimmed !== '#') {
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      window.open(trimmed, '_blank', 'noopener,noreferrer');
+    } else {
+      nav(trimmed);
+    }
+  } else {
+    nav('/coupons');
+  }
+ };
 
  // Smart 2-hour cooldown session for address confirmation prompt
  useEffect(()=>{
@@ -778,30 +910,57 @@ export default function CustomerLayout({children}){
   return()=>clearTimeout(timer);
  },[user?.id, addressesLoaded]);
 
- useEffect(()=>{
-  let mounted=true;
-  catalogService.getActiveMarketing()
-   .then(data=>{
-    if(!mounted||!data)return;
-    if(data.announcement){
-     const dismissed=sessionStorage.getItem(`r2cart-dismissed-announcement-${data.announcement.id}`);
-     if(!dismissed){
-      setAnnouncement(data.announcement);
-      catalogService.trackMarketing(data.announcement.id,'view').catch(()=>{});
-     }
+ const fetchActiveMarketing = useCallback(() => {
+  // Clear legacy test dismissal keys
+  try {
+   Object.keys(sessionStorage).forEach(k => {
+    if (k.startsWith('r2cart-dismissed-') && k.split('-').length === 4) {
+     sessionStorage.removeItem(k);
     }
-    if(data.popup){
-     const dismissed=sessionStorage.getItem(`r2cart-dismissed-popup-${data.popup.id}`);
-     if(!dismissed){
+   });
+  } catch (_) {}
+
+  catalogService.getActiveMarketing()
+   .then(data => {
+    if (!data) return;
+    if (data.announcement) {
+     const verKey = `r2cart-dismissed-announcement-${data.announcement.id}-${data.announcement.updatedAt || '0'}`;
+     const dismissed = sessionStorage.getItem(verKey);
+     if (!dismissed) {
+      setAnnouncement(data.announcement);
+      setAnnouncementDismissed(false);
+      catalogService.trackMarketing(data.announcement.id, 'view').catch(() => {});
+     } else {
+      setAnnouncement(null);
+     }
+    } else {
+     setAnnouncement(null);
+    }
+    if (data.popup) {
+     const verKey = `r2cart-dismissed-popup-${data.popup.id}-${data.popup.updatedAt || '0'}`;
+     const dismissed = sessionStorage.getItem(verKey);
+     if (!dismissed) {
       setPromoPopup(data.popup);
       setShowPromoModal(true);
-      catalogService.trackMarketing(data.popup.id,'view').catch(()=>{});
+      catalogService.trackMarketing(data.popup.id, 'view').catch(() => {});
+     } else {
+      setPromoPopup(null);
+      setShowPromoModal(false);
      }
+    } else {
+     setPromoPopup(null);
+     setShowPromoModal(false);
     }
    })
-   .catch(()=>{});
-  return()=>{mounted=false;};
- },[]);
+   .catch(() => {});
+ }, []);
+
+ useEffect(() => {
+  fetchActiveMarketing();
+  const handleMarketingUpdate = () => fetchActiveMarketing();
+  window.addEventListener('r2cart:marketing-updated', handleMarketingUpdate);
+  return () => window.removeEventListener('r2cart:marketing-updated', handleMarketingUpdate);
+ }, [fetchActiveMarketing]);
 
  useEffect(()=>{
   if(user&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
@@ -841,141 +1000,266 @@ export default function CustomerLayout({children}){
 
  return <>
   {/* Emergency Store Pause Top Alert Banner */}
-  {(storeSettings?.policies?.emergencyPause?.isPaused || storeSettings?.effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED') && (
-    <aside
-      role="alert"
-      className="emergency-store-alert"
-      style={{
-        background: 'linear-gradient(90deg, #991b1b 0%, #b91c1c 50%, #991b1b 100%)',
-        color: '#ffffff',
-        padding: '10px 16px',
-        textAlign: 'center',
-        fontSize: '13px',
-        fontWeight: 600,
-        boxShadow: '0 4px 14px rgba(185, 28, 28, 0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 99999
-      }}
-    >
-      <span style={{ fontSize: '15px' }}>🚨</span>
-      <span>
-        <b>Store Orders Temporarily Paused:</b>{' '}
-        {storeSettings?.effectiveStatus?.statusReason ||
-          storeSettings?.policies?.emergencyPause?.message ||
-          ('We are temporarily not taking new orders due to ' + (storeSettings?.policies?.emergencyPause?.reason || 'high volume') + '.')}
-        {storeSettings?.policies?.emergencyPause?.resumesAt && (
-          <span style={{ marginLeft: '6px', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
-            Expected Resumption: {new Date(storeSettings.policies.emergencyPause.resumesAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
+  {(storeSettings?.policies?.emergencyPause?.isPaused || storeSettings?.effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED') && (() => {
+    const rawReason = storeSettings?.effectiveStatus?.statusReason ||
+      storeSettings?.policies?.emergencyPause?.message ||
+      (storeSettings?.policies?.emergencyPause?.reason ? `High order volume (${storeSettings.policies.emergencyPause.reason})` : 'We are temporarily not taking new orders due to high order volume.');
+    const cleanReason = (rawReason || '').trim().replace(/\s+\./g, '.').replace(/\.+$/, '');
+    const nextOpening = storeSettings?.effectiveStatus?.nextAvailableOpening;
+    const rawEndTime = storeSettings?.effectiveStatus?.emergencyDetails?.endTime || storeSettings?.policies?.emergencyPause?.resumesAt;
+    const resumesAtTime = nextOpening?.label
+      ? nextOpening.label
+      : rawEndTime
+      ? new Date(rawEndTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+      : null;
+
+    return (
+      <aside role="alert" className="emergency-store-alert">
+        <div className="emergency-alert-inner">
+          <div className="emergency-alert-main">
+            <span className="emergency-alert-icon-wrap" aria-hidden="true">
+              <span className="emergency-alert-icon">🚨</span>
+            </span>
+            <div className="emergency-alert-copy">
+              <span className="emergency-alert-title">Orders Temporarily Paused</span>
+              {cleanReason && (
+                <span className="emergency-alert-desktop-desc">— {cleanReason}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="emergency-alert-badges">
+            {resumesAtTime && (
+              <span className="emergency-resumes-chip">
+                <Clock3 size={11} strokeWidth={2.4} />
+                <span>Resumes {resumesAtTime}</span>
+              </span>
+            )}
+            <span className="emergency-pause-tag">
+              <span className="emergency-pulse-dot" />
+              Paused
+            </span>
+          </div>
+        </div>
+
+        {cleanReason && (
+          <div className="emergency-alert-mobile-msg">
+            {cleanReason}
+          </div>
         )}
-      </span>
-    </aside>
-  )}
+      </aside>
+    );
+  })()}
+
+  {/* Selected Area Delivery Suspended Alert Banner (Active Location is Suspended) */}
+  {!storeSettings?.policies?.emergencyPause?.isPaused && 
+   storeSettings?.effectiveStatus?.storeStatus !== 'EMERGENCY_PAUSED' &&
+   activeDeliveryRules?.isPaused && (() => {
+    const rawReason = activeDeliveryRules?.pauseReason ||
+      storeSettings?.effectiveStatus?.statusReason ||
+      storeSettings?.emergencySettings?.message ||
+      `Deliveries to ${activeAddress?.area || 'your selected area'} are temporarily paused due to emergency conditions.`;
+    const cleanReason = (rawReason || '').trim().replace(/\s+\./g, '.').replace(/\.+$/, '');
+    const nextOpening = storeSettings?.effectiveStatus?.nextAvailableOpening;
+    const rawEndTime = storeSettings?.effectiveStatus?.emergencyDetails?.endTime || storeSettings?.emergencySettings?.endTime;
+    const resumesAtTime = nextOpening?.label
+      ? nextOpening.label
+      : rawEndTime
+      ? new Date(rawEndTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+      : null;
+
+    return (
+      <aside
+        role="alert"
+        style={{
+          background: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)',
+          color: '#ffffff',
+          padding: '8px 12px',
+          boxShadow: '0 2px 8px rgba(185, 28, 28, 0.25)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 99990,
+          width: '100%',
+          boxSizing: 'border-box'
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '1240px',
+            margin: '0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: '15px', flexShrink: 0 }}>🚫</span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#ffffff', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Deliveries Suspended in {activeAddress?.area || 'Your Area'}
+              </span>
+              <span style={{ fontSize: '11px', color: '#fecaca', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.25 }}>
+                {cleanReason}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setLocationOpen(true)}
+            style={{
+              background: '#ffffff',
+              color: '#b91c1c',
+              border: 'none',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            Change →
+          </button>
+        </div>
+      </aside>
+    );
+  })()}
 
   {/* Scheduled-Only / Outside Operating Hours Notice */}
   {!storeSettings?.policies?.emergencyPause?.isPaused && 
    storeSettings?.effectiveStatus?.storeStatus !== 'EMERGENCY_PAUSED' &&
-   (storeSettings?.effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' || storeSettings?.effectiveStatus?.allowImmediateOrders === false) && (
-    <aside
-      role="status"
-      className="store-status-bar"
-      style={{
-        background: 'linear-gradient(90deg, #1e3a8a 0%, #1e40af 50%, #1e3a8a 100%)',
-        color: '#ffffff',
-        padding: '8px 16px',
-        textAlign: 'center',
-        fontSize: '13px',
-        fontWeight: 500,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 99998,
-        boxShadow: '0 2px 8px rgba(30, 64, 175, 0.25)'
-      }}
-    >
-      <span style={{ fontSize: '14px' }}>🌙</span>
-      <span>
-        <b>Store is currently closed:</b> You can schedule your order for the next available delivery slot.
-        {storeSettings?.effectiveStatus?.nextAvailableOpening?.label && (
-          <span style={{ marginLeft: '6px', background: 'rgba(255,255,255,0.18)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>
-            Reopens {storeSettings.effectiveStatus.nextAvailableOpening.label}
-          </span>
-        )}
-      </span>
-    </aside>
-  )}
+   (storeSettings?.effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' || storeSettings?.effectiveStatus?.allowImmediateOrders === false) && (() => {
+    const isEm = Boolean(storeSettings?.effectiveStatus?.isEmergencyActive);
+    const nextOpening = storeSettings?.effectiveStatus?.nextAvailableOpening;
+    const reopenLabel = nextOpening?.label;
+    const isResume = Boolean(nextOpening?.isEmergencyEnd);
+
+    return (
+      <aside role="status" className="store-status-bar">
+        <div className="store-status-inner">
+          <div className="store-status-main">
+            <span className="store-status-icon-wrap" aria-hidden="true">
+              <span className="store-status-icon">{isEm ? '⚡' : '🌙'}</span>
+            </span>
+            <div className="store-status-copy">
+              <span className="store-status-title">
+                {isEm ? 'Instant Orders Temporarily Paused' : 'Store Closed for Instant Delivery'}
+              </span>
+              <span className="store-status-desktop-note">
+                {isEm && storeSettings?.effectiveStatus?.statusReason
+                  ? `— ${storeSettings.effectiveStatus.statusReason}`
+                  : '— Schedule orders for upcoming slots'}
+              </span>
+            </div>
+          </div>
+
+          <div className="store-status-badges">
+            {reopenLabel && (
+              <span className="store-status-reopen-chip">
+                <Clock3 size={11} strokeWidth={2.4} />
+                <span>{isResume ? 'Resumes' : 'Reopens'} {reopenLabel}</span>
+              </span>
+            )}
+            <span className="store-status-schedule-tag">
+              <span className="store-status-pulse-dot" />
+              Schedule Open
+            </span>
+          </div>
+        </div>
+      </aside>
+    );
+  })()}
 
   {/* Marketing Announcement Bar */}
-  {announcement && !announcementDismissed && (
-    <aside
-      role="complementary"
-      className="marketing-announcement-bar"
-      style={{
-        background: announcement.bgColor || '#15803d',
-        color: announcement.textColor || '#ffffff',
-        padding: '8px 16px',
-        textAlign: 'center',
-        fontSize: '13px',
-        fontWeight: 600,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '10px',
-        position: 'sticky',
-        top: storeSettings?.policies?.emergencyPause?.isPaused ? '40px' : 0,
-        zIndex: 99990,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}
-    >
-      {announcement.badgeText && (
-        <span style={{ background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 700 }}>
-          {announcement.badgeText}
-        </span>
-      )}
-      <span>{announcement.content}</span>
-      {announcement.ctaUrl && (
-        <a
-          href={announcement.ctaUrl}
-          onClick={() => catalogService.trackMarketing(announcement.id, 'click').catch(() => {})}
-          style={{
-            color: announcement.textColor || '#ffffff',
-            textDecoration: 'underline',
-            fontWeight: 700,
-            marginLeft: '4px'
-          }}
-        >
-          {announcement.ctaText || 'Learn More →'}
-        </a>
-      )}
-      <button
-        onClick={() => {
-          sessionStorage.setItem(`r2cart-dismissed-announcement-${announcement.id}`, 'true');
-          setAnnouncementDismissed(true);
-        }}
+  {announcement && !announcementDismissed && (() => {
+    const rawCta = announcement.metadata?.ctaText || announcement.ctaText || 'Learn More';
+    const ctaClean = rawCta.replace(/[→\->\s]+$/, '').trim() || 'Learn More';
+    const badge = announcement.badgeText || announcement.badge;
+
+    return (
+      <aside
+        role="complementary"
+        className="marketing-announcement-bar"
         style={{
-          background: 'none',
-          border: 'none',
-          color: announcement.textColor || '#ffffff',
-          opacity: 0.8,
-          cursor: 'pointer',
-          fontSize: '16px',
-          marginLeft: 'auto',
-          padding: '2px 6px',
-          lineHeight: 1
+          '--announcement-bg': announcement.bgColor || '#15803d',
+          '--announcement-color': announcement.textColor || '#ffffff',
+          top: storeSettings?.policies?.emergencyPause?.isPaused ? '40px' : 0,
         }}
-        aria-label="Dismiss announcement"
       >
-        ✕
-      </button>
-    </aside>
+        <div className="announcement-content-wrap">
+          {badge && (
+            <span className="announcement-badge">
+              {badge}
+            </span>
+          )}
+          <span className="announcement-text" title={announcement.title || announcement.content}>
+            {announcement.title || announcement.content}
+          </span>
+        </div>
+
+        <div className="announcement-actions-wrap">
+          <button
+            type="button"
+            onClick={handleAnnouncementAction}
+            className="announcement-cta-btn"
+          >
+            <span>{ctaClean}</span>
+            <span className="announcement-arrow" aria-hidden="true">→</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              sessionStorage.setItem(`r2cart-dismissed-announcement-${announcement.id}-${announcement.updatedAt || '0'}`, 'true');
+              setAnnouncementDismissed(true);
+            }}
+            className="announcement-close-btn"
+            aria-label="Dismiss announcement"
+          >
+            ✕
+          </button>
+        </div>
+      </aside>
+    );
+  })()}
+
+  {/* Announcement Details Modal */}
+  {announcement && showAnnouncementDetails && (
+    <Modal
+      open={showAnnouncementDetails}
+      onClose={() => setShowAnnouncementDetails(false)}
+      title="Store Announcement"
+      size="sm"
+    >
+      <div className="modal-body" style={{ textAlign: 'center', padding: '20px 24px' }}>
+        {(announcement.badge || announcement.badgeText) && (
+          <span style={{ display: 'inline-block', background: '#dcfce7', color: '#15803d', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 800, marginBottom: '12px', letterSpacing: '0.5px' }}>
+            {announcement.badge || announcement.badgeText}
+          </span>
+        )}
+        <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 10px', color: 'var(--text, #111827)' }}>
+          {announcement.title || announcement.content}
+        </h3>
+        <p style={{ fontSize: '14px', color: 'var(--muted, #64748b)', margin: '0 0 20px', lineHeight: 1.6 }}>
+          {announcement.subtitle || announcement.content || 'Enjoy this limited-time offer on your grocery orders. Fresh picks delivered directly to your doorstep in minutes.'}
+        </p>
+        <div className="row gap" style={{ justifyContent: 'center' }}>
+          <Button variant="outline" onClick={() => setShowAnnouncementDetails(false)}>
+            Close
+          </Button>
+          <Button onClick={() => {
+            setShowAnnouncementDetails(false);
+            const target = announcement.linkUrl && announcement.linkUrl !== '/' && announcement.linkUrl !== '#details' && announcement.linkUrl !== '#' ? announcement.linkUrl : '/coupons';
+            nav(target);
+          }}>
+            Explore Offers →
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )}
   {/* In-App Heads-up Notification Banner (Sliding down from top on mobile & website) */}
   {customerAlert&&(
@@ -1067,50 +1351,34 @@ export default function CustomerLayout({children}){
     <Modal
       open={showPromoModal}
       onClose={() => {
-        sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}`, 'true');
+        sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}-${promoPopup.updatedAt || '0'}`, 'true');
         setShowPromoModal(false);
       }}
-      title={promoPopup.name || 'Special Offer'}
+      title={promoPopup.name || promoPopup.title || 'Special Offer'}
       size="promo-popup-modal"
     >
       <div className="modal-body promo-modal-content" style={{ textAlign: 'center', padding: '16px 20px 24px' }}>
         {promoPopup.imageUrl && (
           <img
             src={promoPopup.imageUrl}
-            alt={promoPopup.name}
+            alt={promoPopup.name || promoPopup.title}
             style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px' }}
           />
         )}
         <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 8px', color: 'var(--text, #111827)' }}>
-          {promoPopup.name}
+          {promoPopup.name || promoPopup.title}
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--muted, #64748b)', margin: '0 0 20px', lineHeight: 1.5 }}>
-          {promoPopup.content}
+          {promoPopup.content || promoPopup.subtitle}
         </p>
-        {promoPopup.ctaUrl ? (
-          <a
-            href={promoPopup.ctaUrl}
-            onClick={() => {
-              catalogService.trackMarketing(promoPopup.id, 'click').catch(() => {});
-              sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}`, 'true');
-              setShowPromoModal(false);
-            }}
-            className="btn btn-primary"
-            style={{ display: 'inline-block', width: '100%', padding: '12px', fontWeight: 700, borderRadius: '10px', textAlign: 'center' }}
-          >
-            {promoPopup.ctaText || 'Claim Offer Now'}
-          </a>
-        ) : (
-          <Button
-            className="wide"
-            onClick={() => {
-              sessionStorage.setItem(`r2cart-dismissed-popup-${promoPopup.id}`, 'true');
-              setShowPromoModal(false);
-            }}
-          >
-            Got It!
-          </Button>
-        )}
+        <button
+          type="button"
+          onClick={handlePromoPopupAction}
+          className="btn btn-primary"
+          style={{ display: 'inline-block', width: '100%', padding: '12px', fontWeight: 700, borderRadius: '10px', textAlign: 'center', cursor: 'pointer', border: 'none' }}
+        >
+          {promoPopup.metadata?.ctaText || promoPopup.ctaText || 'Claim Offer Now'}
+        </button>
       </div>
     </Modal>
   )}

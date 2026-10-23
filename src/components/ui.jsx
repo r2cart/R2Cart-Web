@@ -1,4 +1,4 @@
-import {AlertCircle,AlertTriangle,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Trash2,X,Zap} from 'lucide-react';
+import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Trash2,X,Zap} from 'lucide-react';
 import {Link} from 'react-router-dom'; import {useApp} from '../context/AppContext';
 import {useState, useEffect} from 'react';
 import {createPortal} from 'react-dom';
@@ -148,7 +148,7 @@ export function ConfirmDialog({
     </Modal>
   );
 }
-export function EmptyState({icon='cart',title,text,action,to='/'}){const Icon=icon==='package'?PackageOpen:icon==='search'?SearchX:ShoppingBag;return <div className="empty"><div className="empty-icon"><Icon/></div><h2>{title}</h2><p>{text}</p>{action&&<Link className="btn btn-primary" to={to}>{action}</Link>}</div>}
+export function EmptyState({icon='cart',title,text,action,to='/'}){const Icon=icon==='package'?PackageOpen:icon==='search'?SearchX:icon==='heart'?Heart:ShoppingBag;return <div className="empty empty-state-card"><div className="empty-state-badge"><Icon size={34} strokeWidth={2}/></div><h2 className="empty-state-title">{title}</h2>{text&&<p className="empty-state-text">{text}</p>}{action&&<Link className="empty-state-btn" to={to}><span>{action}</span><ArrowRight size={16} strokeWidth={2.4}/></Link>}</div>}
 export function QuantitySelector({id,small=false,choosePacks=small,product:propProduct}){
  const {cart,add,qty,products}=useApp();const [open,setOpen]=useState(false);
  const product=propProduct||products.find(item=>item.id===id);const n=cart[id]||0;

@@ -12,6 +12,7 @@ import {
   Megaphone,
   Power,
   RefreshCcw,
+  Search,
   ShieldAlert,
   ShieldCheck,
   X
@@ -58,6 +59,7 @@ export function AdminEmergency() {
   const [customEndTime, setCustomEndTime] = useState('');
   const [autoExpire, setAutoExpire] = useState(true);
   const [selectedVillageIds, setSelectedVillageIds] = useState([]);
+  const [villageSearch, setVillageSearch] = useState('');
 
   const loadStatus = async () => {
     try {
@@ -90,6 +92,10 @@ export function AdminEmergency() {
 
   const handleActivate = async e => {
     e.preventDefault();
+    if (emergencyType === 'SELECTED_AREAS' && (!selectedVillageIds || selectedVillageIds.length === 0)) {
+      notify('Please select at least one village / delivery area to activate restrictions', 'error');
+      return;
+    }
     setBusy(true);
     try {
       let endTime = null;
@@ -280,6 +286,24 @@ export function AdminEmergency() {
                 "{activeDetails.message}"
               </p>
             </div>
+            {activeDetails.type === 'SELECTED_AREAS' && Array.isArray(activeDetails.affectedVillageIds) && activeDetails.affectedVillageIds.length > 0 && (
+              <div style={{ gridColumn: '1 / -1', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '1px' }}>
+                  Suspended Villages ({activeDetails.affectedVillageIds.length}):
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                  {activeDetails.affectedVillageIds.map(vId => {
+                    const vObj = (statusData?.villages || []).find(v => String(v.id) === String(vId) || String(v.name).toLowerCase() === String(vId).toLowerCase());
+                    const label = vObj ? vObj.name : vId;
+                    return (
+                      <span key={vId} style={{ background: '#ef444433', color: '#fca5a5', border: '1px solid #ef444466', padding: '3px 9px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700 }}>
+                        📍 {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -357,24 +381,24 @@ export function AdminEmergency() {
             No emergency activation events recorded yet.
           </p>
         ) : (
-          <div className="table-responsive">
-            <table className="admin-table">
+          <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: '8px', border: '1px solid var(--line)' }}>
+            <table className="admin-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>Scope</th>
-                  <th>Reason</th>
-                  <th>Customer Message</th>
-                  <th>Start Time</th>
-                  <th>End Time</th>
-                  <th>Triggered By</th>
-                  <th>Recorded At</th>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--line)' }}>
+                  <th style={{ width: '100px', padding: '12px 14px', whiteSpace: 'nowrap' }}>Action</th>
+                  <th style={{ width: '150px', padding: '12px 14px', whiteSpace: 'nowrap' }}>Scope</th>
+                  <th style={{ width: '160px', padding: '12px 14px', whiteSpace: 'nowrap' }}>Reason</th>
+                  <th style={{ minWidth: '280px', maxWidth: '360px', padding: '12px 14px' }}>Customer Message</th>
+                  <th style={{ width: '170px', padding: '12px 14px', whiteSpace: 'nowrap' }}>Start Time</th>
+                  <th style={{ width: '170px', padding: '12px 14px', whiteSpace: 'nowrap' }}>End Time</th>
+                  <th style={{ width: '140px', padding: '12px 14px', whiteSpace: 'nowrap' }}>Triggered By</th>
+                  <th style={{ width: '160px', padding: '12px 14px', whiteSpace: 'nowrap' }}>Recorded At</th>
                 </tr>
               </thead>
               <tbody>
                 {historyList.map(h => (
-                  <tr key={h.id}>
-                    <td>
+                  <tr key={h.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                       <span
                         style={{
                           display: 'inline-block',
@@ -389,13 +413,23 @@ export function AdminEmergency() {
                         {h.action}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 600 }}>{h.type}</td>
-                    <td>{h.customReason || h.reason?.replace(/_/g, ' ') || '—'}</td>
-                    <td style={{ maxWidth: '280px', fontSize: '12px' }} title={h.message}>{h.message || '—'}</td>
-                    <td style={{ fontSize: '12px' }}>{h.startTime ? new Date(h.startTime).toLocaleString('en-IN') : '—'}</td>
-                    <td style={{ fontSize: '12px' }}>{h.endTime ? new Date(h.endTime).toLocaleString('en-IN') : '—'}</td>
-                    <td style={{ fontSize: '12px', fontWeight: 600 }}>{h.adminName || 'Admin'}</td>
-                    <td style={{ fontSize: '11px', color: 'var(--muted)' }}>{new Date(h.createdAt).toLocaleString('en-IN')}</td>
+                    <td style={{ padding: '12px 14px', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '12px' }}>{h.type}</td>
+                    <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', fontSize: '12px' }}>{h.customReason || h.reason?.replace(/_/g, ' ') || '—'}</td>
+                    <td style={{ padding: '12px 14px', minWidth: '280px', maxWidth: '360px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.45, fontSize: '12px', color: '#334155' }} title={h.message}>
+                      {h.message || '—'}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', whiteSpace: 'nowrap', color: '#475569' }}>
+                      {h.startTime ? new Date(h.startTime).toLocaleString('en-IN') : '—'}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', whiteSpace: 'nowrap', color: '#475569' }}>
+                      {h.endTime ? new Date(h.endTime).toLocaleString('en-IN') : '—'}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {h.adminName || 'Admin'}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontSize: '11.5px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(h.createdAt).toLocaleString('en-IN')}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -466,34 +500,113 @@ export function AdminEmergency() {
           </label>
 
           {emergencyType === 'SELECTED_AREAS' && (
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 600 }}>
-              <span>Select Affected Villages / Areas *</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700 }}>
+                  Select Affected Villages / Areas *
+                  <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, color: selectedVillageIds.length > 0 ? '#ef4444' : 'var(--muted)' }}>
+                    ({selectedVillageIds.length} of {(statusData?.villages || []).length} selected)
+                  </span>
+                </span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVillageIds((statusData?.villages || []).map(v => v.id))}
+                    style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', color: '#15803d' }}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVillageIds([])}
+                    style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', color: '#b91c1c' }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              {/* Village Search Bar */}
+              <div style={{ position: 'relative', width: '100%' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="Search village / area name..."
+                  value={villageSearch}
+                  onChange={e => setVillageSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px 8px 32px',
+                    borderRadius: '8px',
+                    border: '1px solid #d1d5db',
+                    fontSize: '12px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Village Items Grid */}
               <div
                 style={{
-                  maxHeight: '160px',
+                  maxHeight: '190px',
                   overflowY: 'auto',
                   border: '1px solid var(--line)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
+                  borderRadius: '10px',
+                  padding: '8px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                   gap: '6px',
                   background: '#f8fafc',
                   boxSizing: 'border-box'
                 }}
               >
-                {(statusData?.villages || []).map(v => (
-                  <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 400 }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedVillageIds.includes(v.id)}
-                      onChange={() => toggleVillageSelection(v.id)}
-                    />
-                    <span>{v.name} {v.isPaused ? '(Already Paused)' : ''}</span>
-                  </label>
-                ))}
+                {(statusData?.villages || [])
+                  .filter(v => !villageSearch || v.name.toLowerCase().includes(villageSearch.toLowerCase()))
+                  .map(v => {
+                    const isChecked = selectedVillageIds.includes(v.id);
+                    return (
+                      <label
+                        key={v.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '7px 10px',
+                          borderRadius: '8px',
+                          background: isChecked ? '#fef2f2' : '#ffffff',
+                          border: isChecked ? '1.5px solid #ef4444' : '1px solid #e2e8f0',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: isChecked ? 700 : 500,
+                          color: isChecked ? '#b91c1c' : '#334155',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isChecked ? '0 1px 3px rgba(239,68,68,0.1)' : 'none'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleVillageSelection(v.id)}
+                          style={{ accentColor: '#ef4444', cursor: 'pointer', width: '15px', height: '15px' }}
+                        />
+                        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={v.name}>
+                          {v.name}
+                        </span>
+                        {v.isPaused && (
+                          <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: '#fee2e2', color: '#b91c1c', flexShrink: 0 }}>
+                            Paused
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                {(statusData?.villages || []).filter(v => !villageSearch || v.name.toLowerCase().includes(villageSearch.toLowerCase())).length === 0 && (
+                  <div style={{ gridColumn: '1 / -1', padding: '12px', textAlign: 'center', color: 'var(--muted)', fontSize: '12px' }}>
+                    No villages match "{villageSearch}"
+                  </div>
+                )}
               </div>
-            </label>
+            </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>

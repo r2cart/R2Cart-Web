@@ -103,6 +103,7 @@ const specialDayBlank = {
   openingTime: '06:00',
   closingTime: '23:00',
   isClosed: false,
+  status: 'ACTIVE',
   reason: ''
 };
 
@@ -213,18 +214,21 @@ export function AdminScheduling() {
   }, [selectedVillageTarget, previewDate, previewTime]);
 
   const runPreviewSimulation = async () => {
+    if (!previewDate && !previewTime) {
+      notify('Please select a target date (e.g. 2027-01-15) to simulate', 'info');
+      return;
+    }
     setPreviewLoading(true);
     try {
-      const result = await adminService.getOperationsPreview({
-        date: previewDate || undefined,
-        time: previewTime || undefined
-      });
+      const query = {};
+      if (previewDate) query.date = previewDate;
+      if (previewTime) query.time = previewTime;
+      const result = await adminService.getOperationsPreview(query);
       setPreviewResult(result);
       if (selectedVillageTarget) {
         const vResult = await adminService.getVillagePreview({
           villageId: selectedVillageTarget,
-          date: previewDate || undefined,
-          time: previewTime || undefined
+          ...query
         });
         setVillagePreviewData(vResult);
       }
@@ -381,6 +385,17 @@ export function AdminScheduling() {
       setSpecialDayList(curr => curr.filter(s => s.id !== removeSpecialDay.id));
       setRemoveSpecialDay(null);
       notify('Special date schedule removed');
+    } catch (err) {
+      notify(err.message, 'error');
+    }
+  };
+
+  const handleToggleSpecialDayStatus = async sd => {
+    const newStatus = sd.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+    try {
+      await adminService.saveSpecialDay({ ...sd, status: newStatus });
+      setSpecialDayList(curr => curr.map(s => (s.id === sd.id || s.date === sd.date ? { ...s, status: newStatus } : s)));
+      notify(`Special schedule marked ${newStatus}`);
     } catch (err) {
       notify(err.message, 'error');
     }
@@ -998,7 +1013,7 @@ export function AdminScheduling() {
                       <th style={{ minWidth: '130px' }}>Date</th>
                       <th style={{ minWidth: '180px' }}>Occasion / Name</th>
                       <th style={{ minWidth: '160px' }}>Operating Hours</th>
-                      <th style={{ minWidth: '120px' }}>Store Status</th>
+                      <th style={{ minWidth: '110px' }}>Status</th>
                       <th style={{ minWidth: '180px' }}>Reason / Notes</th>
                       <th className="col-actions">Actions</th>
                     </tr>
@@ -1012,11 +1027,19 @@ export function AdminScheduling() {
                           {sd.isClosed ? 'Closed All Day' : `${sd.openingTime} – ${sd.closingTime}`}
                         </td>
                         <td>
-                          <StatusBadge status={sd.isClosed ? 'INACTIVE' : 'ACTIVE'} />
+                          <StatusBadge status={sd.status || 'ACTIVE'} />
                         </td>
                         <td style={{ color: '#64748b', fontSize: '12px' }}>{sd.reason || 'Special operating schedule'}</td>
                         <td className="col-actions">
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              className={`security-icon-btn ${sd.status !== 'INACTIVE' ? 'toggle-deactivate' : 'toggle-activate'}`}
+                              onClick={() => handleToggleSpecialDayStatus(sd)}
+                              title={sd.status !== 'INACTIVE' ? 'Disable Schedule' : 'Enable Schedule'}
+                            >
+                              {sd.status !== 'INACTIVE' ? <X size={14} /> : <Check size={14} />}
+                            </button>
                             <button
                               type="button"
                               className="security-action-btn-main"
@@ -1324,7 +1347,7 @@ export function AdminScheduling() {
               <div style={{ display: 'flex', alignItems: 'center', padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                 <span style={{ fontSize: '12.5px', fontWeight: 600, color: previewResult?.isTargetingFuture ? '#d97706' : '#059669' }}>
                   {previewResult?.isTargetingFuture
-                    ? `⚠️ Previewing future simulated conditions on ${previewResult.targetDate} at ${previewResult.targetTime}`
+                    ? `⚠️ Previewing future simulated conditions on ${previewResult.targetDate || previewDate} at ${previewResult.targetTime || previewTime || 'target time'}`
                     : '🟢 Showing live real-time store conditions (Asia/Kolkata)'}
                 </span>
               </div>
@@ -1601,93 +1624,128 @@ export function AdminScheduling() {
       {/* ========================================================================= */}
 
       {/* EDIT SEASONAL MODAL */}
-      <Modal open={Boolean(editSeasonal)} onClose={() => setEditSeasonal(null)} title={editSeasonal?.id ? 'Edit Seasonal Schedule' : 'Create Seasonal Schedule'}>
+      <Modal
+        open={Boolean(editSeasonal)}
+        onClose={() => setEditSeasonal(null)}
+        title={editSeasonal?.id ? 'Edit Seasonal Schedule' : 'Create Seasonal Schedule'}
+        size="seasonal-modal"
+      >
         {editSeasonal && (
-          <form onSubmit={handleSaveSeasonal} className="modal-body form-grid">
-            <label>
-              <b>Season Name *</b>
+          <form
+            onSubmit={handleSaveSeasonal}
+            className="modal-body seasonal-modal-form"
+            style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '18px 24px 20px' }}
+          >
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                <span>Season Name</span>
+                <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+              </label>
               <input
                 required
                 value={editSeasonal.name}
                 onChange={e => setEditSeasonal({ ...editSeasonal, name: e.target.value })}
                 placeholder="e.g. Winter Schedule"
+                style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
               />
-            </label>
+            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <label>
-                <b>Start Date *</b>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Start Date</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
                 <input
                   required
                   type="date"
                   value={editSeasonal.startDate}
                   onChange={e => setEditSeasonal({ ...editSeasonal, startDate: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
 
-              <label>
-                <b>End Date *</b>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>End Date</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
                 <input
                   required
                   type="date"
                   value={editSeasonal.endDate}
                   onChange={e => setEditSeasonal({ ...editSeasonal, endDate: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <label>
-                <b>Opening Time *</b>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Opening Time</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
                 <input
                   required
                   type="time"
                   value={editSeasonal.openingTime}
                   onChange={e => setEditSeasonal({ ...editSeasonal, openingTime: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
 
-              <label>
-                <b>Closing Time *</b>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Closing Time</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
                 <input
                   required
                   type="time"
                   value={editSeasonal.closingTime}
                   onChange={e => setEditSeasonal({ ...editSeasonal, closingTime: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <label>
-                <b>Priority Level</b>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  Priority Level
+                </label>
                 <input
                   type="number"
                   min="1"
                   max="10"
                   value={editSeasonal.priority}
                   onChange={e => setEditSeasonal({ ...editSeasonal, priority: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 />
-              </label>
+              </div>
 
-              <label>
-                <b>Status</b>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  Status
+                </label>
                 <select
                   value={editSeasonal.status}
                   onChange={e => setEditSeasonal({ ...editSeasonal, status: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                 >
                   <option value="ACTIVE">Active</option>
                   <option value="INACTIVE">Inactive</option>
                 </select>
-              </label>
+              </div>
             </div>
 
-            <div className="row end gap" style={{ marginTop: '12px' }}>
-              <Button type="button" variant="ghost" onClick={() => setEditSeasonal(null)}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '6px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+              <Button type="button" variant="ghost" onClick={() => setEditSeasonal(null)} style={{ padding: '8px 18px', borderRadius: '8px' }}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy}>
-                Save Seasonal Schedule
+              <Button type="submit" disabled={busy} style={{ padding: '8px 22px', borderRadius: '8px', background: '#059669', color: '#fff', fontWeight: 700 }}>
+                {busy ? 'Saving...' : 'Save Seasonal Schedule'}
               </Button>
             </div>
           </form>
@@ -1695,34 +1753,75 @@ export function AdminScheduling() {
       </Modal>
 
       {/* EDIT SPECIAL DAY MODAL */}
-      <Modal open={Boolean(editSpecialDay)} onClose={() => setEditSpecialDay(null)} title={editSpecialDay?.id ? 'Edit Special Date Schedule' : 'Create Special Date Schedule'}>
+      <Modal
+        open={Boolean(editSpecialDay)}
+        onClose={() => setEditSpecialDay(null)}
+        title={editSpecialDay?.id ? 'Edit Special Date Schedule' : 'Create Special Date Schedule'}
+        size="special-date-modal"
+      >
         {editSpecialDay && (
-          <form onSubmit={handleSaveSpecialDay} className="modal-body form-grid">
-            <label>
-              <b>Calendar Date *</b>
-              <input
-                required
-                type="date"
-                value={editSpecialDay.date}
-                onChange={e => setEditSpecialDay({ ...editSpecialDay, date: e.target.value })}
-              />
-            </label>
+          <form
+            onSubmit={handleSaveSpecialDay}
+            className="modal-body special-modal-form"
+            style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '18px 24px 20px' }}
+          >
+            {/* Calendar Date & Occasion Name */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Calendar Date</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
+                <input
+                  required
+                  type="date"
+                  value={editSpecialDay.date}
+                  onChange={e => setEditSpecialDay({ ...editSpecialDay, date: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
+                />
+              </div>
 
-            <label>
-              <b>Occasion / Special Schedule Name *</b>
-              <input
-                required
-                value={editSpecialDay.name}
-                onChange={e => setEditSpecialDay({ ...editSpecialDay, name: e.target.value })}
-                placeholder="e.g. Diwali Extended Hours / Independence Day"
-              />
-            </label>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Occasion / Festival Name</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
+                <input
+                  required
+                  value={editSpecialDay.name}
+                  onChange={e => setEditSpecialDay({ ...editSpecialDay, name: e.target.value })}
+                  placeholder="e.g. Diwali Extended Hours"
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
 
-            <label className="switch-row" style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: '8px' }}>
-              <span>
-                <b>Store Completely Closed on this Date</b>
-                <small style={{ display: 'block', color: 'var(--muted)' }}>No immediate deliveries will take place.</small>
-              </span>
+            {/* Store Completely Closed Toggle Card */}
+            <label
+              className="switch-row"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: editSpecialDay.isClosed ? '#fef2f2' : '#f8fafc',
+                border: editSpecialDay.isClosed ? '1.5px solid #fecaca' : '1px solid #e2e8f0',
+                transition: 'all 0.2s ease',
+                margin: 0,
+                cursor: 'pointer'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: editSpecialDay.isClosed ? '#991b1b' : '#1e293b' }}>
+                  Store Completely Closed on this Date
+                </div>
+                <div style={{ fontSize: '11.5px', color: editSpecialDay.isClosed ? '#b91c1c' : '#64748b', marginTop: '2px' }}>
+                  {editSpecialDay.isClosed
+                    ? '⛔ Store is closed all day. No immediate deliveries will take place.'
+                    : '🟢 Store will be open with customized hours on this date.'}
+                </div>
+              </div>
               <input
                 type="checkbox"
                 checked={editSpecialDay.isClosed}
@@ -1731,45 +1830,76 @@ export function AdminScheduling() {
               <i />
             </label>
 
+            {/* Opening & Closing Times (Only when NOT closed) */}
             {!editSpecialDay.isClosed && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <label>
-                  <b>Opening Time *</b>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                    <span>Opening Time (HH:MM)</span>
+                    <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                  </label>
                   <input
                     required
                     type="time"
                     value={editSpecialDay.openingTime}
                     onChange={e => setEditSpecialDay({ ...editSpecialDay, openingTime: e.target.value })}
+                    style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                   />
-                </label>
+                </div>
 
-                <label>
-                  <b>Closing Time *</b>
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                    <span>Closing Time (HH:MM)</span>
+                    <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                  </label>
                   <input
                     required
                     type="time"
                     value={editSpecialDay.closingTime}
                     onChange={e => setEditSpecialDay({ ...editSpecialDay, closingTime: e.target.value })}
+                    style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13.5px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
                   />
-                </label>
+                </div>
               </div>
             )}
 
-            <label>
-              <b>Reason / Notes</b>
-              <input
-                value={editSpecialDay.reason || ''}
-                onChange={e => setEditSpecialDay({ ...editSpecialDay, reason: e.target.value })}
-                placeholder="e.g. Festival peak demand extension"
-              />
-            </label>
+            {/* Schedule Status & Reason / Notes */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  <span>Schedule Status</span>
+                  <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                </label>
+                <select
+                  value={editSpecialDay.status || 'ACTIVE'}
+                  onChange={e => setEditSpecialDay({ ...editSpecialDay, status: e.target.value })}
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
+                >
+                  <option value="ACTIVE">Active (Rule enabled)</option>
+                  <option value="INACTIVE">Inactive (Paused)</option>
+                </select>
+              </div>
 
-            <div className="row end gap" style={{ marginTop: '12px' }}>
-              <Button type="button" variant="ghost" onClick={() => setEditSpecialDay(null)}>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', height: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                  Reason / Notes
+                </label>
+                <input
+                  value={editSpecialDay.reason || ''}
+                  onChange={e => setEditSpecialDay({ ...editSpecialDay, reason: e.target.value })}
+                  placeholder="e.g. Festival peak demand extension"
+                  style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            {/* Actions / Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '6px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+              <Button type="button" variant="ghost" onClick={() => setEditSpecialDay(null)} style={{ padding: '8px 18px', borderRadius: '8px' }}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy}>
-                Save Special Date Schedule
+              <Button type="submit" disabled={busy} style={{ padding: '8px 22px', borderRadius: '8px', background: '#059669', color: '#fff', fontWeight: 700 }}>
+                {busy ? 'Saving...' : 'Save Special Date Schedule'}
               </Button>
             </div>
           </form>
