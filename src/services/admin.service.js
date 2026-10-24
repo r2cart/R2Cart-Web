@@ -28,6 +28,7 @@ export const adminService = {
   updateProduct: (id, value) => api.patch(`/admin/products/${id}`, value),
   updateProductStatus: (id, status) => api.patch(`/admin/products/${id}/status`, { status }),
   deleteProduct: id => api.delete(`/admin/products/${id}`),
+  deleteProductsByCategory: categoryId => api.delete(`/admin/products/category/${categoryId}`),
   deleteAllProducts: () => api.delete('/admin/products/all'),
   previewProductImport: rows => api.post('/admin/products/import/preview', { rows }),
   importProducts: rows => api.post('/admin/products/import', { rows }),

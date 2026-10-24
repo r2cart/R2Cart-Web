@@ -44,6 +44,7 @@ export function AdminProducts(){
  const [loading,setLoading]=useState(true);
  const [confirm,setConfirm]=useState(null);
  const [deleteAllConfirm,setDeleteAllConfirm]=useState(false);
+  const [deleteCatConfirm,setDeleteCatConfirm]=useState(null);
  const [error,setError]=useState(''),[busy,setBusy]=useState(''),[view,setView]=useState(null);
  const [page,setPage]=useState(1),[pagination,setPagination]=useState({pages:1,total:0}),[totalProducts,setTotalProducts]=useState(0),[refresh,setRefresh]=useState(0);
 
@@ -66,10 +67,41 @@ export function AdminProducts(){
  const toggle=async product=>{setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
  const destroy=async()=>{const product=confirm;if(!product)return;setBusy(product.id);try{await adminService.deleteProduct(product.id);setConfirm(null);if(list.length===1&&page>1)setPage(value=>value-1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" deleted successfully`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
  const destroyAll=async()=>{setBusy('all');try{const res=await adminService.deleteAllProducts();setDeleteAllConfirm(false);setPage(1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(res?.message||'All products deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+  const destroyCategoryProducts=async()=>{
+    const target=deleteCatConfirm;
+    if(!target)return;
+    setBusy('cat-delete');
+    try{
+      const res=await adminService.deleteProductsByCategory(target.slug||target.id);
+      setDeleteCatConfirm(null);
+      setPage(1);
+      setRefresh(v=>v+1);
+      await refreshProducts();
+      window.dispatchEvent(new Event('grocify:products-updated'));
+      notify(res?.message||`All products in "${target.name}" deleted successfully`,'success');
+    }catch(err){
+      notify(err.message||'Failed to delete category products','error');
+    }finally{
+      setBusy('');
+    }
+  };
  const inspect=async id=>{setBusy(id);try{setView(await adminService.product(id))}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
 
  return <>
-  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${totalProducts} sellable packs · ${pagination.total} matching your filters`} action={<div className="bulk-upload-actions">{isSuper && totalProducts>0&&<Button variant="danger" disabled={!!busy} onClick={()=>setDeleteAllConfirm(true)}><Trash2 size={16}/> Delete all</Button>}{canCreate && <Link className="btn btn-outline" to={`${basePath}/products/import`}>Bulk import</Link>}{canCreate && <Link className="btn btn-primary" to={`${basePath}/products/new`}><Plus/> Add product</Link>}</div>}/>
+  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${totalProducts} sellable packs · ${pagination.total} matching your filters`} action={<div className="bulk-upload-actions">{cat !== 'all' && pagination.total > 0 && (
+    <Button
+      variant="danger"
+      disabled={!!busy}
+      onClick={()=>{
+        const cObj = categories.find(c => c.slug === cat) || { slug: cat, name: cat };
+        setDeleteCatConfirm(cObj);
+      }}
+      style={{display:'inline-flex',alignItems:'center',gap:'6px'}}
+      title={`Delete all ${pagination.total} products in selected category`}
+    >
+      <Trash2 size={16}/> Delete All in Category ({pagination.total})
+    </Button>
+  )}{isSuper && totalProducts>0&&<Button variant="danger" disabled={!!busy} onClick={()=>setDeleteAllConfirm(true)}><Trash2 size={16}/> Delete all</Button>}{canCreate && <Link className="btn btn-outline" to={`${basePath}/products/import`}>Bulk import</Link>}{canCreate && <Link className="btn btn-primary" to={`${basePath}/products/new`}><Plus/> Add product</Link>}</div>}/>
   {categoryError&&<div className="admin-card bulk-error">{categoryError}<Button variant="outline" onClick={reloadCategories}>Retry categories</Button></div>}
   <FilterBar q={q} setQ={changeFilter(setQ)}>
    <select value={cat} onChange={event=>changeFilter(setCat)(event.target.value)}><option value="all">All categories</option>{categories.map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select>
@@ -148,6 +180,18 @@ export function AdminProducts(){
     message={`Are you sure you want to permanently delete "${confirm?.name || 'this product'}"? This pack will be immediately removed from the customer catalog and stock inventory.`}
     warningNote="Existing customer order histories and transaction records will safely preserve this item."
     confirmText="Delete Product"
+    cancelText="Cancel"
+  />
+  <ConfirmDialog
+    open={Boolean(deleteCatConfirm)}
+    onClose={() => { if (!busy) setDeleteCatConfirm(null); }}
+    onConfirm={destroyCategoryProducts}
+    title={`Delete All Products in ${deleteCatConfirm?.name || 'Category'}?`}
+    itemType="Category Products"
+    itemName={deleteCatConfirm?.name || ''}
+    message={`Are you sure you want to delete ALL ${pagination.total} products in "${deleteCatConfirm?.name}"? All products in this category will be removed from your customer storefront.`}
+    warningNote="This action cannot be undone. You will be able to add or import fresh real products for this category."
+    confirmText={busy === 'cat-delete' ? 'Deleting category products…' : `Yes, Delete All ${pagination.total} Products`}
     cancelText="Cancel"
   />
   <ConfirmDialog
