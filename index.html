@@ -12,9 +12,51 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml"/>
-  <link rel="apple-touch-icon" href="/favicon.svg?v=5"/>
+  <!-- Favicons for Google Search & Browsers (Googlebot-Image compatible) -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png"/>
+  <link rel="shortcut icon" href="/favicon.svg"/>
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="manifest" href="/manifest.json"/>
+
+  <!-- Google Search Structured Data (Brand Identity & Official Logo) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://r2cart.in/#organization",
+    "name": "R2Cart",
+    "alternateName": ["R2 Cart", "R2Cart Hathua"],
+    "url": "https://r2cart.in/",
+    "logo": "https://r2cart.in/r2cart-logo.png",
+    "image": "https://r2cart.in/r2cart-logo.png",
+    "description": "10-minute grocery and daily essentials delivery service in Hathua.",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Hathua",
+      "addressRegion": "Bihar",
+      "addressCountry": "IN"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": "https://r2cart.in/#website",
+    "name": "R2Cart",
+    "url": "https://r2cart.in/",
+    "publisher": {
+      "@id": "https://r2cart.in/#organization"
+    },
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://r2cart.in/search?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
 
   <!-- OpenGraph / Facebook / WhatsApp Preview -->
   <meta property="og:type" content="website"/>
