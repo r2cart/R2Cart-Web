@@ -278,6 +278,7 @@ export function AdminSettings(){
  const [categoriesList,setCategoriesList]=useState([]);
 
  const [adminEmail,setAdminEmail]=useState('r2cartsupport@gmail.com');
+ const [initialAdminEmail,setInitialAdminEmail]=useState('r2cartsupport@gmail.com');
  const [currentPassword,setCurrentPassword]=useState('');
  const [newPassword,setNewPassword]=useState('');
  const [confirmPassword,setConfirmPassword]=useState('');
@@ -306,7 +307,10 @@ export function AdminSettings(){
    setCategoriesList(cats);
    try{
     const prof=await adminService.getProfile();
-    if(prof?.email)setAdminEmail(prof.email);
+    if(prof?.email){
+     setAdminEmail(prof.email);
+     setInitialAdminEmail(prof.email);
+    }
    }catch{}
   }catch(error){
    notify(error.message,'error');
@@ -317,19 +321,74 @@ export function AdminSettings(){
 
  useEffect(()=>{load()},[]);
 
- const updatePassword=async()=>{
-  if(!currentPassword)return notify('Enter your current password','error');
-  if(newPassword.length<8)return notify('New password must be at least 8 characters with letters & numbers','error');
-  if(newPassword!==confirmPassword)return notify('New passwords do not match','error');
+ const updateCredentials=async()=>{
+  const emailChanged = adminEmail.trim().toLowerCase() !== initialAdminEmail.toLowerCase();
+  const passwordChanging = Boolean(newPassword || confirmPassword);
+
+  if (!emailChanged && !passwordChanging) {
+   return notify('No changes made to email or password.', 'error');
+  }
+
+  if (!currentPassword) {
+   return notify('Please enter your current password to authorize this update.', 'error');
+  }
+
+  if (emailChanged) {
+   const email = adminEmail.trim().toLowerCase();
+   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return notify('Please enter a valid email address.', 'error');
+   }
+  }
+
+  if (passwordChanging) {
+   if (newPassword.length < 8) {
+    return notify('New password must be at least 8 characters long with letters & numbers.', 'error');
+   }
+   if (newPassword !== confirmPassword) {
+    return notify('New password and confirmation password do not match.', 'error');
+   }
+   if (newPassword === currentPassword) {
+    return notify('New password must be different from current password.', 'error');
+   }
+  }
+
   setPwdSaving(true);
   try{
-   await adminService.changePassword(currentPassword,newPassword);
-   notify('Password changed successfully! Keep it safe.');
+   const updatedParts = [];
+
+   // 1. Update email if changed
+   if (emailChanged) {
+    const updated = await adminService.updateProfile({
+     email: adminEmail.trim().toLowerCase(),
+     currentPassword
+    });
+    const savedEmail = updated?.email || adminEmail.trim().toLowerCase();
+    setInitialAdminEmail(savedEmail);
+    setAdminEmail(savedEmail);
+    updatedParts.push('Login Email (ID)');
+
+    try {
+     const storedUser = localStorage.getItem('grocify-admin-user');
+     if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      parsed.email = savedEmail;
+      localStorage.setItem('grocify-admin-user', JSON.stringify(parsed));
+     }
+    } catch {}
+   }
+
+   // 2. Update password if changed
+   if (passwordChanging) {
+    await adminService.changePassword(currentPassword, newPassword);
+    updatedParts.push('Password');
+   }
+
+   notify(`${updatedParts.join(' & ')} updated successfully! Keep your new credentials safe.`);
    setCurrentPassword('');
    setNewPassword('');
    setConfirmPassword('');
   }catch(err){
-   notify(err.message,'error');
+   notify(err.message || 'Failed to update credentials', 'error');
   }finally{
    setPwdSaving(false);
   }
@@ -1715,19 +1774,75 @@ export function AdminSettings(){
    {activeTab==='security'&&(
     <section className="admin-card">
      <SectionTitle icon={KeyRound} title="Admin login & security" text="Manage your administrator password and login credentials."/>
+     
+     <div style={{
+       background: '#f0fdf4',
+       border: '1px solid #bbf7d0',
+       padding: '12px 16px',
+       borderRadius: '8px',
+       marginBottom: '20px',
+       fontSize: '13px',
+       color: '#166534',
+       display: 'flex',
+       alignItems: 'center',
+       gap: '10px'
+     }}>
+       <ShieldCheck size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+       <span>
+         <b>Full Authority Granted:</b> You can update your Login Email (ID) and Password here. To safeguard your account, confirm your current password when making changes.
+       </span>
+     </div>
+
      <div className="form-grid">
       <label>
-       <span>Admin login email</span>
-       <input disabled value={adminEmail||'Loading…'} style={{opacity:0.8,background:'rgba(0,0,0,0.03)'}}/>
-       <small>Primary administrator account email</small>
+       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+        <span>Admin Login Email (ID)</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px', border: '1px solid #a7f3d0' }}>
+          Editable Login ID
+        </span>
+       </div>
+       <input
+        type="email"
+        required
+        value={adminEmail}
+        onChange={e => setAdminEmail(e.target.value)}
+        placeholder="admin@example.com"
+       />
+       <small>Primary administrator account email used to sign in.</small>
       </label>
-      <PasswordField required label="Current password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} placeholder="Enter current password" show={showCurrent} onToggle={()=>setShowCurrent(!showCurrent)}/>
-      <PasswordField required label="New password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Minimum 8 characters" show={showNew} onToggle={()=>setShowNew(!showNew)}/>
-      <PasswordField required label="Confirm new password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Re-enter new password" show={showConfirm} onToggle={()=>setShowConfirm(!showConfirm)}/>
+      <PasswordField
+        required
+        label="Current password"
+        value={currentPassword}
+        onChange={e=>setCurrentPassword(e.target.value)}
+        placeholder="Enter current password to authorize"
+        show={showCurrent}
+        onToggle={()=>setShowCurrent(!showCurrent)}
+      />
+      <PasswordField
+        label="New password (optional)"
+        value={newPassword}
+        onChange={e=>setNewPassword(e.target.value)}
+        placeholder="Minimum 8 characters (letters & numbers)"
+        show={showNew}
+        onToggle={()=>setShowNew(!showNew)}
+      />
+      <PasswordField
+        label="Confirm new password"
+        value={confirmPassword}
+        onChange={e=>setConfirmPassword(e.target.value)}
+        placeholder="Re-enter new password"
+        show={showConfirm}
+        onToggle={()=>setShowConfirm(!showConfirm)}
+      />
      </div>
      <div style={{marginTop:'1.25rem',display:'flex',justifyContent:'flex-end'}}>
-      <Button type="button" disabled={pwdSaving||!currentPassword||!newPassword} onClick={updatePassword}>
-       {pwdSaving?<LoaderCircle className="spin"/>:<ShieldCheck/>} {pwdSaving?'Updating password…':'Update password'}
+      <Button
+        type="button"
+        disabled={pwdSaving || !currentPassword || (!newPassword && adminEmail.trim().toLowerCase() === initialAdminEmail.toLowerCase())}
+        onClick={updateCredentials}
+      >
+       {pwdSaving ? <LoaderCircle className="spin"/> : <ShieldCheck/>} {pwdSaving ? 'Saving credentials…' : 'Save Credentials (ID / Password)'}
       </Button>
      </div>
     </section>

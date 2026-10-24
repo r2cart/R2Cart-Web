@@ -955,16 +955,15 @@ export function AdminSecurity() {
                     Email Address <span className="admin-field-req">*</span>
                   </span>
                   {editStaff?.staffRole === 'SUPER_ADMIN' && (
-                    <span className="admin-field-badge locked">
-                      <Lock size={10} style={{ display: 'inline', marginRight: '3px' }} />
-                      Primary Master ID
+                    <span className="admin-field-badge" style={{ color: '#047857', background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                      <Crown size={10} style={{ display: 'inline', marginRight: '3px' }} />
+                      Editable Master ID
                     </span>
                   )}
                 </div>
                 <input
                   type="email"
                   required
-                  disabled={editStaff?.staffRole === 'SUPER_ADMIN'}
                   value={editStaff?.email || ''}
                   onChange={e => setEditStaff(curr => ({ ...curr, email: e.target.value }))}
                   placeholder="staff@r2cart.com"

@@ -1,5 +1,5 @@
 import {useState, useEffect} from 'react';
-import {useLocation, useNavigate} from 'react-router-dom';
+import {useLocation, useNavigate, Link} from 'react-router-dom';
 import {Eye, EyeOff, ShieldCheck, Store, AlertCircle} from 'lucide-react';
 import {Button} from '../../components/ui';
 import {authService, resolveRoleRedirect} from '../../services/auth.service';
@@ -77,11 +77,30 @@ export function AdminLogin({superAdmin: isSuperAdminProp = false}){
        fontSize: '13px',
        marginBottom: '16px',
        display: 'flex',
-       alignItems: 'center',
-       gap: '10px'
+       flexDirection: 'column',
+       gap: '6px'
      }}>
-       <AlertCircle size={16} style={{ flexShrink: 0, color: '#dc2626' }} />
-       <span>{error}</span>
+       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+         <AlertCircle size={16} style={{ flexShrink: 0, color: '#dc2626' }} />
+         <span style={{ fontWeight: 600 }}>{error}</span>
+       </div>
+       {error.includes('/super-admin/login') && (
+         <Link
+           to="/super-admin/login"
+           style={{
+             display: 'inline-flex',
+             alignItems: 'center',
+             gap: '4px',
+             marginTop: '4px',
+             color: '#047857',
+             fontWeight: 700,
+             textDecoration: 'underline',
+             fontSize: '12px'
+           }}
+         >
+           → Click here to open Super Admin Login Portal
+         </Link>
+       )}
      </div>
    )}
 
@@ -117,6 +136,31 @@ export function AdminLogin({superAdmin: isSuperAdminProp = false}){
    <Button className="wide" type="submit" disabled={loading}>
     {loading ? 'Authenticating…' : (isSuperAdmin ? 'Sign in as Super Admin' : 'Sign in as Store Admin')}
    </Button>
+
+   <div style={{
+     marginTop: '16px',
+     paddingTop: '12px',
+     borderTop: '1px solid #f1f5f9',
+     textAlign: 'center',
+     fontSize: '12.5px',
+     color: '#64748b'
+   }}>
+     {isSuperAdmin ? (
+       <span>
+         Store Admin or Manager?{' '}
+         <Link to="/admin/login" style={{ color: '#047857', fontWeight: 700, textDecoration: 'none' }}>
+           Store Admin Sign In →
+         </Link>
+       </span>
+     ) : (
+       <span>
+         Platform Super Admin?{' '}
+         <Link to="/super-admin/login" style={{ color: '#059669', fontWeight: 700, textDecoration: 'none' }}>
+           Super Admin Sign In →
+         </Link>
+       </span>
+     )}
+   </div>
   </form>
  </div>
 }
