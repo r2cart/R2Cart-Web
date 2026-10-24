@@ -138,6 +138,8 @@ export function normalizeHomeLayout(rawLayout) {
  return {
   sections: allSections,
   bannerPlacements: rawLayout.bannerPlacements && typeof rawLayout.bannerPlacements === 'object' ? rawLayout.bannerPlacements : {},
+  bannerVisuals: rawLayout.bannerVisuals && typeof rawLayout.bannerVisuals === 'object' ? rawLayout.bannerVisuals : {},
+  heroRotation: rawLayout.heroRotation && typeof rawLayout.heroRotation === 'object' ? rawLayout.heroRotation : {},
   categoryOrder: Array.isArray(rawLayout.categoryOrder) ? rawLayout.categoryOrder : [],
   comingSoonCategories: Array.isArray(rawLayout.comingSoonCategories) ? rawLayout.comingSoonCategories : []
  };

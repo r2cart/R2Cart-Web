@@ -18,9 +18,10 @@ import ImageCropperModal from '../../components/admin/ImageCropperModal';
 import UnitSelector from '../../components/admin/UnitSelector';
 import useAdminCategories from '../../hooks/useAdminCategories';
 import { generateProductDescription } from '../../utils/productDescriptionGenerator';
+import { translateToHindi, getCachedHindi } from '../../utils/translator';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
-const emptyProduct={name:'',category:'',unit:'',mrp:'',price:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
+const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
 const payload=product=>({name:product.name,category:product.category,unit:product.unit,mrp:Number(product.mrp),price:Number(product.price),stock:Number(product.stock),...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),description:product.description,image:product.image||'',status:product.status==='Active'?'ACTIVE':product.status,featured:Boolean(product.featured),bestSeller:Boolean(product.bestSeller)});
 
 export function AdminProducts(){
@@ -432,6 +433,25 @@ export function ProductForm(){
  const set=(key,value)=>setForm(current=>({...current,[key]:value}));
  const field=(key,label,type='text')=><label>{label}<input type={type} required min={type==='number'?0:undefined} step={['mrp','price'].includes(key)?'0.01':undefined} value={form[key]??''} onChange={event=>set(key,event.target.value)}/></label>;
 
+ const [translatingName, setTranslatingName] = useState(false);
+ const handleAutoTranslateName = async () => {
+   if (!form.name || !form.name.trim()) {
+     return notify('Please enter the Product Name in English first', 'error');
+   }
+   setTranslatingName(true);
+   try {
+     const translated = await translateToHindi(form.name);
+     if (translated) {
+       set('nameHi', translated);
+       notify('✨ Hindi translation generated!');
+     }
+   } catch {
+     notify('Could not auto-translate name', 'error');
+   } finally {
+     setTranslatingName(false);
+   }
+ };
+
  const chooseImage=(event)=>{
    const file=event.target.files?.[0];
    if(!file)return;
@@ -477,7 +497,7 @@ export function ProductForm(){
    notify('✨ Product description generated successfully');
  };
 
- const save=async event=>{event.preventDefault();setSaving(true);try{if(!form.category)throw new Error('Select a product category');if([form,...packs].some(pack=>Number(pack.price)>Number(pack.mrp)))throw new Error('Selling price cannot exceed MRP for any pack');const units=[form,...packs].map(pack=>pack.unit.trim().toLowerCase().replace(/\s+/g,''));if(new Set(units).size!==units.length)throw new Error('Each pack size must be different');let next=form;if(imageFile){const uploaded=await adminService.uploadProductImage(imageFile,form.category);next={...form,image:uploaded.url}}await(id?adminService.updateProduct(id,payload(next)):adminService.createProduct({...payload(next),packs}));await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(id?'Product updated':'Product and all pack sizes published');nav('/admin/products')}catch(error){notify(error.message,'error')}finally{setSaving(false)}};
+ const save=async event=>{event.preventDefault();setSaving(true);try{if(!form.category)throw new Error('Select a product category');if([form,...packs].some(pack=>Number(pack.price)>Number(pack.mrp)))throw new Error('Selling price cannot exceed MRP for any pack');const units=[form,...packs].map(pack=>pack.unit.trim().toLowerCase().replace(/\s+/g,''));if(new Set(units).size!==units.length)throw new Error('Each pack size must be different');let next=form;if(imageFile){const uploaded=await adminService.uploadProductImage(imageFile,form.category);next={...form,image:uploaded.url}}if(next.name&&next.nameHi){try{const raw=localStorage.getItem('r2cart_auto_translations');const cache=raw?JSON.parse(raw):{};cache[next.name.trim()]=next.nameHi.trim();localStorage.setItem('r2cart_auto_translations',JSON.stringify(cache));window.dispatchEvent(new CustomEvent('r2cart:translation-updated',{detail:{text:next.name.trim(),hi:next.nameHi.trim()}}))}catch{}}await(id?adminService.updateProduct(id,payload(next)):adminService.createProduct({...payload(next),packs}));await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(id?'Product updated':'Product and all pack sizes published');nav('/admin/products')}catch(error){notify(error.message,'error')}finally{setSaving(false)}};
  if(loading)return <div className="admin-card modal-body">Loading product…</div>;
  if(loadError)return <div className="admin-card bulk-error"><p role="alert">{loadError}</p><Button variant="outline" onClick={()=>setReload(value=>value+1)}>Try again</Button><Link className="back-link" to="/admin/products">Back to products</Link></div>;
  return <>
@@ -524,6 +544,39 @@ export function ProductForm(){
     <h3>Basic information</h3>
     <div className="form-grid">
       {field('name','Product name')}
+      <label>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Hindi Name (हिंदी नाम)</span>
+          <button
+            type="button"
+            onClick={handleAutoTranslateName}
+            disabled={translatingName || !form.name}
+            style={{
+              background: '#ecfdf5',
+              border: '1.5px solid #a7f3d0',
+              color: '#047857',
+              borderRadius: '6px',
+              padding: '2px 8px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: form.name ? 'pointer' : 'not-allowed',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            title="Auto-translate English name to Hindi"
+          >
+            <Sparkles size={11} color="#059669"/>
+            <span>{translatingName ? 'अनुवाद हो रहा है…' : '⚡ Auto Translate'}</span>
+          </button>
+        </div>
+        <input
+          type="text"
+          value={form.nameHi || ''}
+          onChange={e => set('nameHi', e.target.value)}
+          placeholder="उदा. अमूल ताज़ा दूध / ताज़ा सेब"
+        />
+      </label>
       <label>Category<select required value={form.category} onChange={event=>set('category',event.target.value)}><option value="">Choose category</option>{categories.filter(category=>category.status!=='INACTIVE').map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>
       <label>SKU · Automatic<input readOnly value={form.sku||''} placeholder="Generated automatically when you save"/><small className="muted">{id?'This inventory code stays unchanged.':'A unique inventory code will be created by the server.'}</small></label>
       <div className="full" style={{ gridColumn: '1 / -1' }}>

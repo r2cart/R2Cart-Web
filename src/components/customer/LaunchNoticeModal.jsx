@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Sparkles, X, CheckCircle, Globe } from 'lucide-react';
-import { useLanguage } from '../../context/LanguageContext';
+import { Calendar, Clock, MapPin, Sparkles, X, CheckCircle, ArrowRight, AlertTriangle } from 'lucide-react';
 import { BRAND } from '../../config/brand';
 
 export default function LaunchNoticeModal() {
   const [open, setOpen] = useState(false);
-  const { lang, toggleLang } = useLanguage();
+  const [timeLeft, setTimeLeft] = useState(5);
 
   useEffect(() => {
     try {
-      const dismissed = localStorage.getItem('r2cart_launch_notice_dismissed_v1');
+      const dismissed = localStorage.getItem('r2cart_launch_notice_dismissed_v4');
       if (!dismissed) {
-        // Show after a subtle 1-second delay so the page loads smoothly first
-        const timer = setTimeout(() => setOpen(true), 900);
+        const timer = setTimeout(() => setOpen(true), 500);
         return () => clearTimeout(timer);
       }
     } catch {
@@ -20,10 +18,26 @@ export default function LaunchNoticeModal() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    setTimeLeft(5);
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [open]);
+
   const handleDismiss = () => {
+    if (timeLeft > 0) return;
     setOpen(false);
     try {
-      localStorage.setItem('r2cart_launch_notice_dismissed_v1', 'true');
+      localStorage.setItem('r2cart_launch_notice_dismissed_v4', 'true');
     } catch {}
   };
 
@@ -36,12 +50,12 @@ export default function LaunchNoticeModal() {
         position: 'fixed',
         inset: 0,
         zIndex: 999999,
-        background: 'rgba(15, 23, 42, 0.72)',
-        backdropFilter: 'blur(8px)',
+        background: 'rgba(5, 20, 14, 0.85)',
+        backdropFilter: 'blur(12px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px',
+        padding: '12px',
         animation: 'fadeIn 0.25s ease-out'
       }}
       onClick={handleDismiss}
@@ -55,88 +69,88 @@ export default function LaunchNoticeModal() {
         style={{
           background: '#ffffff',
           borderRadius: '24px',
-          maxWidth: '540px',
+          maxWidth: '560px',
           width: '100%',
-          overflow: 'hidden',
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.2)',
+          maxHeight: '94vh',
+          overflowY: 'auto',
+          boxShadow: '0 30px 80px -15px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.25)',
           position: 'relative',
-          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          scrollbarWidth: 'thin'
         }}
       >
-        {/* Top Header Banner */}
+        {/* Luxury Emerald Hero Banner */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #064e3b 0%, #047857 50%, #10b981 100%)',
-            padding: '24px 24px 20px',
+            background: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #059669 100%)',
+            padding: '24px 22px 20px',
             color: '#ffffff',
             position: 'relative',
             overflow: 'hidden'
           }}
         >
-          {/* Decorative glow circles */}
+          {/* Subtle decorative circles */}
           <div
             style={{
               position: 'absolute',
-              top: '-30px',
-              right: '-30px',
-              width: '120px',
-              height: '120px',
+              top: '-40px',
+              right: '-40px',
+              width: '140px',
+              height: '140px',
               borderRadius: '50%',
-              background: 'rgba(255, 255, 255, 0.12)',
+              background: 'radial-gradient(circle, rgba(16, 185, 129, 0.35) 0%, transparent 70%)',
               pointerEvents: 'none'
             }}
           />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          {/* Top Bar: Kicker + Skip Countdown / Close */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'rgba(255, 255, 255, 0.2)',
+                background: 'rgba(255, 255, 255, 0.16)',
                 backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
                 padding: '4px 12px',
                 borderRadius: '999px',
-                fontSize: '12px',
-                fontWeight: 700,
-                letterSpacing: '0.4px',
-                textTransform: 'uppercase'
+                fontSize: '11px',
+                fontWeight: 800,
+                letterSpacing: '0.6px',
+                textTransform: 'uppercase',
+                color: '#fef08a'
               }}
             >
-              <Sparkles size={14} color="#fef08a" />
-              Grand Launch Notice · महत्वपूर्ण सूचना
+              <Sparkles size={13} color="#fef08a" />
+              OFFICIAL NOTICE · R2CART HATHUA
             </span>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={toggleLang}
-                title="Switch Language / भाषा बदलें"
+            {/* Timer Badge / Close Button */}
+            {timeLeft > 0 ? (
+              <span
                 style={{
-                  background: 'rgba(255, 255, 255, 0.22)',
-                  border: '1px solid rgba(255, 255, 255, 0.35)',
-                  color: '#ffffff',
-                  borderRadius: '20px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  transition: 'background 0.2s'
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#fef08a',
+                  padding: '3px 10px',
+                  borderRadius: '16px',
+                  fontSize: '11.5px',
+                  fontWeight: 800
                 }}
               >
-                <Globe size={12} />
-                {lang === 'hi' ? 'EN' : 'हिंदी'}
-              </button>
-
+                <span>Skip in {timeLeft}s</span>
+              </span>
+            ) : (
               <button
                 type="button"
                 onClick={handleDismiss}
-                aria-label="Close popup"
+                aria-label="Close notice"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(255, 255, 255, 0.25)',
                   border: 'none',
                   color: '#ffffff',
                   width: '32px',
@@ -149,184 +163,208 @@ export default function LaunchNoticeModal() {
                   transition: 'background 0.2s'
                 }}
               >
-                <X size={18} />
+                <X size={17} />
               </button>
-            </div>
+            )}
           </div>
 
           <h2
             id="launch-notice-title"
             style={{
-              margin: '0 0 6px',
+              margin: '0 0 4px',
               fontSize: '22px',
               fontWeight: 800,
-              lineHeight: 1.25,
+              lineHeight: 1.3,
               letterSpacing: '-0.3px',
-              color: '#ffffff'
+              color: '#ffffff',
+              fontFamily: "'Manrope', 'Noto Sans Devanagari', sans-serif"
             }}
           >
-            🚀 10 नवम्बर 2026 से डिलीवरी शुरू!
+            🚀 10 नवम्बर से 10-मिनट डिलीवरी शुरू!
           </h2>
-          <p style={{ margin: 0, fontSize: '13px', color: '#d1fae5', fontWeight: 500 }}>
-            Official Delivery Operations Launch: <b>10th November 2026</b>
+          <p style={{ margin: 0, fontSize: '13px', color: '#a7f3d0', fontWeight: 600, lineHeight: 1.4 }}>
+            10-Minute Grocery Delivery Starts 10th Nov in Hathua
           </p>
         </div>
 
         {/* Modal Body */}
-        <div style={{ padding: '20px 24px 24px' }}>
-          {/* Key Date & Location Highlights */}
+        <div style={{ padding: '18px 20px 22px' }}>
+          {/* Key Timeline Badges (1 Nov & 10 Nov & Hathua) */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '10px',
-              marginBottom: '18px'
-            }}
-          >
-            <div
-              style={{
-                background: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-                borderRadius: '12px',
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}
-            >
-              <div
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
-                  background: '#dcfce7',
-                  color: '#15803d',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}
-              >
-                <Calendar size={18} />
-              </div>
-              <div>
-                <small style={{ color: '#166534', fontSize: '11px', display: 'block', fontWeight: 600 }}>लॉन्च तिथि / Date</small>
-                <strong style={{ color: '#14532d', fontSize: '13px', fontWeight: 800 }}>10 Nov 2026</strong>
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '12px',
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}
-            >
-              <div
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
-                  background: '#e2e8f0',
-                  color: '#334155',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}
-              >
-                <MapPin size={18} />
-              </div>
-              <div>
-                <small style={{ color: '#475569', fontSize: '11px', display: 'block', fontWeight: 600 }}>डिलीवरी क्षेत्र / Area</small>
-                <strong style={{ color: '#0f172a', fontSize: '13px', fontWeight: 800 }}>हथुआ व गोपालगंज</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Bilingual Explanatory Content */}
-          <div
-            style={{
-              background: '#fefce8',
-              border: '1px solid #fef08a',
-              borderRadius: '14px',
-              padding: '14px 16px',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '8px',
               marginBottom: '16px'
             }}
           >
-            <p
+            {/* 1 Nov: Real Prices Live */}
+            <div
               style={{
-                margin: '0 0 10px',
-                fontSize: '13.5px',
-                lineHeight: 1.55,
-                color: '#854d0e',
-                fontWeight: 600
-              }}
-            >
-              🇮🇳 <b>नमस्ते ग्राहक बंधु!</b>
-              <br />
-              <span style={{ color: '#713f12', fontWeight: 500 }}>
-                {BRAND.name} पर आपका स्वागत है। हमारी 10-मिनट सुपरफास्ट डिलीवरी सेवा <b>10 नवम्बर 2026</b> से शुरू होगी।
-                अभी आप हमारे सभी प्रोडक्ट्स, फल-सब्जियां, किराना और विशेष डिस्काउंट कीमतें देख सकते हैं। कृपया डिलीवरी शुरू होने तक भ्रमित (confuse) न हों — 10 नवम्बर से सभी ऑर्डर्स आपके घर तक पहुंचाए जाएंगे।
-              </span>
-            </p>
-
-            <div style={{ height: '1px', background: '#fef08a', margin: '10px 0' }} />
-
-            <p
-              style={{
-                margin: 0,
-                fontSize: '12.5px',
-                lineHeight: 1.5,
-                color: '#78350f'
-              }}
-            >
-              🇬🇧 <b>Notice for Visitors:</b>
-              <br />
-              <span>
-                Grocery delivery operations will officially begin on <b>10th November 2026</b>. You can explore all our fresh categories and prices right now so you can shop effortlessly once orders go live!
-              </span>
-            </p>
-          </div>
-
-          {/* Key Checklist */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#334155' }}>
-              <CheckCircle size={16} color="#10b981" />
-              <span><b>20+ श्रेणियां उपलब्ध हैं:</b> किराना, फल, सब्जियां, स्नैक्स, डेयरी और ज्वेलरी।</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#334155' }}>
-              <Clock size={16} color="#10b981" />
-              <span><b>10 नवम्बर से सुपरफास्ट डिलीवरी:</b> ऑर्डर करने के 10-15 मिनट में आपके द्वार।</span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              type="button"
-              onClick={handleDismiss}
-              style={{
-                flex: 1,
-                padding: '13px 20px',
-                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                color: '#ffffff',
-                border: 'none',
+                background: '#fffbeb',
+                border: '1.5px solid #fef3c7',
                 borderRadius: '12px',
-                fontSize: '14px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                padding: '10px 8px',
+                textAlign: 'center'
               }}
             >
-              समझ गए · स्टोर व प्रोडक्ट्स देखें / Browse Products
-            </button>
+              <div style={{ color: '#d97706', fontSize: '11px', fontWeight: 800, marginBottom: '2px' }}>
+                📅 1 NOV 2026
+              </div>
+              <strong style={{ color: '#92400e', fontSize: '12px', display: 'block', fontWeight: 800, lineHeight: 1.25 }}>
+                असली कीमतें लाइव
+              </strong>
+              <small style={{ color: '#b45309', fontSize: '10px', display: 'block', marginTop: '2px' }}>
+                Real Prices Live
+              </small>
+            </div>
+
+            {/* 10 Nov: 10-Min Delivery */}
+            <div
+              style={{
+                background: '#f0fdf4',
+                border: '1.5px solid #bbf7d0',
+                borderRadius: '12px',
+                padding: '10px 8px',
+                textAlign: 'center'
+              }}
+            >
+              <div style={{ color: '#059669', fontSize: '11px', fontWeight: 800, marginBottom: '2px' }}>
+                🚀 10 NOV 2026
+              </div>
+              <strong style={{ color: '#14532d', fontSize: '12px', display: 'block', fontWeight: 800, lineHeight: 1.25 }}>
+                10-मिनट डिलीवरी
+              </strong>
+              <small style={{ color: '#15803d', fontSize: '10px', display: 'block', marginTop: '2px' }}>
+                Delivery Starts
+              </small>
+            </div>
+
+            {/* Area: Hathua Only */}
+            <div
+              style={{
+                background: '#f8fafc',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '10px 8px',
+                textAlign: 'center'
+              }}
+            >
+              <div style={{ color: '#475569', fontSize: '11px', fontWeight: 800, marginBottom: '2px' }}>
+                📍 केवल हथुआ
+              </div>
+              <strong style={{ color: '#0f172a', fontSize: '12px', display: 'block', fontWeight: 800, lineHeight: 1.25 }}>
+                Hathua Zone
+              </strong>
+              <small style={{ color: '#64748b', fontSize: '10px', display: 'block', marginTop: '2px' }}>
+                Exclusive Launch
+              </small>
+            </div>
           </div>
+
+          {/* Bilingual Dual Notice Callout Card */}
+          <div
+            style={{
+              background: '#fffdf5',
+              border: '1.5px solid #fde68a',
+              borderRadius: '16px',
+              padding: '16px 18px',
+              marginBottom: '16px',
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
+            }}
+          >
+            {/* Hindi Notice */}
+            <div style={{ marginBottom: '14px', borderBottom: '1px dashed #fcd34d', paddingBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '15px' }}>🇮🇳</span>
+                <strong style={{ fontSize: '13px', color: '#92400e', fontWeight: 800 }}>
+                  ज़रूरी सूचना (हिंदी में):
+                </strong>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '12.5px',
+                  lineHeight: 1.6,
+                  color: '#78350f',
+                  fontFamily: "'Noto Sans Devanagari', sans-serif"
+                }}
+              >
+                <b>नमस्ते ग्राहक बंधु!</b> {BRAND.name} पर आपका स्वागत है। अभी वेबसाइट पर दिख रहे सभी प्रोडक्ट्स और कीमतें केवल <b>टेस्टिंग और डेमो</b> के लिए हैं — <b>ये असली कीमतें नहीं हैं</b>।
+                <br />
+                👉 <b>1 नवम्बर 2026</b> से स्टोर के सभी प्रोडक्ट्स की वास्तविक व सही कीमतें लाइव दिखेंगी।
+                <br />
+                👉 <b>10 नवम्बर 2026</b> से हथुआ में 10-मिनट सुपरफास्ट डोरस्टेप डिलीवरी सेवा शुरू होगी।
+              </p>
+            </div>
+
+            {/* English Notice */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '15px' }}>🇬🇧</span>
+                <strong style={{ fontSize: '12.5px', color: '#92400e', fontWeight: 800 }}>
+                  Important Notice (in English):
+                </strong>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.55, color: '#78350f' }}>
+                <b>Welcome to {BRAND.name}!</b> All products and prices currently displayed on the website are for <b>demonstration and testing purposes only</b> — these are not real final prices.
+                <br />
+                👉 <b>1st November 2026:</b> Real, accurate store prices & fresh inventory will be live.
+                <br />
+                👉 <b>10th November 2026:</b> Official 10-minute doorstep grocery delivery starts across Hathua.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Points */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
+              <CheckCircle size={15} color="#10b981" style={{ flexShrink: 0 }} />
+              <span>
+                <b>20+ श्रेणियां / Categories:</b> सब्जियां, फल, किराना, स्नैक्स, डेयरी, आटा, दाल व तेल।
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
+              <Clock size={15} color="#10b981" style={{ flexShrink: 0 }} />
+              <span>
+                <b>10-मिनट डिलीवरी / Fast Delivery:</b> 10 नवम्बर से सीधे आपके घर तक 10-15 मिनट में।
+              </span>
+            </div>
+          </div>
+
+          {/* Action / Skip Button with 5s countdown */}
+          <button
+            type="button"
+            disabled={timeLeft > 0}
+            onClick={handleDismiss}
+            style={{
+              width: '100%',
+              padding: '13px 20px',
+              background: timeLeft > 0 ? '#94a3b8' : 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '14px',
+              fontSize: '13.5px',
+              fontWeight: 800,
+              cursor: timeLeft > 0 ? 'not-allowed' : 'pointer',
+              boxShadow: timeLeft > 0 ? 'none' : '0 6px 18px rgba(16, 185, 129, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.25s ease',
+              fontFamily: "'Manrope', 'Noto Sans Devanagari', sans-serif"
+            }}
+          >
+            {timeLeft > 0 ? (
+              <span>⏳ कृपया सूचना पढ़ें · {timeLeft}s में स्किप करें (Skip in {timeLeft}s)</span>
+            ) : (
+              <>
+                <span>समझ गए · स्टोर देखें (Got It · Enter Store)</span>
+                <ArrowRight size={16} strokeWidth={2.4} />
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

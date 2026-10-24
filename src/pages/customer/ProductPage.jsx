@@ -16,6 +16,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Badge, Button, EmptyState, ProductRail, QuantitySelector, money } from '../../components/ui';
 import ProductRating from '../../components/customer/ProductRating';
 import { packOptions } from '../../utils/products';
@@ -30,6 +31,7 @@ export function ProductPage() {
     deliveryConfig,
     activeDeliveryRules
   } = useApp();
+  const { t, tCat, tProd, tEta } = useLanguage();
 
   const product = products.find((item) => item.id === id || item.slug === id);
   const [image, setImage] = useState(product?.image || '');
@@ -292,11 +294,11 @@ export function ProductPage() {
             to={`/category/${product.category}`}
             style={{ color: '#475569', textDecoration: 'none', fontWeight: 600 }}
           >
-            {categoryObj?.name || 'Category'}
+            {tCat(categoryObj?.name) || 'Category'}
           </Link>
           <ChevronRight size={13} color="#94a3b8" />
           <span style={{ color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>
-            {product.name}
+            {tProd(product.name)}
           </span>
         </div>
 
@@ -321,7 +323,7 @@ export function ProductPage() {
               </button>
 
               <div className="main-image-display">
-                <img src={image} alt={product.name} />
+                <img src={image} alt={tProd(product.name)} />
               </div>
 
               {/* Thumbnails Row (if multiple images) */}
@@ -378,7 +380,7 @@ export function ProductPage() {
               }}
             >
               <Zap size={13} color="#059669" />
-              <span>Instant Delivery in {eta}</span>
+              <span>Instant Delivery in {tEta(eta)}</span>
             </div>
 
             {/* Product Title */}
@@ -391,7 +393,7 @@ export function ProductPage() {
                 lineHeight: 1.3
               }}
             >
-              {product.name}
+              {tProd(product.name)}
             </h1>
 
             {/* Unit & Ratings Row */}

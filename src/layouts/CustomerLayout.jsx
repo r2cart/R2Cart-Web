@@ -1,5 +1,5 @@
 import {useEffect, useState, useMemo, useCallback} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,UserRound,X,Zap,AlertCircle} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,UserRound,X,Zap,AlertCircle} from 'lucide-react';
 import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,money} from '../components/ui';
 import {useLanguage} from '../context/LanguageContext';
 import LaunchNoticeModal from '../components/customer/LaunchNoticeModal';
@@ -12,8 +12,246 @@ import {addressPayload,addressView} from '../utils/address';
 import {ItemPrice,PriceSummary} from '../components/customer/PriceSummary';
 export function Logo(){return <Link className="logo" to="/" aria-label={`${BRAND.name} home`}><span className="brand-wordmark"><img src={brandWordmark} alt={BRAND.name}/></span></Link>}
 function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();const [q,setQ]=useState('');const [open,setOpen]=useState(false);const [history,setHistory]=useState([]);const load=async()=>{setOpen(true);try{setHistory(user?await customerService.searchHistory():JSON.parse(localStorage.getItem('grocify-search-history')||'[]'))}catch(error){notify(error.message,'error')}};const go=value=>{const query=value.trim();if(!query)return;setOpen(false);nav(`/search?q=${encodeURIComponent(query)}`)};const remove=async value=>{try{const next=history.filter(item=>item!==value);if(user)await customerService.removeSearch(value);else localStorage.setItem('grocify-search-history',JSON.stringify(next));setHistory(next);notify('Search removed')}catch(error){notify(error.message,'error')}};const clear=async()=>{try{if(user)await customerService.clearSearchHistory();else localStorage.removeItem('grocify-search-history');setHistory([]);notify('Search history cleared')}catch(error){notify(error.message,'error')}};return <div className="header-search"><SearchInput value={q} onChange={setQ} onSubmit={()=>go(q)} onFocus={load} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&<div className="header-search-history" onMouseDown={event=>event.preventDefault()}><div className="row between"><b>Recent searches</b>{history.length>0&&<button type="button" onClick={clear}>Clear all</button>}</div>{history.length?<div>{history.map(item=><span className="header-history-row" key={item}><button type="button" onClick={()=>go(item)}><History/><span>{item}</span></button><button type="button" className="remove-history" onClick={()=>remove(item)} aria-label={`Remove ${item}`}>×</button></span>)}</div>:<p>No recent searches yet.</p>}</div>}</div>}
-export function Header(){const nav=useNavigate();const routeLocation=useLocation();const isSearchPage=routeLocation.pathname==='/search';const {cartItems,setLocationOpen,setCartOpen,user,location,activeDeliveryRules,deliveryConfig}=useApp();const {lang,toggleLang,t}=useLanguage();const count=cartItems.reduce((s,x)=>s+x.qty,0),rules=activeDeliveryRules||deliveryConfig;const rawEta=rules?.estimatedDelivery;const cleanEta=rawEta&&!rawEta.toLowerCase().includes('unavailable')?rawEta:'15–20 mins';const isPaused=Boolean(rules?.isPaused);return <><header className={`site-header ${isSearchPage?'search-route-header':''}`}><div className="header-main container"><Logo/><button className="location-btn" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined}><span>{isPaused?<AlertCircle size={19} color="#ef4444"/>:<MapPin size={19}/>}</span><span>{isPaused?<b style={{color:'#ef4444'}}>{t('deliveryPaused')}</b>:<b>{t('deliveryIn')} {cleanEta}</b>}<small title={location} style={isPaused?{color:'#991b1b'}:undefined}>{location} {isPaused?<span style={{fontWeight:800}}>(Paused)</span>:null} <ChevronDown size={13}/></small></span></button>{!isSearchPage?<HeaderSearch user={user}/>:<div style={{flex:1,minWidth:'160px'}}/>}<button type="button" className="lang-toggle-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Toggle language"><Globe size={16} color="#059669"/><span>{lang==='hi'?'English':'हिंदी'}</span></button><Link className="account-btn" to={user?'/account':'/login'} title={user?.name||'Account'}><UserRound/><span><small>{user?t('welcomeBack'):t('helloSignIn')}</small><b title={user?.name}>{user?.name||t('account')}</b></span></Link><button className="cart-btn" onClick={()=>setCartOpen(true)}><ShoppingCart size={19} strokeWidth={2.2}/><span>{count?<><b>{count} {t('items')}</b><small>{money(cartItems.reduce((s,x)=>s+x.price*x.qty,0))}</small></>:<b>{t('myCart')}</b>}</span>{count>0&&<i>{count}</i>}</button></div><div className="mobile-head container"><div className="mobile-top-bar"><Logo/><div className="mobile-head-actions"><button type="button" className="mobile-lang-btn" onClick={toggleLang} title={lang==='hi'?'English':'हिंदी'}><Globe size={13} color="#059669"/><span>{lang==='hi'?'EN':'हिं'}</span></button><Link className="mobile-user-btn" to={user?'/account':'/login'} aria-label={user?'My account':'Sign in'} title={user?.name||'Account'}><UserRound size={16}/><span title={user?.name}>{user?(user.name||t('account')):t('signIn')}</span></Link><button className="mobile-cart" onClick={()=>setCartOpen(true)} aria-label="Shopping cart"><ShoppingCart size={19} strokeWidth={2.2}/>{count>0&&<i>{count}</i>}</button></div></div><div className="mobile-sub-row"><button className="mobile-location" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined}>{isPaused?<AlertCircle size={15} color="#ef4444"/>:<Clock3 size={15}/>}<span>{isPaused?<b style={{color:'#ef4444'}}>{t('deliveryPaused')}</b>:<b>{t('deliveryIn')} {cleanEta}</b>}<small title={location} style={isPaused?{color:'#991b1b'}:undefined}>{location}</small></span><ChevronDown size={14}/></button></div>{!isSearchPage&&<div onClick={()=>nav('/search')}><SearchInput value="" placeholder={t('searchPlaceholder')}/></div>}</div></header></>}
-export function Footer(){const {storeSettings}=useApp();const legalEntity=storeSettings?.policies?.legalName||BRAND.company;const legalAddress=storeSettings?.address||storeSettings?.policies?.officeAddress||'Bailey Road, Patna, Bihar — 800001';return <footer><div className="container footer-grid"><div><Logo/><p>{BRAND.tagline}</p><p style={{fontSize:'12px',color:'var(--muted)',marginTop:'6px'}}>{legalEntity} · {legalAddress}</p><div className="social"><button aria-label="Social gallery"><Camera/></button><button aria-label={`Share ${BRAND.name}`}><Share2/></button></div></div><div><h4>{BRAND.name}</h4><Link to="/about">About Us</Link><Link to="/contact">Contact Us</Link><Link to="/support">Help & Support</Link><Link to="/grievance">Grievance Redressal</Link></div><div><h4>Policies & Legal</h4><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms & Conditions</Link><Link to="/refund-policy">Return & Refund Policy</Link><Link to="/cancellation-policy">Cancellation Policy</Link><Link to="/cookie-policy">Cookie Policy</Link></div><div><h4>Delivery & Shopping</h4><Link to="/delivery-info">Shipping & Delivery</Link><Link to="/orders">Track Your Order</Link><Link to="/coupons">Offers & Coupons</Link><Link to="/search">Browse Catalogue</Link></div></div><div className="footer-bottom"><div className="container">© 2026 {legalEntity} · {BRAND.tagline} · All rights reserved.</div></div></footer>}
+export function Header(){const nav=useNavigate();const routeLocation=useLocation();const isSearchPage=routeLocation.pathname==='/search';const {cartItems,setLocationOpen,setCartOpen,user,location,activeDeliveryRules,deliveryConfig}=useApp();const {lang,toggleLang,t,tEta}=useLanguage();const count=cartItems.reduce((s,x)=>s+x.qty,0),rules=activeDeliveryRules||deliveryConfig;const rawEta=rules?.estimatedDelivery;const cleanEta=rawEta&&!rawEta.toLowerCase().includes('unavailable')?rawEta:'15–20 mins';const formattedEta=tEta(cleanEta);const isPaused=Boolean(rules?.isPaused);return <><header className={`site-header ${isSearchPage?'search-route-header':''}`}><div className="header-main container"><Logo/><button className="location-btn" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined}><span>{isPaused?<AlertCircle size={19} color="#ef4444"/>:<MapPin size={19}/>}</span><span>{isPaused?<b style={{color:'#ef4444'}}>{t('deliveryPaused')}</b>:<b>{t('deliveryIn')} {formattedEta}</b>}<small title={location} style={isPaused?{color:'#991b1b'}:undefined}>{location} {isPaused?<span style={{fontWeight:800}}>(Paused)</span>:null} <ChevronDown size={13}/></small></span></button>{!isSearchPage?<HeaderSearch user={user}/>:<div style={{flex:1,minWidth:'160px'}}/>}<div className="header-right-actions"><button type="button" className="lang-toggle-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Toggle language"><Globe size={15} color="#059669"/><span>{lang==='hi'?'English':'हिंदी'}</span></button><Link className="account-btn" to={user?'/account':'/login'} title={user?.name||'Account'}><UserRound/><span><small>{user?t('welcomeBack'):t('helloSignIn')}</small><b title={user?.name}>{user?.name||t('account')}</b></span></Link><button className="cart-btn" onClick={()=>setCartOpen(true)}><ShoppingCart size={19} strokeWidth={2.2}/><span>{count?<><b>{count} {t('items')}</b><small>{money(cartItems.reduce((s,x)=>s+x.price*x.qty,0))}</small></>:<b>{t('myCart')}</b>}</span>{count>0&&<i>{count}</i>}</button></div></div><div className="mobile-head container"><div className="mobile-top-bar"><Logo/><div className="mobile-head-actions"><button type="button" className="mobile-lang-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Switch language"><Globe size={13} color="#059669"/><span>{lang==='hi'?'EN':'हिन्दी'}</span></button><Link className="mobile-user-btn" to={user?'/account':'/login'} aria-label={user?'My account':'Sign in'} title={user?.name||'Account'}><UserRound size={16}/><span title={user?.name}>{user?(user.name||t('account')):t('signIn')}</span></Link><button className="mobile-cart" onClick={()=>setCartOpen(true)} aria-label="Shopping cart"><ShoppingCart size={19} strokeWidth={2.2}/>{count>0&&<i>{count}</i>}</button></div></div><div className="mobile-sub-row"><button className="mobile-location" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined}>{isPaused?<AlertCircle size={15} color="#ef4444"/>:<Clock3 size={15}/>}<span>{isPaused?<b style={{color:'#ef4444'}}>{t('deliveryPaused')}</b>:<b>{t('deliveryIn')} {formattedEta}</b>}<small title={location} style={isPaused?{color:'#991b1b'}:undefined}>{location}</small></span><ChevronDown size={14}/></button></div>{!isSearchPage&&<div onClick={()=>nav('/search')}><SearchInput value="" placeholder={t('searchPlaceholder')}/></div>}</div></header></>}
+export function ShareModal({ open, onClose }) {
+  const { notify } = useApp();
+  const [copied, setCopied] = useState(false);
+  const shareUrl = 'https://r2cart.in';
+  const shareText = 'Order fresh groceries, fruits, vegetables, dairy & daily essentials delivered in 10-15 minutes in Hathua on R2Cart!';
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n👉 ${shareUrl}`);
+      setCopied(true);
+      notify('Link copied to clipboard! Share it with friends & family.');
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      notify('Could not copy link', 'error');
+    }
+  };
+
+  const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(`${shareText}\n👉 ${shareUrl}`)}`;
+  const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+
+  return (
+    <Modal open={open} onClose={onClose} title="Share R2Cart · वेबसाइट शेयर करें" size="share-modal">
+      <div className="share-modal-body" style={{ padding: '20px 24px 28px' }}>
+        <p style={{ margin: '0 0 16px', fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.55 }}>
+          अपने दोस्तों और परिवार के साथ <b>R2Cart</b> शेयर करें ताकि वे भी हथुआ और गोपालगंज में 10-मिनट में ताज़ा ग्रॉसरी मंगा सकें!
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '18px' }}>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              background: '#25D366',
+              color: '#ffffff',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '13px',
+              textDecoration: 'none'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>💬</span>
+            <span>WhatsApp</span>
+          </a>
+
+          <a
+            href={telegramUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              background: '#0088cc',
+              color: '#ffffff',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '13px',
+              textDecoration: 'none'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>✈️</span>
+            <span>Telegram</span>
+          </a>
+
+          <a
+            href={facebookUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              background: '#1877F2',
+              color: '#ffffff',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '13px',
+              textDecoration: 'none'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>📘</span>
+            <span>Facebook</span>
+          </a>
+
+          <a
+            href={twitterUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              background: '#0f172a',
+              color: '#ffffff',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '13px',
+              textDecoration: 'none'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>🐦</span>
+            <span>X (Twitter)</span>
+          </a>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: '#f8fafc',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '6px 8px 6px 14px'
+          }}
+        >
+          <input
+            type="text"
+            readOnly
+            value={shareUrl}
+            style={{
+              flex: 1,
+              border: 'none',
+              background: 'transparent',
+              fontSize: '13px',
+              color: '#334155',
+              outline: 'none',
+              fontWeight: 600
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleCopy}
+            style={{
+              background: copied ? '#10b981' : '#059669',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            <span>{copied ? 'Copied!' : 'Copy Link'}</span>
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+export function Footer(){
+  const {storeSettings}=useApp();
+  const [shareOpen, setShareOpen]=useState(false);
+  const legalEntity=storeSettings?.policies?.legalName||BRAND.company;
+  const legalAddress=storeSettings?.address||storeSettings?.policies?.officeAddress||'Bailey Road, Patna, Bihar — 800001';
+
+  const handleShareClick = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'R2Cart — 10-Minute Grocery Delivery',
+          text: 'Order fresh groceries, vegetables, fruits, dairy & daily essentials delivered in 10-15 minutes in Hathua on R2Cart!',
+          url: 'https://r2cart.in'
+        });
+        return;
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setShareOpen(true);
+        }
+      }
+    } else {
+      setShareOpen(true);
+    }
+  };
+
+  return (
+    <>
+      <footer>
+        <div className="container footer-grid">
+          <div>
+            <Logo/>
+            <p>{BRAND.tagline}</p>
+            <p style={{fontSize:'12px',color:'var(--muted)',marginTop:'6px'}}>{legalEntity} · {legalAddress}</p>
+            <div className="social">
+              <button type="button" onClick={handleShareClick} aria-label={`Share ${BRAND.name}`} title="Share Website / वेबसाइट शेयर करें">
+                <Share2/>
+              </button>
+              <button
+                type="button"
+                className="footer-share-pill"
+                onClick={handleShareClick}
+                title="Share Website / वेबसाइट शेयर करें"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: '#10b981',
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  marginLeft: '8px'
+                }}
+              >
+                <Share2 size={13}/>
+                <span>Share / शेयर करें</span>
+              </button>
+            </div>
+          </div>
+          <div><h4>{BRAND.name}</h4><Link to="/about">About Us</Link><Link to="/contact">Contact Us</Link><Link to="/support">Help & Support</Link><Link to="/grievance">Grievance Redressal</Link></div>
+          <div><h4>Policies & Legal</h4><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms & Conditions</Link><Link to="/refund-policy">Return & Refund Policy</Link><Link to="/cancellation-policy">Cancellation Policy</Link><Link to="/cookie-policy">Cookie Policy</Link></div>
+          <div><h4>Delivery & Shopping</h4><Link to="/delivery-info">Shipping & Delivery</Link><Link to="/orders">Track Your Order</Link><Link to="/coupons">Offers & Coupons</Link><Link to="/search">Browse Catalogue</Link></div>
+        </div>
+        <div className="footer-bottom">
+          <div className="container">© 2026 {legalEntity} · {BRAND.tagline} · All rights reserved.</div>
+        </div>
+      </footer>
+      <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} />
+    </>
+  );
+}
 export function MobileBottomNav(){const {categories,user}=useApp();const {t}=useLanguage();const mobileNav=[{id:'nav-home',to:'/',label:t('home'),Icon:Home},{id:'nav-cats',to:`/category/${categories[0]?.slug||'fruits-vegetables'}`,label:t('categories'),Icon:Menu},{id:'nav-search',to:'/search',label:t('search'),Icon:Search},{id:'nav-orders',to:user?'/orders':'/login',label:t('orders'),Icon:Package},{id:'nav-account',to:user?'/account':'/login',label:user?t('account'):t('signIn'),Icon:UserRound}];return <nav className="bottom-nav">{mobileNav.map(item=><NavLink key={item.id} to={item.to} end={item.to==='/'}><item.Icon/><span>{item.label}</span></NavLink>)}</nav>}
 export function LocationModal(){
   const nav=useNavigate();
@@ -353,6 +591,7 @@ export function CartDrawer() {
     products,
     notify
   } = useApp();
+  const { t, tProd, tEta, tCat } = useLanguage();
 
   const nav = useNavigate();
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
@@ -593,7 +832,7 @@ export function CartDrawer() {
                           />
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <b style={{ fontSize: '12px', color: '#0f172a', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {p.name}
+                              {tProd(p.name)}
                             </b>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
                               <b style={{ fontSize: '12px', color: '#059669' }}>{money(p.price)}</b>
@@ -649,7 +888,7 @@ export function CartDrawer() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Clock3 size={15} color="#059669" />
                   <span style={{ fontSize: '12px', color: '#334155' }}>
-                    Delivery in <b style={{ color: '#0f172a' }}>{rules.estimatedDelivery}</b>
+                    Delivery in <b style={{ color: '#0f172a' }}>{tEta(rules.estimatedDelivery)}</b>
                   </span>
                 </div>
                 {fee === 0 ? (
@@ -687,7 +926,7 @@ export function CartDrawer() {
                       />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <b style={{ fontSize: '12.5px', color: '#0f172a', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {product.name}
+                          {tProd(product.name)}
                         </b>
                         <small style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
                           {product.unit}
@@ -822,8 +1061,8 @@ export function CartDrawer() {
   );
 }
 const pageNames={'/search':'Search','/favorites':'Favourites','/cart':'Your basket','/checkout':'Checkout','/order-success':'Order confirmed','/orders':'My orders','/account':'My account','/account/addresses':'Saved addresses','/coupons':'Coupons','/support':'Help & support','/about':`About ${BRAND.name}`,'/contact':'Contact us','/privacy':'Privacy policy','/terms':'Terms & conditions','/refund-policy':'Return & refund policy','/cancellation-policy':'Cancellation policy','/delivery-info':'Shipping & delivery policy','/shipping-policy':'Shipping & delivery policy','/grievance':'Grievance redressal','/grievance-redressal':'Grievance redressal','/cookie-policy':'Cookie policy'};
-function CustomerBack(){const location=useLocation();const nav=useNavigate();if(location.pathname==='/'||location.pathname==='/search')return null;const label=pageNames[location.pathname]||(location.pathname.startsWith('/product/')?'Product details':location.pathname.startsWith('/category/')?'Category':location.pathname.startsWith('/orders/')?'Order details':'Back');return <div className="context-back-wrap"><div className="container context-back"><button onClick={()=>location.key!=='default'?nav(-1):nav('/')} aria-label="Go back"><ArrowLeft/><span>Back</span></button><i>/</i><b>{label}</b></div></div>}
-function DesktopNav(){const {categories}=useApp();return <nav className="desktop-category-nav"><div className="container"><div className="desktop-category-links">{categories.slice(0,7).map(category=><Link to={`/category/${category.slug}`} key={category.slug}>{category.name}</Link>)}</div><Link className="nav-offer" to="/coupons">Offers <span>NEW</span></Link></div></nav>}
+function CustomerBack(){const location=useLocation();const nav=useNavigate();const {t}=useLanguage();if(location.pathname==='/'||location.pathname==='/search')return null;const label=pageNames[location.pathname]||(location.pathname.startsWith('/product/')?'Product details':location.pathname.startsWith('/category/')?'Category':location.pathname.startsWith('/orders/')?'Order details':'Back');return <div className="context-back-wrap"><div className="container context-back"><button onClick={()=>location.key!=='default'?nav(-1):nav('/')} aria-label="Go back"><ArrowLeft/><span>{t('back', 'Back')}</span></button><i>/</i><b>{label}</b></div></div>}
+function DesktopNav(){const {categories}=useApp();const {tCat,t}=useLanguage();return <nav className="desktop-category-nav"><div className="container"><div className="desktop-category-links">{categories.slice(0,7).map(category=><Link to={`/category/${category.slug}`} key={category.slug}>{tCat(category.name)}</Link>)}</div><Link className="nav-offer" to="/coupons">{t('offers', 'Offers')} <span>{t('new', 'NEW')}</span></Link></div></nav>}
 function BackendNotice(){const {catalogErrors,refreshCategories,refreshProducts,refreshBanners,refreshDelivery,categories}=useApp();if(categories?.length>0)return null;const activeErrors=Object.entries(catalogErrors).filter(([,error])=>error);if(!activeErrors.length)return null;return <div className="container" role="status" style={{margin:'0.75rem auto'}}><div className="surface-card" style={{padding:'0.75rem 1.25rem',display:'flex',alignItems:'center',justifyContent:'space-between',borderRadius:'10px',background:'#fef3c7',border:'1px solid #fde68a'}}><span style={{fontSize:'0.88rem',color:'#92400e',fontWeight:500}}>Connecting to store server…</span><Button variant="outline" size="sm" onClick={()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery();}}>Reconnect</Button></div></div>}
 import {AuthPromptModal} from '../components/customer/AuthPromptModal';
 import {FloatingBottomCartBar} from '../components/customer/FloatingBottomCartBar';

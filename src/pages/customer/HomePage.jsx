@@ -3,11 +3,13 @@ import {Link} from 'react-router-dom';
 import {ArrowRight,Leaf,ShieldCheck,Sparkles,Zap} from 'lucide-react';
 import {ProductRail} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
+import {useLanguage} from '../../context/LanguageContext';
 import {normalizeHomeLayout} from '../../config/homeLayout';
 import {catalogService} from '../../services/catalog.service';
 
 export function HomePage(){
  const {categories,products,banners,deliveryConfig,storeSettings}=useApp();
+ const {lang, t, tCat, tEta} = useLanguage();
  const homeLayout=useMemo(()=>normalizeHomeLayout(storeSettings?.policies?.homeLayout),[storeSettings?.policies?.homeLayout]);
  const bannerPlacements=homeLayout.bannerPlacements||{};
 
@@ -32,7 +34,10 @@ export function HomePage(){
 
  const liveBanners=useMemo(()=>banners.filter(banner=>!banner.status||banner.status==='ACTIVE'),[banners]);
 
- const heroBanners=useMemo(()=>{
+ const heroRotation = homeLayout.heroRotation || {};
+ const bannerVisuals = homeLayout.bannerVisuals || {};
+
+ const allHeroCandidates = useMemo(()=>{
   return liveBanners.filter((banner,index)=>{
    const p=bannerPlacements[banner.id];
    if(p==='HERO'||p==='BOTH')return true;
@@ -40,6 +45,45 @@ export function HomePage(){
    return index<2;
   });
  },[liveBanners,bannerPlacements]);
+
+ const heroBanners = useMemo(() => {
+  if (allHeroCandidates.length <= 1) return allHeroCandidates;
+
+  const { manualBannerId, manualChangedAt, intervalHours = 24 } = heroRotation;
+  const cycleMs = (Number(intervalHours) || 24) * 60 * 60 * 1000;
+  const now = Date.now();
+
+  let activeIndex = 0;
+
+  if (manualBannerId && manualChangedAt) {
+   const manualTime = new Date(manualChangedAt).getTime();
+   if (!isNaN(manualTime)) {
+    const elapsed = now - manualTime;
+    const manualIdx = allHeroCandidates.findIndex(b => String(b.id) === String(manualBannerId));
+    if (manualIdx !== -1) {
+     if (elapsed >= 0 && elapsed < cycleMs) {
+      // Admin manual override is active within the 24-hour cycle
+      activeIndex = manualIdx;
+     } else {
+      // 24 hours elapsed since admin manual change, auto-rotate forward daily
+      const periods = Math.floor(elapsed / cycleMs);
+      activeIndex = (manualIdx + periods) % allHeroCandidates.length;
+     }
+    }
+   }
+  } else {
+   // Synchronized 24-hour daily calendar rotation for all users
+   const dayNumber = Math.floor(now / (24 * 60 * 60 * 1000));
+   activeIndex = dayNumber % allHeroCandidates.length;
+  }
+
+  // Reorder so active banner is at index 0
+  const reordered = [];
+  for (let i = 0; i < allHeroCandidates.length; i++) {
+   reordered.push(allHeroCandidates[(activeIndex + i) % allHeroCandidates.length]);
+  }
+  return reordered;
+ }, [allHeroCandidates, heroRotation]);
 
  const campaignBanners=useMemo(()=>{
   const promoBanners = (festivalOffers || []).map((f, idx) => ({
@@ -86,7 +130,7 @@ export function HomePage(){
     case 'heroBanners':
      if(!heroBanners.length)return null;
      return (
-      <HeroBannerSection heroBanners={heroBanners} products={products} key="heroBanners" />
+      <HeroBannerSection heroBanners={heroBanners} products={products} bannerVisuals={bannerVisuals} key="heroBanners" />
      );
 
     case 'campaignOffers':
@@ -180,18 +224,18 @@ export function HomePage(){
        <div className="section-head">
         <div>
          <h2>
-          {section.title||'Shop by category'}
-          {section.comingSoon && <span className="section-coming-soon-badge"><Sparkles size={12}/> {section.comingSoonBadge||'Coming Soon'}</span>}
+          {lang === 'hi' ? t('shopByCategory') : (section.title||'Shop by category')}
+          {section.comingSoon && <span className="section-coming-soon-badge"><Sparkles size={12}/> {section.comingSoonBadge||(lang==='hi'?'जल्द आ रहा है':'Coming Soon')}</span>}
          </h2>
-         <p>{section.subtitle||'Everything your home needs'}</p>
+         <p>{lang === 'hi' ? 'आपकी दैनिक ज़रूरतों का हर सामान' : (section.subtitle||'Everything your home needs')}</p>
         </div>
-        <Link to={`/category/${orderedCategories[0]?.slug||'fruits-vegetables'}`}>See all</Link>
+        <Link to={`/category/${orderedCategories[0]?.slug||'fruits-vegetables'}`}>{t('seeAll', 'See all')}</Link>
        </div>
        {section.comingSoon ? (
         <div className="section-cs-banner">
-         <span className="cs-chip"><Sparkles size={12}/> COMING SOON</span>
-         <h4>{section.comingSoonTitle || 'Categories Opening Soon'}</h4>
-         <p>{section.comingSoonNotice || 'Categories are being organized for your quick 10-minute delivery.'}</p>
+         <span className="cs-chip"><Sparkles size={12}/> {lang==='hi'?'जल्द आ रहा है':'COMING SOON'}</span>
+         <h4>{section.comingSoonTitle || (lang==='hi'?'कैटेगरीज जल्द शुरू हो रही हैं':'Categories Opening Soon')}</h4>
+         <p>{section.comingSoonNotice || (lang==='hi'?'10-मिनट डिलीवरी के लिए सभी कैटेगरीज व्यवस्थित की जा रही हैं।':'Categories are being organized for your quick 10-minute delivery.')}</p>
         </div>
        ) : (
         <div className="category-grid">
@@ -210,13 +254,13 @@ export function HomePage(){
              to={`/category/${category.slug}`} 
              key={category.slug}
              className="category-card-item"
-             title={isCatSoon ? `${category.name} (Coming Soon)` : `Browse ${category.name}`}
+             title={isCatSoon ? `${tCat(category.name)} (Coming Soon)` : `Browse ${tCat(category.name)}`}
             >
              <div className="category-thumb-wrap" style={{background:category.color, position:'relative'}}>
               {isCatSoon && <span className="cat-soon-badge">SOON</span>}
               <img 
                src={category.image} 
-               alt={category.name} 
+               alt={tCat(category.name)} 
                loading="lazy"
                onError={(e)=>{
                 e.currentTarget.onerror = null;
@@ -224,7 +268,7 @@ export function HomePage(){
                }}
               />
              </div>
-             <b>{category.name}</b>
+             <b>{tCat(category.name)}</b>
             </Link>
            );
           })
@@ -243,8 +287,8 @@ export function HomePage(){
      return (
       <div className="container" key="bestSellers">
        <ProductRail
-        title={bestSellersData?.title||section.title||'Best sellers'}
-        subtitle={bestSellersData?.subtitle||'Most popular grocery items bought by our customers'}
+        title={lang==='hi' ? t('bestSellers') : (bestSellersData?.title||section.title||'Best sellers')}
+        subtitle={lang==='hi' ? 'ग्राहकों द्वारा सबसे ज्यादा खरीदे गए ताज़ा सामान' : (bestSellersData?.subtitle||'Most popular grocery items bought by our customers')}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
         items={displayItems}
         comingSoon={Boolean(section.comingSoon)}
@@ -264,8 +308,8 @@ export function HomePage(){
      return (
       <div className="container" key="topPicks">
        <ProductRail
-        title={topPicksData?.title||section.title||'Top picks'}
-        subtitle={topPicksData?.subtitle||'Daily essentials, seasonal favorites, and great value'}
+        title={lang==='hi' ? t('topPicks') : (topPicksData?.title||section.title||'Top picks')}
+        subtitle={lang==='hi' ? 'दैनिक जरूरतें, मौसमी उत्पाद और बेहतरीन कीमतें' : (topPicksData?.subtitle||'Daily essentials, seasonal favorites, and great value')}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
         items={displayItems}
         comingSoon={Boolean(section.comingSoon)}
@@ -282,7 +326,7 @@ export function HomePage(){
      return (
       <div className="container" key="recommended">
        <ProductRail
-        title={section.title||'Recommended for you'}
+        title={lang==='hi' ? t('recommended') : (section.title||'Recommended for you')}
         to={orderedCategories[1]?`/category/${orderedCategories[1].slug}`:'/category/dairy-breakfast'}
         items={items}
         comingSoon={Boolean(section.comingSoon)}
@@ -298,9 +342,9 @@ export function HomePage(){
       return (
        <div className="container" key="promoStrip">
         <div className="section-cs-banner" style={{margin:'30px 0'}}>
-         <span className="cs-chip"><Sparkles size={12}/> COMING SOON</span>
-         <h4>{section.title||'Special Savings Deals'}</h4>
-         <p>{section.comingSoonNotice||'Exclusive coupon packages and festive vouchers will be available here soon.'}</p>
+         <span className="cs-chip"><Sparkles size={12}/> {lang==='hi'?'जल्द आ रहा है':'COMING SOON'}</span>
+         <h4>{lang==='hi' ? t('specialOffers') : (section.title||'Special Savings Deals')}</h4>
+         <p>{section.comingSoonNotice||(lang==='hi'?'विशेष कूपन ऑफर्स और डिस्काउंट वाउचर्स जल्द उपलब्ध होंगे।':'Exclusive coupon packages and festive vouchers will be available here soon.')}</p>
         </div>
        </div>
       );
@@ -308,10 +352,10 @@ export function HomePage(){
      return (
       <div className="container" key="promoStrip">
        <PromoStrip
-        tag={section.tag||'YOUR SAVINGS'}
-        title={section.title||'Stock up. Save more.'}
-        subtitle={section.subtitle||'Explore the current offers available for your basket.'}
-        buttonText={section.buttonText||'Explore offers'}
+        tag={lang==='hi' ? 'आपकी बचत' : (section.tag||'YOUR SAVINGS')}
+        title={lang==='hi' ? 'खरीदें ज्यादा · बचाएं ज्यादा' : (section.title||'Stock up. Save more.')}
+        subtitle={lang==='hi' ? 'अपनी कार्ट के लिए आकर्षक ऑफर्स और छूट देखें।' : (section.subtitle||'Explore the current offers available for your basket.')}
+        buttonText={lang==='hi' ? 'ऑफ़र्स देखें' : (section.buttonText||'Explore offers')}
         buttonLink={section.buttonLink||'/coupons'}
        />
       </div>
@@ -322,9 +366,9 @@ export function HomePage(){
       return (
        <div className="container" key="categoryRails">
         <div className="section-cs-banner" style={{margin:'20px 0'}}>
-         <span className="cs-chip"><Sparkles size={12}/> COMING SOON</span>
-         <h4>Category Aisles Under Preparation</h4>
-         <p>{section.comingSoonNotice||'Dedicated aisles for snacks, dairy, fruits and more are being stocked.'}</p>
+         <span className="cs-chip"><Sparkles size={12}/> {lang==='hi'?'जल्द आ रहा है':'COMING SOON'}</span>
+         <h4>{lang==='hi'?'कैटेगरी सेक्शन तैयार हो रहे हैं':'Category Aisles Under Preparation'}</h4>
+         <p>{section.comingSoonNotice||(lang==='hi'?'स्नैक्स, डेयरी, फल व सब्जियों के सेक्शन में स्टॉक भरा जा रहा है।':'Dedicated aisles for snacks, dairy, fruits and more are being stocked.')}</p>
         </div>
        </div>
       );
@@ -336,7 +380,7 @@ export function HomePage(){
        {railsToRender.map(category=>{
         const catProducts=products.filter(p=>p.category===category.slug||p.category?.slug===category.slug||p.categoryId===category.id);
         if(!catProducts.length)return null;
-        return <ProductRail key={category.slug} title={category.name} to={`/category/${category.slug}`} items={catProducts}/>;
+        return <ProductRail key={category.slug} title={tCat(category.name)} to={`/category/${category.slug}`} items={catProducts}/>;
        })}
       </div>
      );
@@ -348,7 +392,7 @@ export function HomePage(){
      return (
       <div className="container" key="specialOffers">
        <ProductRail 
-        title={section.title||'Special offers'} 
+        title={lang==='hi' ? t('specialOffers') : (section.title||'Special offers')} 
         to="/coupons" 
         items={items}
         comingSoon={Boolean(section.comingSoon)}
@@ -365,7 +409,7 @@ export function HomePage(){
      return (
       <div className="container" key="recentlyViewed">
        <ProductRail
-        title={section.title||'Recently viewed'}
+        title={lang==='hi' ? t('recentlyViewed') : (section.title||'Recently viewed')}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
         items={items}
         comingSoon={Boolean(section.comingSoon)}
@@ -380,9 +424,9 @@ export function HomePage(){
      return (
       <section className="promise" key="promise">
        <div className="container promise-grid">
-        <div><Zap/><span><b>{deliveryConfig.estimatedDelivery} delivery</b><small>From store to doorstep</small></span></div>
-        <div><Leaf/><span><b>Freshness guaranteed</b><small>Handpicked every day</small></span></div>
-        <div><ShieldCheck/><span><b>Quality you can trust</b><small>Easy returns & support</small></span></div>
+        <div><Zap/><span><b>{deliveryConfig.estimatedDelivery ? tEta(deliveryConfig.estimatedDelivery) : (lang==='hi'?'10-मिनट डिलीवरी':t('tagline'))}</b><small>{t('doorstepDelivery')}</small></span></div>
+        <div><Leaf/><span><b>{t('freshnessGuaranteed')}</b><small>{t('handpickedDaily')}</small></span></div>
+        <div><ShieldCheck/><span><b>{t('qualityTrust')}</b><small>{t('easyReturns')}</small></span></div>
        </div>
       </section>
      );
@@ -394,28 +438,135 @@ export function HomePage(){
  </>;
 }
 
-function relatedProducts(banner,products){
- const copy=`${banner.kicker||''} ${banner.heading||banner.title||''} ${banner.subtitle||banner.text||''}`.toLowerCase();
- const groups=[
-  [['milk','egg','bread','morning','breakfast'],['dairy-breakfast','bakery']],
-  [['snack','chip','biscuit','crunch'],['snacks']],
-  [['fruit','vegetable','fresh choice'],['fruits-vegetables']],
-  [['juice','drink','chill','sip'],['beverages']],
-  [['atta','rice','dal','pantry'],['staples']],
-  [['clean','household','home'],['household']],
-  [['care','shampoo','soap'],['personal']],
-  [['instant','quick meal','noodle'],['instant']],
-  [['oil','spice','cook','kitchen'],['cooking']]
- ];
- const categories=groups.find(([words])=>words.some(word=>copy.includes(word)))?.[1]||[];
- const matches=products.filter(product=>categories.includes(product.category));
- return [...matches,...products.filter(product=>!matches.includes(product))].slice(0,3);
+function resolveBannerVisualsList(heroBanners, products, bannerVisuals) {
+ const globalUsed = new Set();
+
+ return (heroBanners || []).map((banner, bannerIndex) => {
+  const visualConfig = bannerVisuals?.[banner.id] || {};
+  
+  // Explicit Admin uploads take highest precedence
+  let main = visualConfig.mainImage || (banner.image && !banner.image.includes('placeholder') ? banner.image : '');
+  let secondary = visualConfig.secondaryImage || '';
+  let third = visualConfig.thirdImage || '';
+
+  // Detect theme of the banner based on text
+  const copy = `${banner.kicker || ''} ${banner.heading || banner.title || ''} ${banner.subtitle || banner.text || ''}`.toLowerCase();
+  const isBreakfast = copy.includes('breakfast') || copy.includes('mornings') || copy.includes('morning') || copy.includes('milk') || copy.includes('egg') || copy.includes('bread');
+  const isFarm = copy.includes('farm') || copy.includes('fruit') || copy.includes('vegetable') || copy.includes('fresh choice');
+  const isSnacks = copy.includes('snack') || copy.includes('munch') || copy.includes('biscuit') || copy.includes('crisp');
+
+  let targetKeywords = [];
+  if (isBreakfast) {
+   targetKeywords = ['dairy', 'milk', 'egg', 'bread', 'bakery', 'tea', 'coffee', 'breakfast'];
+  } else if (isFarm) {
+   targetKeywords = ['fruit', 'vegetable', 'apple', 'banana', 'potato', 'onion', 'tomato', 'fresh'];
+  } else if (isSnacks) {
+   targetKeywords = ['snack', 'munch', 'chip', 'biscuit', 'bhurji', 'bhujia', 'namkeen'];
+  } else {
+   targetKeywords = ['atta', 'rice', 'dal', 'oil', 'grocery', 'staple'];
+  }
+
+  // Filter catalog products matching the theme
+  const themeProducts = (products || []).filter(p => {
+   const cat = typeof p.category === 'object' ? p.category?.slug : String(p.category || '');
+   const pName = String(p.name || '').toLowerCase();
+   const cName = String(p.categoryName || '').toLowerCase();
+   return targetKeywords.some(kw => cat.toLowerCase().includes(kw) || pName.includes(kw) || cName.includes(kw));
+  });
+
+  const availableProductImages = themeProducts
+   .map(p => p.image)
+   .filter(img => Boolean(img) && !globalUsed.has(img));
+
+  // Curated theme visuals matching the banner subject (eggs/milk/toast for breakfast; veggies/fruits for farm)
+  const defaultBreakfastVisuals = [
+   'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800&auto=format&fit=crop&q=80', // Breakfast feast: milk bottle, eggs, toasted bread
+   'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80', // Hot morning coffee & cookies
+   'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80'  // Artisanal bread slice
+  ];
+
+  const defaultFarmVisuals = [
+   'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&auto=format&fit=crop&q=80', // Farm fresh fruit crate (oranges, apples)
+   'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400&auto=format&fit=crop&q=80', // Ripe bananas
+   'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&auto=format&fit=crop&q=80'  // Fresh green bell peppers / salad
+  ];
+
+  const defaultGenericVisuals = [
+   'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80', // Fresh grocery basket
+   'https://images.unsplash.com/photo-1506617420156-8e4536971650?w=400&auto=format&fit=crop&q=80', // Dairy & morning cereal
+   'https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400&auto=format&fit=crop&q=80'  // Fresh market produce
+  ];
+
+  const themeDefaults = isBreakfast ? defaultBreakfastVisuals : isFarm ? defaultFarmVisuals : defaultGenericVisuals;
+
+  // Resolve main image (ensuring distinct across both banners)
+  if (!main || globalUsed.has(main)) {
+   main = availableProductImages.find(img => !globalUsed.has(img)) || themeDefaults.find(img => !globalUsed.has(img)) || themeDefaults[0];
+  }
+  globalUsed.add(main);
+
+  // Resolve secondary image (ensuring distinct from main and all other images)
+  if (!secondary || globalUsed.has(secondary)) {
+   secondary = availableProductImages.find(img => !globalUsed.has(img)) || themeDefaults.find(img => !globalUsed.has(img)) || themeDefaults[1];
+  }
+  globalUsed.add(secondary);
+
+  // Resolve third image (ensuring distinct from main, secondary and all other images)
+  if (!third || globalUsed.has(third)) {
+   third = availableProductImages.find(img => !globalUsed.has(img)) || themeDefaults.find(img => !globalUsed.has(img)) || themeDefaults[2];
+  }
+  globalUsed.add(third);
+
+  return {
+   banner,
+   index: bannerIndex,
+   main,
+   secondary,
+   third
+  };
+ });
 }
 
-function HeroBanner({banner,index,products}){
- const picks=relatedProducts(banner,products),main=banner.image||picks[0]?.image,secondary=picks[banner.image?0:1]?.image,third=picks[banner.image?1:2]?.image;
+function HeroBanner({banner,index,main,secondary,third}){
+ const {lang, t} = useLanguage();
+ const isHi = lang === 'hi';
  const replaceOrHide=(fallback,event)=>{const image=event.currentTarget;if(fallback&&!image.dataset.fallbackUsed){image.dataset.fallbackUsed='true';image.src=fallback}else image.parentElement.style.display='none'};
- return <article className={`hero-card premium-hero hero-${index?'cream':'green'} ${index?'second':''}`}><div className="hero-copy"><span className="hero-kicker"><Sparkles/>{banner.kicker||'R2CART FRESH'}</span><h1>{banner.heading||banner.title}</h1><p>{banner.subtitle||banner.text}</p><Link className="hero-cta" to={banner.destination||banner.to||'/'}><b>{banner.ctaText||banner.cta||'Shop now'}</b><i><ArrowRight/></i></Link><small className="hero-note">Fresh picks · Honest prices · Fast delivery</small></div><div className="hero-visual" aria-hidden="true"><div className="hero-photo"><img src={main} alt="" onError={event=>replaceOrHide(secondary,event)}/></div>{secondary&&<div className="hero-product hero-product-one"><img src={secondary} alt="" onError={event=>replaceOrHide(third,event)}/></div>}{third&&<div className="hero-product hero-product-two"><img src={third} alt="" onError={event=>replaceOrHide('',event)}/></div>}<span className="hero-offer"><b>Fresh</b><small>every day</small></span></div></article>;
+
+ const rawKicker = banner.kicker || 'R2CART FRESH';
+ const kicker = isHi && (!banner.kicker || rawKicker.toUpperCase() === 'R2CART FRESH') ? 'आर2कार्ट फ्रेश' : rawKicker;
+
+ const rawHeading = banner.heading || banner.title || '';
+ const heading = isHi && (!rawHeading || rawHeading.toLowerCase().includes('mornings made')) ? t('bannerTitleDefault') : (rawHeading || 'Mornings made delicious.');
+
+ const rawSub = banner.subtitle || banner.text || '';
+ const subtitle = isHi && (!rawSub || rawSub.toLowerCase().includes('milk, eggs, bread')) ? t('bannerSubDefault') : (rawSub || 'Milk, eggs, bread and more in minutes');
+
+ const rawCta = banner.ctaText || banner.cta || 'Shop now';
+ const ctaText = isHi && (rawCta.toLowerCase().includes('shop now') || rawCta.toLowerCase() === 'shop') ? t('shopNow') : rawCta;
+
+ const note = isHi ? t('freshPicks') : 'Fresh picks · Honest prices · Fast delivery';
+ const stickerBold = isHi ? 'ताज़ा' : 'Fresh';
+ const stickerSmall = isHi ? 'प्रतिदिन' : 'every day';
+
+ return (
+  <article className={`hero-card premium-hero hero-${index?'cream':'green'} ${index?'second':''}`}>
+   <div className="hero-copy">
+    <span className="hero-kicker"><Sparkles/>{kicker}</span>
+    <h1>{heading}</h1>
+    <p>{subtitle}</p>
+    <Link className="hero-cta" to={banner.destination||banner.to||'/'}>
+     <b>{ctaText}</b><i><ArrowRight/></i>
+    </Link>
+    <small className="hero-note">{note}</small>
+   </div>
+   <div className="hero-visual" aria-hidden="true">
+    <div className="hero-photo"><img src={main} alt="" onError={event=>replaceOrHide(secondary,event)}/></div>
+    {secondary&&<div className="hero-product hero-product-one"><img src={secondary} alt="" onError={event=>replaceOrHide(third,event)}/></div>}
+    {third&&<div className="hero-product hero-product-two"><img src={third} alt="" onError={event=>replaceOrHide('',event)}/></div>}
+    <span className="hero-offer"><b>{stickerBold}</b><small>{stickerSmall}</small></span>
+   </div>
+  </article>
+ );
 }
 
 const PromoStrip=({tag='YOUR SAVINGS',title='Stock up. Save more.',subtitle='Explore the current offers available for your basket.',buttonText='Explore offers',buttonLink='/coupons'})=>(
@@ -429,9 +580,13 @@ const PromoStrip=({tag='YOUR SAVINGS',title='Stock up. Save more.',subtitle='Exp
  </section>
 );
 
-function HeroBannerSection({ heroBanners, products }) {
+function HeroBannerSection({ heroBanners, products, bannerVisuals }) {
  const [activeSlide, setActiveSlide] = useState(0);
  const trackRef = useRef(null);
+
+ const resolvedBanners = useMemo(() => {
+  return resolveBannerVisualsList(heroBanners, products, bannerVisuals);
+ }, [heroBanners, products, bannerVisuals]);
 
  const handleScroll = (e) => {
   const el = e.currentTarget;
@@ -478,8 +633,8 @@ function HeroBannerSection({ heroBanners, products }) {
   <section className="hero-section-wrap container" key="heroBanners">
    {/* Desktop View: 2 side-by-side banners */}
    <div className="hero desktop-hero-grid">
-    {heroBanners.map((banner, index) => (
-     <HeroBanner banner={banner} index={index} products={products} key={banner.id} />
+    {resolvedBanners.map((item) => (
+     <HeroBanner banner={item.banner} index={item.index} main={item.main} secondary={item.secondary} third={item.third} key={item.banner.id} />
     ))}
    </div>
 
@@ -490,9 +645,9 @@ function HeroBannerSection({ heroBanners, products }) {
      ref={trackRef}
      onScroll={handleScroll}
     >
-     {heroBanners.map((banner, index) => (
-      <div className="mobile-hero-slide" key={banner.id}>
-       <HeroBanner banner={banner} index={index} products={products} />
+     {resolvedBanners.map((item) => (
+      <div className="mobile-hero-slide" key={item.banner.id}>
+       <HeroBanner banner={item.banner} index={item.index} main={item.main} secondary={item.secondary} third={item.third} />
       </div>
      ))}
     </div>

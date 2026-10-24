@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#10b981"/><path fill="#fff" d="M13 16h19c9 0 14 4 14 11 0 5-3 9-8 10l11 11H37l-9-9h-5v9H13V16Zm10 8v8h9c3 0 4-1 4-4s-1-4-4-4h-9Z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#ffffff"/>
+  <rect width="60" height="60" x="2" y="2" rx="12" fill="none" stroke="#00965e" stroke-width="3"/>
+  <text x="32" y="21" font-family="'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="29" fill="#000000" text-anchor="middle" dominant-baseline="central" letter-spacing="-1.5">R2</text>
+  <text x="32" y="46" font-family="'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="22" fill="#00965e" text-anchor="middle" dominant-baseline="central" letter-spacing="-0.5">Cart</text>
+</svg>
