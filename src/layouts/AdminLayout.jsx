@@ -96,6 +96,8 @@ export default function AdminLayout({ children }) {
   const location = useLocation();
 
   const isSuperUser = user?.role === 'SUPER_ADMIN' || user?.staffRole === 'SUPER_ADMIN';
+  const isSuperPath = location.pathname.startsWith('/super-admin');
+  const loginUrl = isSuperPath ? '/r2cart/super-administrator/login' : '/r2cart/administrator/login';
   const basePath = isSuperUser ? '/super-admin' : '/admin';
   const showBack = location.pathname !== `${basePath}/dashboard`;
 
@@ -104,7 +106,7 @@ export default function AdminLayout({ children }) {
     let mounted = true;
     const token = localStorage.getItem('grocify-admin-access-token');
     if (!token) {
-      window.location.replace('/admin/login');
+      window.location.replace(loginUrl);
       return;
     }
 
@@ -114,7 +116,7 @@ export default function AdminLayout({ children }) {
         if (!mounted) return;
         if (!freshUser || freshUser.status !== 'ACTIVE' || freshUser.isStaffActive === false) {
           authService.adminLogout().finally(() => {
-            window.location.replace('/admin/login?error=deactivated');
+            window.location.replace(`${loginUrl}?error=deactivated`);
           });
           return;
         }
@@ -137,7 +139,7 @@ export default function AdminLayout({ children }) {
         // If 401 or 403, immediately clear session
         if (err.status === 401 || err.status === 403) {
           authService.adminLogout().finally(() => {
-            window.location.replace('/admin/login');
+            window.location.replace(loginUrl);
           });
         } else {
           setAuthRefreshing(false);
@@ -280,7 +282,7 @@ export default function AdminLayout({ children }) {
           <button
             onClick={async () => {
               await authService.adminLogout();
-              nav('/admin/login');
+              nav(loginUrl);
             }}
             aria-label="Sign out"
           >
