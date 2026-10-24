@@ -1,13 +1,15 @@
 import {useEffect,useRef,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {Bell,Search,UserRound,X} from 'lucide-react';
+import {Bell,Globe,Search,UserRound,X} from 'lucide-react';
 import {api} from '../../services/httpClient';
 import {mediaUrl} from '../../utils/media';
+import {useLanguage} from '../../context/LanguageContext';
 import {playNotificationSound,subscribeToPush,sendTestPush,triggerSystemNotification,enableOrderAlerts} from '../../services/pushNotification.service';
 import './navbar.css';
 
 export default function AdminNavbarActions(){
  const nav=useNavigate(),root=useRef(null),prevNoticesRef=useRef([]);
+ const {lang,toggleLang,t}=useLanguage();
  const [q,setQ]=useState(''),[results,setResults]=useState([]),[menu,setMenu]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[data,setData]=useState(null),[noticeError,setNoticeError]=useState('');
  const [testStatus,setTestStatus]=useState('idle');
  const [perm,setPerm]=useState(()=>(typeof Notification!=='undefined'?Notification.permission:'unsupported'));
@@ -118,6 +120,32 @@ export default function AdminNavbarActions(){
     {!q.trim()?<p>Search by product, SKU, order number, customer or ticket.</p>:busy?<p>Searching…</p>:error?<p role="alert">{error}</p>:!results.length?<p>No matching records.</p>:results.map(item=><button key={`${item.type}-${item.id}`} className="navbar-result" onClick={()=>go(item.path)}>{item.image&&<img src={mediaUrl(item.image)} alt="" onError={e=>{e.currentTarget.hidden=true}}/>}<span><small>{item.type}</small><b>{item.title}</b><small>{item.subtitle}</small></span></button>)}
    </div>}
   </div>
+
+  <button
+    type="button"
+    className="admin-lang-btn"
+    onClick={toggleLang}
+    title={lang === 'hi' ? 'Switch Admin to English' : 'एडमिन पैनल को हिंदी में बदलें'}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      background: '#ffffff',
+      border: '1.5px solid #d1d5db',
+      color: '#1f2937',
+      padding: '7px 14px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      fontWeight: 700,
+      cursor: 'pointer',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+      whiteSpace: 'nowrap',
+      transition: 'all 0.15s ease'
+    }}
+  >
+    <Globe size={15} color="#059669" />
+    <span>{lang === 'hi' ? 'English' : 'हिंदी'}</span>
+  </button>
 
   <div className="admin-notice-anchor">
    <button className="notification" aria-label="Notifications" aria-expanded={menu==='notifications'} onClick={()=>{setMenu(menu==='notifications'?'':'notifications');load()}}>

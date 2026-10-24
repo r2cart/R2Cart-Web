@@ -30,24 +30,25 @@ import { BRAND } from '../config/brand';
 import { subscribeToPush, getNotificationPermission, enableOrderAlerts } from '../services/pushNotification.service';
 import { hasPermission } from '../utils/permissions';
 import { Button } from '../components/ui';
+import { useLanguage } from '../context/LanguageContext';
 
 const NAV_LINKS = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: ['reports.view_basic', 'reports.view_financial'] },
-  { path: '/products', label: 'Products', icon: ShoppingBasket, perm: 'products.view' },
-  { path: '/categories', label: 'Categories', icon: Tags, perm: ['categories.manage', 'products.view'] },
-  { path: '/orders', label: 'Orders', icon: Package, perm: 'orders.view' },
-  { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view_limited' },
-  { path: '/delivery', label: 'Delivery Hub', icon: Truck, perm: ['delivery.view', 'delivery.assign'] },
-  { path: '/inventory', label: 'Smart Inventory', icon: Boxes, perm: 'inventory.view' },
-  { path: '/scheduling', label: 'Store Operations', icon: CalendarClock, perm: 'scheduling.manage' },
-  { path: '/emergency', label: 'Emergency Pause', icon: ShieldAlert, superOnly: true },
-  { path: '/marketing', label: 'Marketing & Promos', icon: Megaphone, perm: 'coupons.manage' },
-  { path: '/ranking', label: 'Product Ranking', icon: Sparkles, superOnly: true },
-  { path: '/security', label: 'Security & Staff', icon: ShieldCheck, superOnly: true },
-  { path: '/banners', label: 'Banners', icon: ImageIcon, perm: 'banners.manage' },
-  { path: '/policies', label: 'Policies & CMS', icon: FileText, superOnly: true },
-  { path: '/support', label: 'Support', icon: Bell, perm: 'support.manage' },
-  { path: '/settings', label: 'Settings', icon: Settings, superOnly: true }
+  { path: '/dashboard', label: 'Dashboard', key: 'dashboard', icon: LayoutDashboard, perm: ['reports.view_basic', 'reports.view_financial'] },
+  { path: '/products', label: 'Products', key: 'productsManage', icon: ShoppingBasket, perm: 'products.view' },
+  { path: '/categories', label: 'Categories', key: 'categoriesManage', icon: Tags, perm: ['categories.manage', 'products.view'] },
+  { path: '/orders', label: 'Orders', key: 'ordersManage', icon: Package, perm: 'orders.view' },
+  { path: '/customers', label: 'Customers', key: 'customersManage', icon: Users, perm: 'customers.view_limited' },
+  { path: '/delivery', label: 'Delivery Hub', key: 'deliveryHub', icon: Truck, perm: ['delivery.view', 'delivery.assign'] },
+  { path: '/inventory', label: 'Smart Inventory', key: 'inventoryManage', icon: Boxes, perm: 'inventory.view' },
+  { path: '/scheduling', label: 'Store Operations', key: 'storeOperations', icon: CalendarClock, perm: 'scheduling.manage' },
+  { path: '/emergency', label: 'Emergency Pause', key: 'emergencyPause', icon: ShieldAlert, superOnly: true },
+  { path: '/marketing', label: 'Marketing & Promos', key: 'marketingManage', icon: Megaphone, perm: 'coupons.manage' },
+  { path: '/ranking', label: 'Product Ranking', key: 'productRanking', icon: Sparkles, superOnly: true },
+  { path: '/security', label: 'Security & Staff', key: 'securityStaffRole', icon: ShieldCheck, superOnly: true },
+  { path: '/banners', label: 'Banners', key: 'bannersManage', icon: ImageIcon, perm: 'banners.manage' },
+  { path: '/policies', label: 'Policies & CMS', key: 'policiesManage', icon: FileText, superOnly: true },
+  { path: '/support', label: 'Support', key: 'customerSupport', icon: Bell, perm: 'support.manage' },
+  { path: '/settings', label: 'Settings', key: 'storeSettings', icon: Settings, superOnly: true }
 ];
 
 function getStoredUser() {
@@ -85,6 +86,7 @@ function getRoutePermissionRequirement(pathname, basePath) {
 }
 
 export default function AdminLayout({ children }) {
+  const { lang, t } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [perm, setPerm] = useState(() => getNotificationPermission());
@@ -252,17 +254,17 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
         <div className="workspace-label">
-          {adminRole === 'SUPER_ADMIN' ? 'SUPER ADMIN WORKSPACE' : 'RESTRICTED ADMIN WORKSPACE'}
+          {adminRole === 'SUPER_ADMIN' ? (lang === 'hi' ? '★ सुपर एडमिन वर्कस्पेस' : 'SUPER ADMIN WORKSPACE') : (lang === 'hi' ? 'स्टाफ एडमिन वर्कस्पेस' : 'RESTRICTED ADMIN WORKSPACE')}
         </div>
         <nav>
-          {visibleLinks.map(({ path: subPath, label, icon: Icon }) => (
+          {visibleLinks.map(({ path: subPath, label, key, icon: Icon }) => (
             <NavLink
               to={`${basePath}${subPath}`}
               key={subPath}
               onClick={() => setMobile(false)}
             >
               <Icon />
-              <span>{label}</span>
+              <span>{t(key || label, label)}</span>
             </NavLink>
           ))}
         </nav>
