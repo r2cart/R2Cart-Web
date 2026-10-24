@@ -101,7 +101,8 @@ export const defaultHomeSections = [
 export const defaultHomeLayout = {
  sections: defaultHomeSections,
  bannerPlacements: {},
- categoryOrder: []
+ categoryOrder: [],
+ comingSoonCategories: []
 };
 
 export function normalizeHomeLayout(rawLayout) {
@@ -112,21 +113,32 @@ export function normalizeHomeLayout(rawLayout) {
  const rawSections = Array.isArray(rawLayout.sections) ? rawLayout.sections : [];
  const mergedSections = defaultHomeSections.map(def => {
   const existing = rawSections.find(s => s && s.id === def.id);
-  if (!existing) return { ...def };
+  if (!existing) return { ...def, comingSoon: false };
   return {
    ...def,
    ...existing,
    enabled: existing.enabled !== false,
-   order: Number(existing.order) > 0 ? Number(existing.order) : def.order
+   order: Number(existing.order) > 0 ? Number(existing.order) : def.order,
+   comingSoon: Boolean(existing.comingSoon),
+   comingSoonBadge: existing.comingSoonBadge || 'Coming Soon',
+   comingSoonTitle: existing.comingSoonTitle || '',
+   comingSoonNotice: existing.comingSoonNotice || ''
   };
  });
 
- const extraSections = rawSections.filter(s => s && s.id && !defaultHomeSections.some(def => def.id === s.id));
+ const extraSections = rawSections.filter(s => s && s.id && !defaultHomeSections.some(def => def.id === s.id)).map(s => ({
+  ...s,
+  comingSoon: Boolean(s.comingSoon),
+  comingSoonBadge: s.comingSoonBadge || 'Coming Soon',
+  comingSoonTitle: s.comingSoonTitle || '',
+  comingSoonNotice: s.comingSoonNotice || ''
+ }));
  const allSections = [...mergedSections, ...extraSections].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 
  return {
   sections: allSections,
   bannerPlacements: rawLayout.bannerPlacements && typeof rawLayout.bannerPlacements === 'object' ? rawLayout.bannerPlacements : {},
-  categoryOrder: Array.isArray(rawLayout.categoryOrder) ? rawLayout.categoryOrder : []
+  categoryOrder: Array.isArray(rawLayout.categoryOrder) ? rawLayout.categoryOrder : [],
+  comingSoonCategories: Array.isArray(rawLayout.comingSoonCategories) ? rawLayout.comingSoonCategories : []
  };
 }

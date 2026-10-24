@@ -1,4 +1,4 @@
-import {useMemo, useState, useEffect} from 'react';
+import {useMemo, useState, useEffect, useRef} from 'react';
 import {Link} from 'react-router-dom';
 import {ArrowRight,Leaf,ShieldCheck,Sparkles,Zap} from 'lucide-react';
 import {ProductRail} from '../../components/ui';
@@ -68,6 +68,9 @@ export function HomePage(){
   return [...categories].sort((a,b)=>{
    const posA=orderMap.has(a.slug)?orderMap.get(a.slug):(orderMap.has(a.id)?orderMap.get(a.id):999);
    const posB=orderMap.has(b.slug)?orderMap.get(b.slug):(orderMap.has(b.id)?orderMap.get(b.id):999);
+   if (posA === posB) {
+     return (Number(a.position) || 999) - (Number(b.position) || 999);
+   }
    return posA-posB;
   });
  },[categories,homeLayout.categoryOrder]);
@@ -83,82 +86,91 @@ export function HomePage(){
     case 'heroBanners':
      if(!heroBanners.length)return null;
      return (
-      <section className="hero container" key="heroBanners">
-       {heroBanners.map((banner,index)=><HeroBanner banner={banner} index={index} products={products} key={banner.id}/>)}
-      </section>
+      <HeroBannerSection heroBanners={heroBanners} products={products} key="heroBanners" />
      );
 
     case 'campaignOffers':
-     if(!campaignBanners.length)return null;
+     if(!campaignBanners.length && !section.comingSoon)return null;
      return (
       <section className="container campaign-section" key="campaignOffers">
        <div className="section-head">
         <div>
-         <h2>{section.title||'Offers picked for you'}</h2>
+         <h2>
+          {section.title||'Offers picked for you'}
+          {section.comingSoon && <span className="section-coming-soon-badge"><Sparkles size={12}/> {section.comingSoonBadge||'Coming Soon'}</span>}
+         </h2>
          <p>{section.subtitle||'Fresh deals, updated from R2Cart'}</p>
         </div>
        </div>
-       <div className={`campaign-rail ${campaignBanners.length === 1 ? 'single-banner' : ''}`}>
-        {campaignBanners.map((banner,index)=>{
-         const hasImage = Boolean(banner.image);
-         const rawCta = banner.ctaText || 'Claim Offer Now';
-         const ctaClean = rawCta.replace(/[→\->\s]+$/, '').trim() || 'Claim Offer Now';
+       {section.comingSoon ? (
+        <div className="section-cs-banner">
+         <span className="cs-chip"><Sparkles size={12}/> COMING SOON</span>
+         <h4>{section.comingSoonTitle || 'Offers Launching Soon'}</h4>
+         <p>{section.comingSoonNotice || 'We are preparing handpicked merchant deals and festival promotions for your area.'}</p>
+        </div>
+       ) : (
+        <div className={`campaign-rail ${campaignBanners.length === 1 ? 'single-banner' : ''}`}>
+         {campaignBanners.map((banner,index)=>{
+          const hasImage = Boolean(banner.image);
+          const rawCta = banner.ctaText || 'Claim Offer Now';
+          const ctaClean = rawCta.replace(/[→\->\s]+$/, '').trim() || 'Claim Offer Now';
 
-         // Smart subtitle cleaner: if subtitle repeats the heading, extract the unique tail or omit repetition
-         const cleanSub = (() => {
-          if (!banner.subtitle) return null;
-          const cleanHead = (banner.heading || '').replace(/^[⚡🎉🔥💥\s]+/, '').trim().toLowerCase();
-          const rawSub = banner.subtitle.trim();
-          if (cleanHead === rawSub.toLowerCase()) return null;
+          // Smart subtitle cleaner: if subtitle repeats the heading, extract the unique tail or omit repetition
+          const cleanSub = (() => {
+           if (!banner.subtitle) return null;
+           const cleanHead = (banner.heading || '').replace(/^[⚡🎉🔥💥\s]+/, '').trim().toLowerCase();
+           const rawSub = banner.subtitle.trim();
+           if (cleanHead === rawSub.toLowerCase()) return null;
 
-          const normWord = w => w.toLowerCase().replace(/[^a-z0-9]/g, '').replace('minute', 'min');
-          const headWords = cleanHead.split(/\s+/).map(normWord).filter(Boolean);
-          const subWords = rawSub.split(/\s+/);
+           const normWord = w => w.toLowerCase().replace(/[^a-z0-9]/g, '').replace('minute', 'min');
+           const headWords = cleanHead.split(/\s+/).map(normWord).filter(Boolean);
+           const subWords = rawSub.split(/\s+/);
 
-          let matchCount = 0;
-          for (let i = 0; i < Math.min(headWords.length, subWords.length); i++) {
-           if (headWords[i] === normWord(subWords[i])) {
-            matchCount++;
-           } else {
-            break;
+           let matchCount = 0;
+           for (let i = 0; i < Math.min(headWords.length, subWords.length); i++) {
+            if (headWords[i] === normWord(subWords[i])) {
+             matchCount++;
+            } else {
+             break;
+            }
            }
-          }
-          if (matchCount >= 4) {
-           const tail = subWords.slice(matchCount).join(' ').replace(/^[\s,.\-–—]+/, '').trim();
-           if (!tail) return null;
-           return tail.charAt(0).toUpperCase() + tail.slice(1);
-          }
-          return rawSub;
-         })();
+           if (matchCount >= 4) {
+            const tail = subWords.slice(matchCount).join(' ').replace(/^[\s,.\-–—]+/, '').trim();
+            if (!tail) return null;
+            return tail.charAt(0).toUpperCase() + tail.slice(1);
+           }
+           return rawSub;
+          })();
 
-         return (
-          <Link
-           className={`campaign-card campaign-${index%4}`}
-           to={banner.destination||'/'}
-           key={banner.id}
-           style={hasImage ? {
-            backgroundImage: `linear-gradient(95deg, rgba(7, 24, 16, 0.96) 0%, rgba(7, 24, 16, 0.88) 45%, rgba(7, 24, 16, 0.40) 70%, rgba(7, 24, 16, 0.10) 100%), url(${banner.image})`
-           } : undefined}
-          >
-           <div className="campaign-card-content">
-            <span className="campaign-card-kicker">
-             {banner.kicker || 'SPECIAL OFFER'}
-            </span>
-            <h3 className="campaign-card-title">{banner.heading}</h3>
-            {cleanSub && (
-             <p className="campaign-card-desc">{cleanSub}</p>
-            )}
-           </div>
-           <div className="campaign-card-action">
-            <span className="campaign-card-btn">
-             <span>{ctaClean}</span>
-             <span className="campaign-card-arrow" aria-hidden="true">→</span>
-            </span>
-           </div>
-          </Link>
-         );
-        })}
-       </div>
+          return (
+           <Link
+            className={`campaign-card campaign-${index%4}`}
+            to={banner.destination||'/'}
+            key={banner.id}
+            style={hasImage ? {
+             backgroundImage: `linear-gradient(95deg, rgba(7, 24, 16, 0.96) 0%, rgba(7, 24, 16, 0.88) 45%, rgba(7, 24, 16, 0.40) 70%, rgba(7, 24, 16, 0.10) 100%), url(${banner.image})`
+            } : undefined}
+           >
+            <div className="campaign-card-content">
+             <span className="campaign-card-kicker">
+              {banner.kicker || 'SPECIAL OFFER'}
+             </span>
+             <h3 className="campaign-card-title">{banner.heading}</h3>
+             {cleanSub && (
+              <p className="campaign-card-desc">{cleanSub}</p>
+             )}
+            </div>
+            <div className="campaign-card-action">
+             <span className="campaign-card-btn">
+              <span>{ctaClean}</span>
+              <span className="campaign-card-arrow" aria-hidden="true">→</span>
+             </span>
+            </div>
+           </Link>
+          );
+         })}
+        </div>
+       )}
       </section>
      );
 
@@ -167,30 +179,58 @@ export function HomePage(){
       <section className="container section categories" key="shopCategories">
        <div className="section-head">
         <div>
-         <h2>{section.title||'Shop by category'}</h2>
+         <h2>
+          {section.title||'Shop by category'}
+          {section.comingSoon && <span className="section-coming-soon-badge"><Sparkles size={12}/> {section.comingSoonBadge||'Coming Soon'}</span>}
+         </h2>
          <p>{section.subtitle||'Everything your home needs'}</p>
         </div>
         <Link to={`/category/${orderedCategories[0]?.slug||'fruits-vegetables'}`}>See all</Link>
        </div>
-       <div className="category-grid">
-        {orderedCategories.length === 0 ? (
-         Array.from({length: 8}).map((_, i) => (
-          <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',padding:'8px'}}>
-           <div style={{width:'64px',height:'64px',borderRadius:'50%',background:'var(--surface-hover,#f1f5f9)',opacity:0.7}}/>
-           <div style={{width:'52px',height:'10px',borderRadius:'4px',background:'var(--surface-hover,#f1f5f9)',opacity:0.7}}/>
-          </div>
-         ))
-        ) : (
-         orderedCategories.map(category=>(
-          <Link to={`/category/${category.slug}`} key={category.slug}>
-           <div style={{background:category.color}}>
-            <img src={category.image} alt="" loading="lazy"/>
+       {section.comingSoon ? (
+        <div className="section-cs-banner">
+         <span className="cs-chip"><Sparkles size={12}/> COMING SOON</span>
+         <h4>{section.comingSoonTitle || 'Categories Opening Soon'}</h4>
+         <p>{section.comingSoonNotice || 'Categories are being organized for your quick 10-minute delivery.'}</p>
+        </div>
+       ) : (
+        <div className="category-grid">
+         {orderedCategories.length === 0 ? (
+          Array.from({length: 8}).map((_, i) => (
+           <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',padding:'8px'}}>
+            <div style={{width:'64px',height:'64px',borderRadius:'50%',background:'var(--surface-hover,#f1f5f9)',opacity:0.7}}/>
+            <div style={{width:'52px',height:'10px',borderRadius:'4px',background:'var(--surface-hover,#f1f5f9)',opacity:0.7}}/>
            </div>
-           <b>{category.name}</b>
-          </Link>
-         ))
-        )}
-       </div>
+          ))
+         ) : (
+          orderedCategories.map(category=>{
+           const isCatSoon = (homeLayout.comingSoonCategories||[]).includes(category.slug);
+           return (
+            <Link 
+             to={`/category/${category.slug}`} 
+             key={category.slug}
+             className="category-card-item"
+             title={isCatSoon ? `${category.name} (Coming Soon)` : `Browse ${category.name}`}
+            >
+             <div className="category-thumb-wrap" style={{background:category.color, position:'relative'}}>
+              {isCatSoon && <span className="cat-soon-badge">SOON</span>}
+              <img 
+               src={category.image} 
+               alt={category.name} 
+               loading="lazy"
+               onError={(e)=>{
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=320&q=75';
+               }}
+              />
+             </div>
+             <b>{category.name}</b>
+            </Link>
+           );
+          })
+         )}
+        </div>
+       )}
       </section>
      );
 
@@ -199,7 +239,7 @@ export function HomePage(){
      const items=bestSellersData?.products||products.filter(p=>p.bestSeller);
      const count=Number(section.count)||10;
      const displayItems=items.slice(0,count);
-     if(!displayItems.length)return null;
+     if(!displayItems.length && !section.comingSoon)return null;
      return (
       <div className="container" key="bestSellers">
        <ProductRail
@@ -207,6 +247,9 @@ export function HomePage(){
         subtitle={bestSellersData?.subtitle||'Most popular grocery items bought by our customers'}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
         items={displayItems}
+        comingSoon={Boolean(section.comingSoon)}
+        comingSoonBadge={section.comingSoonBadge}
+        comingSoonNotice={section.comingSoonNotice}
        />
       </div>
      );
@@ -217,7 +260,7 @@ export function HomePage(){
      const items=topPicksData?.products||[];
      const count=Number(section.count)||10;
      const displayItems=items.slice(0,count);
-     if(!displayItems.length)return null;
+     if(!displayItems.length && !section.comingSoon)return null;
      return (
       <div className="container" key="topPicks">
        <ProductRail
@@ -225,6 +268,9 @@ export function HomePage(){
         subtitle={topPicksData?.subtitle||'Daily essentials, seasonal favorites, and great value'}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
         items={displayItems}
+        comingSoon={Boolean(section.comingSoon)}
+        comingSoonBadge={section.comingSoonBadge}
+        comingSoonNotice={section.comingSoonNotice}
        />
       </div>
      );
@@ -232,19 +278,33 @@ export function HomePage(){
 
     case 'recommended':{
      const items=products.slice(2,2+(Number(section.count)||10));
-     if(!items.length)return null;
+     if(!items.length && !section.comingSoon)return null;
      return (
       <div className="container" key="recommended">
        <ProductRail
         title={section.title||'Recommended for you'}
         to={orderedCategories[1]?`/category/${orderedCategories[1].slug}`:'/category/dairy-breakfast'}
         items={items}
+        comingSoon={Boolean(section.comingSoon)}
+        comingSoonBadge={section.comingSoonBadge}
+        comingSoonNotice={section.comingSoonNotice}
        />
       </div>
      );
     }
 
     case 'promoStrip':
+     if(section.comingSoon){
+      return (
+       <div className="container" key="promoStrip">
+        <div className="section-cs-banner" style={{margin:'30px 0'}}>
+         <span className="cs-chip"><Sparkles size={12}/> COMING SOON</span>
+         <h4>{section.title||'Special Savings Deals'}</h4>
+         <p>{section.comingSoonNotice||'Exclusive coupon packages and festive vouchers will be available here soon.'}</p>
+        </div>
+       </div>
+      );
+     }
      return (
       <div className="container" key="promoStrip">
        <PromoStrip
@@ -258,6 +318,17 @@ export function HomePage(){
      );
 
     case 'categoryRails':{
+     if(section.comingSoon){
+      return (
+       <div className="container" key="categoryRails">
+        <div className="section-cs-banner" style={{margin:'20px 0'}}>
+         <span className="cs-chip"><Sparkles size={12}/> COMING SOON</span>
+         <h4>Category Aisles Under Preparation</h4>
+         <p>{section.comingSoonNotice||'Dedicated aisles for snacks, dairy, fruits and more are being stocked.'}</p>
+        </div>
+       </div>
+      );
+     }
      const maxCats=Number(section.maxCategories)||8;
      const railsToRender=orderedCategories.slice(0,maxCats);
      return (
@@ -273,23 +344,33 @@ export function HomePage(){
 
     case 'specialOffers':{
      const items=products.filter(p=>p.mrp-p.price>10).slice(0,Number(section.count)||10);
-     if(!items.length)return null;
+     if(!items.length && !section.comingSoon)return null;
      return (
       <div className="container" key="specialOffers">
-       <ProductRail title={section.title||'Special offers'} to="/coupons" items={items}/>
+       <ProductRail 
+        title={section.title||'Special offers'} 
+        to="/coupons" 
+        items={items}
+        comingSoon={Boolean(section.comingSoon)}
+        comingSoonBadge={section.comingSoonBadge}
+        comingSoonNotice={section.comingSoonNotice}
+       />
       </div>
      );
     }
 
     case 'recentlyViewed':{
      const items=products.slice(8,8+(Number(section.count)||8));
-     if(!items.length)return null;
+     if(!items.length && !section.comingSoon)return null;
      return (
       <div className="container" key="recentlyViewed">
        <ProductRail
         title={section.title||'Recently viewed'}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
         items={items}
+        comingSoon={Boolean(section.comingSoon)}
+        comingSoonBadge={section.comingSoonBadge}
+        comingSoonNotice={section.comingSoonNotice}
        />
       </div>
      );
@@ -347,3 +428,89 @@ const PromoStrip=({tag='YOUR SAVINGS',title='Stock up. Save more.',subtitle='Exp
   <Link className="btn btn-light" to={buttonLink}>{buttonText}</Link>
  </section>
 );
+
+function HeroBannerSection({ heroBanners, products }) {
+ const [activeSlide, setActiveSlide] = useState(0);
+ const trackRef = useRef(null);
+
+ const handleScroll = (e) => {
+  const el = e.currentTarget;
+  if (!el) return;
+  const slideWidth = el.offsetWidth;
+  if (slideWidth > 0) {
+   const idx = Math.round(el.scrollLeft / slideWidth);
+   if (idx !== activeSlide && idx >= 0 && idx < heroBanners.length) {
+    setActiveSlide(idx);
+   }
+  }
+ };
+
+ const goToSlide = (idx) => {
+  setActiveSlide(idx);
+  if (trackRef.current) {
+   const slideWidth = trackRef.current.offsetWidth;
+   trackRef.current.scrollTo({
+    left: idx * slideWidth,
+    behavior: 'smooth'
+   });
+  }
+ };
+
+ useEffect(() => {
+  if (heroBanners.length <= 1) return;
+  const timer = setInterval(() => {
+   setActiveSlide(prev => {
+    const next = (prev + 1) % heroBanners.length;
+    if (trackRef.current) {
+     const slideWidth = trackRef.current.offsetWidth;
+     trackRef.current.scrollTo({
+      left: next * slideWidth,
+      behavior: 'smooth'
+     });
+    }
+    return next;
+   });
+  }, 4500);
+  return () => clearInterval(timer);
+ }, [heroBanners.length]);
+
+ return (
+  <section className="hero-section-wrap container" key="heroBanners">
+   {/* Desktop View: 2 side-by-side banners */}
+   <div className="hero desktop-hero-grid">
+    {heroBanners.map((banner, index) => (
+     <HeroBanner banner={banner} index={index} products={products} key={banner.id} />
+    ))}
+   </div>
+
+   {/* Mobile View: 2-Slide Banner Carousel */}
+   <div className="mobile-hero-carousel">
+    <div 
+     className="mobile-hero-track"
+     ref={trackRef}
+     onScroll={handleScroll}
+    >
+     {heroBanners.map((banner, index) => (
+      <div className="mobile-hero-slide" key={banner.id}>
+       <HeroBanner banner={banner} index={index} products={products} />
+      </div>
+     ))}
+    </div>
+    {heroBanners.length > 1 && (
+     <div className="mobile-hero-dots">
+      {heroBanners.map((_, idx) => (
+       <button
+        key={idx}
+        type="button"
+        className={`mobile-hero-dot ${activeSlide === idx ? 'active' : ''}`}
+        onClick={() => goToSlide(idx)}
+        aria-label={`Go to banner slide ${idx + 1}`}
+       />
+      ))}
+     </div>
+    )}
+   </div>
+  </section>
+ );
+}
+

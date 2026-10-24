@@ -14,8 +14,8 @@ const CATEGORY_TEMPLATES = {
       `Crisp, nutrient-rich, and naturally grown ${name}. Ideal for daily culinary preparations, delivering natural vitamins, vital minerals, and unbeatable freshness.`
   ],
 
-  // Dairy & Breakfast
-  'dairy-bread': [
+  // Dairy, Bread & Eggs
+  'dairy-bread-eggs': [
     (name) =>
       `Rich, pure, and wholesome ${name}, sourced from trusted dairy farms and processed under strict hygiene standards. A delicious and nutritious choice packed with calcium and protein to power your family's day.`,
     (name) =>
@@ -24,7 +24,37 @@ const CATEGORY_TEMPLATES = {
       `Enjoy the creamy goodness and superior purity of ${name}. Carefully sealed for safety and peak freshness, making everyday breakfast wholesome and delightful.`
   ],
 
-  // Snacks & Munchies
+  // Atta, Rice, Dal & Oil
+  'atta-rice-dal-oil': [
+    (name) =>
+      `Premium quality ${name}, carefully cleaned, sorted, and packed to preserve authentic aroma and wholesome nutritional value. A staple essential for authentic Indian home cooking.`,
+    (name) =>
+      `Naturally sourced and unadulterated ${name}. High in dietary fiber and essential nutrients, ensuring soft, healthy, and delicious meals for the entire family.`,
+    (name) =>
+      `Sourced from the finest farms, ${name} guarantees purity, consistency, and unmatched taste for your everyday traditional recipes.`
+  ],
+
+  // Masalas & Dry Fruits
+  'masala-dry-fruits': [
+    (name) =>
+      `Aromatic, rich, and flavorful ${name}, selected from the finest harvest to give your dishes an authentic aroma, crunch, and mouth-watering taste.`,
+    (name) =>
+      `Pure, nutrient-dense, and unadulterated ${name}. Packed with natural antioxidants, essential minerals, and rich aroma for healthy everyday cooking and snacking.`,
+    (name) =>
+      `Elevate everyday cooking and nutrition with the superior taste of ${name}. Hygienically sealed to preserve its rich flavor and kitchen-fresh fragrance.`
+  ],
+
+  // Cold Drinks & Juices
+  'cold-drinks-juices': [
+    (name) =>
+      `Refreshing and energizing ${name}, specially crafted to quench your thirst and revitalize your day. Best served chilled for the ultimate burst of natural flavor.`,
+    (name) =>
+      `Experience the crisp and invigorating taste of ${name}. Perfect for hot afternoons, festive gatherings, or an instant refreshment break.`,
+    (name) =>
+      `Quench your thirst with the delicious and revitalizing flavor of ${name}. Packed with taste and pure refreshment in every sip.`
+  ],
+
+  // Snacks
   'snacks': [
     (name) =>
       `Crispy, savory, and irresistibly tasty! ${name} is the ultimate snack companion for your evening tea, movie nights, or spontaneous party cravings.`,
@@ -34,44 +64,54 @@ const CATEGORY_TEMPLATES = {
       `Indulge your snack cravings with ${name}. Sealed airtight to lock in maximum freshness and authentic crunch for guilt-free munching anytime.`
   ],
 
-  // Beverages & Drinks
-  'beverages': [
-    (name) =>
-      `Refreshing and energizing ${name}, specially crafted to quench your thirst and revitalize your day. Best served chilled for the ultimate burst of natural flavor.`,
-    (name) =>
-      `Experience the crisp and invigorating taste of ${name}. Perfect for hot afternoons, festive gatherings, or an instant refreshment break.`,
-    (name) =>
-      `Quench your thirst with the delicious and revitalizing flavor of ${name}. Packed with taste and pure refreshment in every sip.`
-  ],
-
-  // Atta, Rice, Dal & Staples
-  'atta-dal-rice': [
-    (name) =>
-      `Premium quality ${name}, carefully cleaned, sorted, and packed to preserve authentic aroma and wholesome nutritional value. A staple essential for authentic Indian home cooking.`,
-    (name) =>
-      `Naturally sourced and unadulterated ${name}. High in dietary fiber and essential nutrients, ensuring soft, healthy, and delicious meals for the entire family.`,
-    (name) =>
-      `Sourced from the finest farms, ${name} guarantees purity, consistency, and unmatched taste for your everyday traditional recipes.`
-  ],
-
-  // Masalas, Spices & Oils
-  'masala-oil': [
-    (name) =>
-      `Aromatic, rich, and flavorful ${name}, prepared from the finest ingredients to give your curries and dishes an authentic aroma and mouth-watering taste.`,
-    (name) =>
-      `Pure and unadulterated ${name}, traditionally processed to retain its natural essential oils, vibrant color, and deep flavor profile.`,
-    (name) =>
-      `Elevate everyday cooking with the superior taste and fragrance of ${name}. Hygienically sealed to preserve its rich flavor and kitchen-fresh aroma.`
-  ],
-
-  // Bakery, Biscuits & Cookies
-  'bakery-biscuits': [
+  // Biscuits & Bakery
+  'biscuits-bakery': [
     (name) =>
       `Deliciously baked and delightfully crunchy, ${name} is the perfect companion for your morning coffee or evening cup of chai.`,
     (name) =>
       `Melt-in-the-mouth goodness! ${name} delivers authentic bakery taste, rich texture, and satisfying crunch in every single bite.`,
     (name) =>
       `Treat your sweet and savory cravings with ${name}. Made with high-quality ingredients for a delightful snack break anytime, anywhere.`
+  ],
+
+  // Ice Creams & More
+  'ice-creams-more': [
+    (name) =>
+      `Irresistibly smooth, creamy, and indulgent ${name}. A delightful frozen treat crafted with rich milk and premium ingredients to satisfy your sweet cravings.`,
+    (name) =>
+      `Cool down with the luscious flavor and velvety texture of ${name}. The perfect dessert after every family meal or late-night celebration.`
+  ],
+
+  // Tea & Coffee
+  'tea-coffee': [
+    (name) =>
+      `Aromatic and energizing ${name}, expertly selected to bring you a rich, brisk, and soul-satisfying brew in every cup.`,
+    (name) =>
+      `Start your morning energized with the rejuvenating aroma and robust flavor of ${name}. Sourced from the finest plantations for pure bliss.`
+  ],
+
+  // Packaged Food
+  'packaged-food': [
+    (name) =>
+      `Quick, convenient, and utterly delicious! ${name} lets you enjoy wholesome, restaurant-style flavor right at home in minutes.`,
+    (name) =>
+      `Hygienically prepared and quality-packed ${name}, offering the perfect blend of great taste, quick convenience, and complete satisfaction.`
+  ],
+
+  // Breakfast & Sauces
+  'breakfast-sauces': [
+    (name) =>
+      `Delicious and versatile ${name}, perfect for adding a burst of rich, tangy, or sweet flavor to your toasts, parathas, and breakfast favorites.`,
+    (name) =>
+      `Start your day right with wholesome ${name}. Carefully prepared with quality ingredients to give your breakfast meals the perfect taste boost.`
+  ],
+
+  // Sweet Cravings
+  'sweet-cravings': [
+    (name) =>
+      `Indulgent, mouth-melting, and divine! ${name} is crafted to satisfy your sweetest dessert cravings with unmatched richness.`,
+    (name) =>
+      `Celebrate life's sweet moments with ${name}. Perfect for gifting, festivals, or your personal midnight indulgence.`
   ],
 
   // Cleaning, Household & Personal Care

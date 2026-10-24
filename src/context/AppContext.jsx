@@ -33,8 +33,14 @@ export function AppProvider({children}){
  const [addressesLoaded,setAddressesLoaded]=useState(false);
  const [activeAddressId,setActiveAddressId]=useState(()=>storage.get('active_address_id',null));
  const [orderList,setOrderList]=useState([]);
- const [categories,setCategories]=useState(()=>storage.get('cached_categories',[]));
- const [products,setProducts]=useState(()=>storage.get('cached_products',[]));
+ const [categories,setCategories]=useState(()=>{
+  const cached = storage.get('cached_categories',[]);
+  return cached.filter(c => c.slug !== 'pet-care');
+ });
+ const [products,setProducts]=useState(()=>{
+  const cached = storage.get('cached_products',[]);
+  return cached.filter(p => p.categorySlug !== 'pet-care' && p.category !== 'pet-care');
+ });
  const [banners,setBanners]=useState(()=>storage.get('cached_banners',[]));
  const [catalogErrors,setCatalogErrors]=useState({});
  const catalogResult=(key,error)=>setCatalogErrors(current=>({...current,[key]:error||''}));

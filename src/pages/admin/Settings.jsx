@@ -652,6 +652,24 @@ export function AdminSettings(){
   changeHomeLayout(layout=>({...layout,sections}));
  };
 
+ const toggleSectionComingSoon=id=>{
+  const sections=(settings.policies?.homeLayout?.sections||defaultHomeSections).map(s=>{
+   if(s.id!==id)return s;
+   return {...s,comingSoon:!s.comingSoon};
+  });
+  changeHomeLayout(layout=>({...layout,sections}));
+ };
+
+ const toggleCategoryComingSoon=slug=>{
+  const currentSet=new Set(settings.policies?.homeLayout?.comingSoonCategories||[]);
+  if(currentSet.has(slug)){
+   currentSet.delete(slug);
+  }else{
+   currentSet.add(slug);
+  }
+  changeHomeLayout(layout=>({...layout,comingSoonCategories:Array.from(currentSet)}));
+ };
+
  const updateSectionField=(id,field,value)=>{
   const sections=(settings.policies?.homeLayout?.sections||defaultHomeSections).map(s=>{
    if(s.id!==id)return s;
@@ -1262,6 +1280,17 @@ export function AdminSettings(){
                 )}
                </button>
 
+               {/* Coming Soon Toggle */}
+               <button
+                type="button"
+                onClick={()=>toggleSectionComingSoon(sec.id)}
+                className={`enhanced-toggle-btn ${sec.comingSoon?'is-coming-soon':'is-not-coming-soon'}`}
+                title={sec.comingSoon?'Click to turn OFF Coming Soon badge':'Click to turn ON Coming Soon badge'}
+               >
+                <Clock3 size={14}/>
+                {sec.comingSoon?'Soon: ON':'Soon: OFF'}
+               </button>
+
                {/* Customize Drawer Toggle */}
                <button
                 type="button"
@@ -1295,6 +1324,18 @@ export function AdminSettings(){
                  value={sec.subtitle||''}
                  onChange={e=>updateSectionField(sec.id,'subtitle',e.target.value)}
                  placeholder="e.g. Handpicked best savings for your family"
+                />
+                <Field
+                 label="Coming Soon Badge Label"
+                 value={sec.comingSoonBadge||'Coming Soon'}
+                 onChange={e=>updateSectionField(sec.id,'comingSoonBadge',e.target.value)}
+                 placeholder="Coming Soon"
+                />
+                <Field
+                 label="Coming Soon Notice Message"
+                 value={sec.comingSoonNotice||''}
+                 onChange={e=>updateSectionField(sec.id,'comingSoonNotice',e.target.value)}
+                 placeholder="e.g. Stocking up fresh items shortly for Hathua zone!"
                 />
                 <Field
                  type="number"
@@ -1379,8 +1420,10 @@ export function AdminSettings(){
             <span style={{fontSize:'11.5px',color:'#64748b'}}>Exact sequence as displayed to customers</span>
            </div>
            <div className="cat-capsules-scroll">
-            {sortedCats.map((cat, idx) => (
-             <div key={cat.id || cat.slug} className={`cat-capsule-chip ${idx < 3 ? 'top-rank' : ''}`}>
+            {sortedCats.map((cat, idx) => {
+             const isSoon = (currentHomeLayout.comingSoonCategories||[]).includes(cat.slug);
+             return (
+             <div key={cat.id || cat.slug} className={`cat-capsule-chip ${idx < 3 ? 'top-rank' : ''}`} style={isSoon ? {border:'1.5px dashed #f59e0b',background:'#fffbeb'} : undefined}>
               <span className="cat-capsule-badge" style={{display:'inline-flex',alignItems:'center',gap:'3px'}}>
                {idx === 0 && <Crown size={11} style={{strokeWidth:2.4}}/>}
                {idx === 1 && <Medal size={11} style={{strokeWidth:2.4}}/>}
@@ -1393,8 +1436,10 @@ export function AdminSettings(){
                <Tag size={13} style={{color:'#10b981'}}/>
               )}
               <span>{cat.name}</span>
+              {isSoon && <span style={{fontSize:'8.5px',fontWeight:800,color:'#b45309',background:'#fef3c7',padding:'1px 5px',borderRadius:'4px',marginLeft:'3px'}}>SOON</span>}
              </div>
-            ))}
+            );
+           })}
            </div>
           </div>
 
@@ -1473,6 +1518,18 @@ export function AdminSettings(){
 
               {/* Right: Reorder Actions */}
               <div className="cat-right-tools">
+               {/* Coming Soon Toggle */}
+               <button
+                type="button"
+                onClick={()=>toggleCategoryComingSoon(cat.slug)}
+                className={`enhanced-toggle-btn ${(currentHomeLayout.comingSoonCategories||[]).includes(cat.slug)?'is-coming-soon':'is-not-coming-soon'}`}
+                style={{padding:'5px 10px',fontSize:'11px',height:'32px'}}
+                title="Toggle Coming Soon status for this category"
+               >
+                <Clock3 size={13}/>
+                {(currentHomeLayout.comingSoonCategories||[]).includes(cat.slug)?'Soon: ON':'Soon: OFF'}
+               </button>
+
                {/* Quick Top Button */}
                <button
                 type="button"

@@ -7,8 +7,8 @@ function getAdminUser() {
 }
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
-import {Link,useNavigate,useParams} from 'react-router-dom';
-import {ArrowLeft,Check,Copy,Crop,Edit2,Eye,ImagePlus,Package,Plus,Search,Sparkles,Trash2} from 'lucide-react';
+import {Link,useNavigate,useParams,useSearchParams} from 'react-router-dom';
+import {ArrowLeft,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -32,8 +32,11 @@ export function AdminProducts(){
  const canEdit = isSuper || hasPermission(currentUser, 'products.edit');
  const canDelete = isSuper || hasPermission(currentUser, 'products.edit');
  const {categories,categoryError,reloadCategories}=useAdminCategories();
+ const [searchParams, setSearchParams] = useSearchParams();
+ const urlCat = searchParams.get('cat') || searchParams.get('category') || 'all';
+ const [viewMode, setViewMode] = useState(searchParams.get('view') === 'cards' ? 'cards' : 'table');
  const [q,setQ]=useState('');
- const [cat,setCat]=useState('all');
+ const [cat,setCat]=useState(urlCat);
  const [stock,setStock]=useState('all');
  const [status,setStatus]=useState('all');
  const [list,setList]=useState([]);
@@ -42,6 +45,18 @@ export function AdminProducts(){
  const [deleteAllConfirm,setDeleteAllConfirm]=useState(false);
  const [error,setError]=useState(''),[busy,setBusy]=useState(''),[view,setView]=useState(null);
  const [page,setPage]=useState(1),[pagination,setPagination]=useState({pages:1,total:0}),[totalProducts,setTotalProducts]=useState(0),[refresh,setRefresh]=useState(0);
+
+ useEffect(() => {
+   const c = searchParams.get('cat') || searchParams.get('category');
+   if (c && c !== cat) {
+     setCat(c);
+     setPage(1);
+   }
+   const v = searchParams.get('view');
+   if (v && (v === 'cards' || v === 'table')) {
+     setViewMode(v);
+   }
+ }, [searchParams]);
 
  useEffect(()=>{let active=true;setLoading(true);const timer=setTimeout(()=>{adminService.productsPage({page,limit:20,q,...(cat!=='all'&&{category:cat}),...(stock!=='all'&&{stock}),...(status!=='all'&&{status})}).then(result=>{if(!active)return;setList(result.products);setPagination(result.pagination);setTotalProducts(result.totalProducts);setError('')}).catch(reason=>{if(active){setList([]);setError(reason.message)}}).finally(()=>{if(active)setLoading(false)})},200);return()=>{active=false;clearTimeout(timer)}},[page,q,cat,stock,status,refresh]);
  useEffect(()=>{const onSync=()=>setRefresh(v=>v+1);window.addEventListener('focus',onSync);window.addEventListener('grocify:orders-updated',onSync);window.addEventListener('grocify:products-updated',onSync);return()=>{window.removeEventListener('focus',onSync);window.removeEventListener('grocify:orders-updated',onSync);window.removeEventListener('grocify:products-updated',onSync)}},[]);
@@ -59,10 +74,68 @@ export function AdminProducts(){
    <select value={cat} onChange={event=>changeFilter(setCat)(event.target.value)}><option value="all">All categories</option>{categories.map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select>
    <select value={stock} onChange={event=>changeFilter(setStock)(event.target.value)}><option value="all">All stock levels</option><option value="low">Low stock</option><option value="out">Out of stock</option></select>
    <select value={status} onChange={event=>changeFilter(setStatus)(event.target.value)}><option value="all">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select>
+   <div className="view-mode-toggle" style={{display:'flex',gap:'4px',marginLeft:'auto',alignItems:'center'}}>
+     <button type="button" className={`btn ${viewMode==='table'?'btn-primary':'btn-outline'}`} style={{height:'36px',padding:'0 10px',display:'flex',alignItems:'center',gap:'5px',fontSize:'12px'}} onClick={()=>setViewMode('table')} title="Table View"><TableIcon size={15}/> Table</button>
+     <button type="button" className={`btn ${viewMode==='cards'?'btn-primary':'btn-outline'}`} style={{height:'36px',padding:'0 10px',display:'flex',alignItems:'center',gap:'5px',fontSize:'12px'}} onClick={()=>setViewMode('cards')} title="Card Shape View"><LayoutGrid size={15}/> Cards</button>
+   </div>
   </FilterBar>
-  <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>MRP</th><th>Selling price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-   {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td>{product.unit}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`/admin/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
-  </tbody></table></div></div>
+  {viewMode === 'cards' ? (
+   <div className="cat-products-card-grid" style={{marginBottom:'24px'}}>
+     {loading ? (
+       <div style={{gridColumn:'1/-1',padding:'30px',textAlign:'center',color:'var(--muted)'}}>Loading products in cards…</div>
+     ) : error ? (
+       <div style={{gridColumn:'1/-1',padding:'30px',textAlign:'center'}}><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(v=>v+1)}>Try again</Button></div>
+     ) : !list.length ? (
+       <div style={{gridColumn:'1/-1',padding:'40px',textAlign:'center',color:'var(--muted)'}}>{totalProducts ? 'No products match these filters.' : 'No products yet. Add your first product.'}</div>
+     ) : (
+       list.map(product => {
+         const isOutOfStock = product.stock <= 0;
+         const isLowStock = !isOutOfStock && product.stock <= (product.lowStockThreshold || 5);
+         const hasDiscount = Number(product.mrp) > Number(product.price);
+         const discountPct = hasDiscount ? Math.round(((Number(product.mrp) - Number(product.price)) / Number(product.mrp)) * 100) : 0;
+         return (
+           <div key={product.id} className="product-card-shape">
+             <div className="card-shape-media">
+               {product.image ? (
+                 <img src={product.image} alt={product.name} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
+               ) : (
+                 <Package size={44} color="#94a3b8" />
+               )}
+               {hasDiscount && <span className="card-discount-pill">{discountPct}% OFF</span>}
+               <span className={`card-stock-pill ${isOutOfStock ? 'out' : isLowStock ? 'low' : 'in'}`}>
+                 {isOutOfStock ? '0 left' : isLowStock ? `${product.stock} Low` : `${product.stock} in stock`}
+               </span>
+               <span className={`card-status-pill ${product.status === 'ACTIVE' ? 'active' : 'inactive'}`}>
+                 {product.status === 'ACTIVE' ? '● Active' : '○ Inactive'}
+               </span>
+             </div>
+             <div className="card-shape-content">
+               <div className="card-meta-row">
+                 <span className="card-sku-code" title={product.sku}>{product.sku || 'No SKU'}</span>
+                 <span className="card-unit-badge">{product.unit || 'Pack'}</span>
+               </div>
+               <h4 className="card-product-title" title={product.name}>{product.name}</h4>
+               <div className="card-price-row">
+                 <strong className="card-selling-price">{money(product.price)}</strong>
+                 {hasDiscount && <del className="card-mrp-price">{money(product.mrp)}</del>}
+               </div>
+               <div className="card-action-bar">
+                 <button type="button" className="card-detail-btn" onClick={() => inspect(product.id)} title="View details"><Eye size={14}/> Details</button>
+                 <Link to={`/admin/products/${product.id}/edit`} className="card-icon-action-btn" title="Edit"><Edit2 size={14}/></Link>
+                 <button type="button" disabled={!!busy} className={`card-icon-action-btn ${product.status === 'ACTIVE' ? 'active-toggle' : 'inactive-toggle'}`} onClick={() => toggle(product)} title="Toggle status"><Check size={14}/></button>
+                 <button type="button" disabled={!!busy} className="card-icon-action-btn" style={{color:'#ef4444'}} onClick={() => setConfirm(product)} title="Delete product"><Trash2 size={14}/></button>
+               </div>
+             </div>
+           </div>
+         );
+       })
+     )}
+   </div>
+  ) : (
+   <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>MRP</th><th>Selling price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+    {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td>{product.unit}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`/admin/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
+   </tbody></table></div></div>
+  )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
   <ConfirmDialog
     open={!!confirm}
@@ -90,7 +163,7 @@ export function AdminProducts(){
   </>;
 }
 
-function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
+export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
   const [copied, setCopied] = useState(false);
   if (!view) return null;
 

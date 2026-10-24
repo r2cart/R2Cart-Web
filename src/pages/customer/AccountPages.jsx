@@ -206,7 +206,7 @@ export function AccountPage() {
       <div className="account-welcome-box">
         <div className="account-welcome-header">
           <div>
-            <h1>Welcome back, {user.name?.split(' ')[0] || 'Friend'} 👋</h1>
+            <h1>Welcome back, {user.name || 'Friend'} 👋</h1>
             <p>
               Your personal dashboard for fast grocery delivery. Manage your details, addresses, and view recent orders below.
             </p>
