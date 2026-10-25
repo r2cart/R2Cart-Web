@@ -688,11 +688,20 @@ export function AdminSettings(){
   }));
  };
 
- const moveCategory=(index,direction)=>{
+ const getFullCategoryOrder=()=>{
   const currentCats=categoriesList.length?categoriesList:[];
-  const currentOrder=settings.policies?.homeLayout?.categoryOrder?.length
-   ?[...settings.policies.homeLayout.categoryOrder]
-   :currentCats.map(c=>c.slug);
+  const savedOrder=settings.policies?.homeLayout?.categoryOrder||[];
+  const fullOrder=[...savedOrder];
+  currentCats.forEach(c=>{
+   if(c.slug && !fullOrder.includes(c.slug)){
+    fullOrder.push(c.slug);
+   }
+  });
+  return fullOrder;
+ };
+
+ const moveCategory=(index,direction)=>{
+  const currentOrder=getFullCategoryOrder();
   const target=index+direction;
   if(target<0||target>=currentOrder.length)return;
   const temp=currentOrder[index];
@@ -702,13 +711,7 @@ export function AdminSettings(){
  };
 
  const setCategoryPosition=(slug,targetIdx)=>{
-  const currentCats=categoriesList.length?categoriesList:[];
-  let currentOrder=settings.policies?.homeLayout?.categoryOrder?.length
-   ?[...settings.policies.homeLayout.categoryOrder]
-   :currentCats.map(c=>c.slug);
-  currentCats.forEach(c=>{
-   if(!currentOrder.includes(c.slug))currentOrder.push(c.slug);
-  });
+  const currentOrder=getFullCategoryOrder();
   const fromIdx=currentOrder.indexOf(slug);
   if(fromIdx===-1)return;
   const clampedTarget=Math.max(0,Math.min(targetIdx,currentOrder.length-1));
@@ -1396,7 +1399,8 @@ export function AdminSettings(){
        </div>
 
        {(()=>{
-        const orderMap=new Map((currentHomeLayout.categoryOrder||[]).map((slug,idx)=>[slug,idx]));
+        const fullOrder=getFullCategoryOrder();
+        const orderMap=new Map(fullOrder.map((slug,idx)=>[slug,idx]));
         const sortedCats=[...categoriesList].sort((a,b)=>{
          const posA=orderMap.has(a.slug)?orderMap.get(a.slug):999;
          const posB=orderMap.has(b.slug)?orderMap.get(b.slug):999;
