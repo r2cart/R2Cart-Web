@@ -22,6 +22,7 @@ import { EmptyState, ProductGrid, money } from '../../components/ui';
 import { useApp } from '../../context/AppContext';
 import { customerService } from '../../services/customer.service';
 import { catalogService } from '../../services/catalog.service';
+import { dedupeProductPacks } from '../../utils/products';
 
 const TRENDING_SEARCHES = [
   'Milk',
@@ -203,9 +204,9 @@ export function SearchPage() {
   };
 
   const scenario = searchData?.scenario || 'PARTIAL_MATCHES';
-  const results = searchData?.results || [];
+  const results = dedupeProductPacks(searchData?.results || []);
   const exactProduct = searchData?.exactProduct;
-  const similarProducts = searchData?.similarProducts || [];
+  const similarProducts = dedupeProductPacks(searchData?.similarProducts || []);
   const suggestions = searchData?.suggestions || [];
   const isSearchActive = Boolean(debouncedQ.trim());
 

@@ -88,7 +88,7 @@ export function AdminProducts(){
  const inspect=async id=>{setBusy(id);try{setView(await adminService.product(id))}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
 
  return <>
-  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${totalProducts} sellable packs · ${pagination.total} matching your filters`} action={<div className="bulk-upload-actions">{cat !== 'all' && pagination.total > 0 && (
+  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${pagination.total} Products · ${totalProducts} Total Packs across store`} action={<div className="bulk-upload-actions">{cat !== 'all' && pagination.total > 0 && (
     <Button
       variant="danger"
       disabled={!!busy}
@@ -166,7 +166,7 @@ export function AdminProducts(){
    </div>
   ) : (
    <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>MRP</th><th>Selling price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-    {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td>{product.unit}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
+    {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
@@ -357,6 +357,40 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
         )}
 
         {/* Info Metrics Grid */}
+        {view.packs && view.packs.length > 1 && (
+          <div style={{ marginBottom: '16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '12px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
+              📦 All {view.packs.length} Available Pack Sizes & Variants
+            </span>
+            <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px' }}>
+                    <th style={{ padding: '7px 10px' }}>Pack Size</th>
+                    <th style={{ padding: '7px 10px' }}>Selling Price</th>
+                    <th style={{ padding: '7px 10px' }}>MRP</th>
+                    <th style={{ padding: '7px 10px' }}>Stock</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.packs.map((p, idx) => (
+                    <tr key={p.id || idx} style={{ borderBottom: idx < view.packs.length - 1 ? '1px solid #f1f5f9' : 'none', background: p.id === view.id ? '#ecfdf5' : 'transparent' }}>
+                      <td style={{ padding: '7px 10px', fontWeight: 700, color: '#0f172a' }}>
+                        {p.unit} {p.id === view.id && <span style={{ fontSize: '10px', color: '#059669', marginLeft: '4px' }}>(Current)</span>}
+                      </td>
+                      <td style={{ padding: '7px 10px', fontWeight: 700, color: '#059669' }}>{money(p.price)}</td>
+                      <td style={{ padding: '7px 10px', color: '#94a3b8' }}>{money(p.mrp)}</td>
+                      <td style={{ padding: '7px 10px', fontWeight: 600, color: Number(p.stock) <= 5 ? '#dc2626' : '#334155' }}>
+                        {p.stock} units
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '18px' }}>
           {/* Stock Info */}
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 12px' }}>
@@ -491,9 +525,19 @@ export function ProductForm(){
      adminService.product(id),
      adminService.productVariants(id).catch(() => [])
    ])
-     .then(([product, variants]) => {
+     .then(async ([product, variants]) => {
        if (!active) return;
-       setForm({ ...emptyProduct, ...product });
+       const cachedHi = getCachedHindi(product.name);
+       let nameHi = product.nameHi || cachedHi || '';
+       setForm({ ...emptyProduct, ...product, ...(nameHi ? { nameHi } : {}) });
+       if (!nameHi && product.name) {
+         try {
+           const translated = await translateToHindi(product.name);
+           if (translated && active) {
+             setForm(prev => ({ ...prev, nameHi: translated }));
+           }
+         } catch {}
+       }
        const otherPacks = Array.isArray(variants)
          ? variants
              .filter(v => v.id !== product.id)

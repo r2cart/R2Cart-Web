@@ -6,6 +6,7 @@ import {useApp} from '../../context/AppContext';
 import {useLanguage} from '../../context/LanguageContext';
 import {normalizeHomeLayout} from '../../config/homeLayout';
 import {catalogService} from '../../services/catalog.service';
+import {dedupeProductPacks} from '../../utils/products';
 
 export function HomePage(){
  const {categories,products,banners,deliveryConfig,storeSettings}=useApp();
@@ -380,7 +381,7 @@ export function HomePage(){
        {railsToRender.map(category=>{
         const catProducts=products.filter(p=>p.category===category.slug||p.category?.slug===category.slug||p.categoryId===category.id);
         if(!catProducts.length)return null;
-        return <ProductRail key={category.slug} title={tCat(category.name)} to={`/category/${category.slug}`} items={catProducts}/>;
+        return <ProductRail key={category.slug} title={tCat(category.name)} to={`/category/${category.slug}`} items={dedupeProductPacks(catProducts)}/>;
        })}
       </div>
      );
