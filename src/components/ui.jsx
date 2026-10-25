@@ -165,16 +165,125 @@ export function QuantitySelector({id,small=false,choosePacks=small,product:propP
 function BaseProductCard({product,packSelector}){
  const {favorites,toggleFavorite,activeDeliveryRules,deliveryConfig}=useApp();
  const {t,tEta,tProd}=useLanguage();
- const eta=(activeDeliveryRules||deliveryConfig).estimatedDelivery;
+ const eta=(activeDeliveryRules||deliveryConfig)?.estimatedDelivery;
  const off=Math.round((1-product.price/product.mrp)*100);
+ const gallery=(product.images&&product.images.length>0)?product.images:(product.image?[product.image]:[]);
+ const [imgIdx,setImgIdx]=useState(0);
+
+ useEffect(()=>{setImgIdx(0);},[product.id]);
+
+ const nextImg=(e)=>{
+   e.preventDefault();
+   e.stopPropagation();
+   setImgIdx(prev=>(prev+1)%gallery.length);
+ };
+
+ const prevImg=(e)=>{
+   e.preventDefault();
+   e.stopPropagation();
+   setImgIdx(prev=>(prev-1+gallery.length)%gallery.length);
+ };
+
  const formatStock = (count, threshold = 5) => {
   if (count <= 0) return t('outOfStock');
   if (count <= threshold) return t('onlyLeft').replace('{count}', count);
   return `${count} ${t('inStock')}`;
  };
  const fallback=e=>{e.currentTarget.onerror=null;e.currentTarget.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22240%22 viewBox=%220 0 320 240%22%3E%3Crect width=%22320%22 height=%22240%22 fill=%22%23E6FBF3%22/%3E%3Cpath d=%22M160 178c-43-31-48-86 0-116 48 30 43 85 0 116Z%22 fill=%22%2310B981%22/%3E%3Cpath d=%22M160 178c0-48 16-77 39-98%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%228%22 stroke-linecap=%22round%22/%3E%3C/svg%3E'};
- return <article className="product-card"><div className="product-media">{off>0&&<span className="discount">{off}% {t('off', 'OFF')}</span>}<button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'currentColor':'none'}/></button><Link to={`/product/${product.id}`}><img src={product.image} alt={tProd(product.name)} loading="lazy" decoding="async" onError={fallback}/></Link></div><div className="product-copy"><span className="delivery-pill"><Zap/> {tEta(eta)}</span><Link to={`/product/${product.id}`} className="product-name">{tProd(product.name)}</Link>{packSelector||<div className="product-meta-row"><span className="unit">{product.unit}</span>{product.stock>0?<span className={`stock-tag ${product.stock<=(product.lowStockThreshold||5)?'low':''}`}>{formatStock(product.stock, product.lowStockThreshold||5)}</span>:<span className="stock-tag out">{t('outOfStock')}</span>}</div>}<div className="product-foot"><div><strong>{money(product.price)}</strong>{product.mrp>product.price&&<del>{money(product.mrp)}</del>}</div><QuantitySelector id={product.id} small product={product}/></div></div></article>;
+
+ return <article className="product-card">
+  <div className="product-media" style={{position:'relative',overflow:'hidden'}}>
+    {off>0&&<span className="discount">{off}% {t('off', 'OFF')}</span>}
+    <button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'currentColor':'none'}/></button>
+    <Link to={`/product/${product.id}`} style={{display:'block',width:'100%',height:'100%'}}>
+      <img src={gallery[imgIdx]||product.image} alt={tProd(product.name)} loading="lazy" decoding="async" onError={fallback}/>
+    </Link>
+    {gallery.length>1&&(
+      <>
+        <button
+          type="button"
+          onClick={prevImg}
+          aria-label="Previous image"
+          style={{
+            position:'absolute',
+            left:'4px',
+            top:'50%',
+            transform:'translateY(-50%)',
+            width:'24px',
+            height:'24px',
+            borderRadius:'50%',
+            background:'rgba(255,255,255,0.92)',
+            border:'1px solid #e2e8f0',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            boxShadow:'0 2px 6px rgba(0,0,0,0.12)',
+            cursor:'pointer',
+            zIndex:3,
+            padding:0
+          }}
+        >
+          <ChevronLeft size={14} color="#0f172a"/>
+        </button>
+        <button
+          type="button"
+          onClick={nextImg}
+          aria-label="Next image"
+          style={{
+            position:'absolute',
+            right:'4px',
+            top:'50%',
+            transform:'translateY(-50%)',
+            width:'24px',
+            height:'24px',
+            borderRadius:'50%',
+            background:'rgba(255,255,255,0.92)',
+            border:'1px solid #e2e8f0',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            boxShadow:'0 2px 6px rgba(0,0,0,0.12)',
+            cursor:'pointer',
+            zIndex:3,
+            padding:0
+          }}
+        >
+          <ChevronRight size={14} color="#0f172a"/>
+        </button>
+        <div style={{position:'absolute',bottom:'4px',left:0,right:0,display:'flex',justifyContent:'center',gap:'3px',zIndex:3,pointerEvents:'none'}}>
+          {gallery.map((_,dotIdx)=>(
+            <span key={dotIdx} style={{width:dotIdx===imgIdx?'10px':'4px',height:'4px',borderRadius:'4px',background:dotIdx===imgIdx?'#059669':'rgba(15,23,42,0.25)',transition:'all 0.2s ease'}}/>
+          ))}
+        </div>
+      </>
+    )}
+  </div>
+  <div className="product-copy">
+    <span className="delivery-pill"><Zap/> {tEta(eta)}</span>
+    <Link to={`/product/${product.id}`} className="product-name" style={{
+      display:'-webkit-box',
+      WebkitLineClamp:2,
+      WebkitBoxOrient:'vertical',
+      overflow:'hidden',
+      textOverflow:'ellipsis',
+      height:'34px',
+      minHeight:'34px',
+      maxHeight:'34px',
+      lineHeight:'17px',
+      margin:'6px 0 4px',
+      fontWeight:700,
+      color:'#1C1C1E',
+      fontSize:'12.5px'
+    }}>{tProd(product.name)}</Link>
+    {packSelector||<div className="product-meta-row" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'6px',minHeight:'20px',margin:'2px 0 6px'}}><span className="unit" style={{fontSize:'11px',fontWeight:600,color:'#64748b'}}>{product.unit}</span>{product.stock>0?<span className={`stock-tag ${product.stock<=(product.lowStockThreshold||5)?'low':''}`}>{formatStock(product.stock, product.lowStockThreshold||5)}</span>:<span className="stock-tag out">{t('outOfStock')}</span>}</div>}
+    <div className="product-foot">
+      <div><strong>{money(product.price)}</strong>{product.mrp>product.price&&<del>{money(product.mrp)}</del>}</div>
+      <QuantitySelector id={product.id} small product={product}/>
+    </div>
+  </div>
+ </article>;
 }
+
 export function ProductCard({product}){
  return <BaseProductCard product={product}/>;
 }

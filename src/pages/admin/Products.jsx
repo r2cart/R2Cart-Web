@@ -8,7 +8,7 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
-import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2} from 'lucide-react';
+import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -19,6 +19,8 @@ import UnitSelector from '../../components/admin/UnitSelector';
 import useAdminCategories from '../../hooks/useAdminCategories';
 import { generateProductDescription } from '../../utils/productDescriptionGenerator';
 import { translateToHindi, getCachedHindi } from '../../utils/translator';
+import ProductSpecificationsEditor from '../../components/admin/ProductSpecificationsEditor';
+import { parseProductDetails, formatProductDetails } from '../../utils/productDetails';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
 const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
@@ -775,6 +777,7 @@ export function ProductForm(){
  const [rawImageToCrop, setRawImageToCrop] = useState('');
  const [cropConfig, setCropConfig] = useState({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
  const [urlInput, setUrlInput] = useState('');
+  const [details, setDetails] = useState(() => parseProductDetails(''));
 
   useEffect(() => {
     let active = true;
@@ -784,6 +787,7 @@ export function ProductForm(){
     setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
     if (!id) {
       setForm(emptyProduct);
+      setDetails(parseProductDetails(''));
       setLoading(false);
       return;
     }
@@ -797,6 +801,7 @@ export function ProductForm(){
         const cachedHi = getCachedHindi(product.name);
         let nameHi = product.nameHi || cachedHi || '';
         setForm({ ...emptyProduct, ...product, ...(nameHi ? { nameHi } : {}) });
+        setDetails(parseProductDetails(product.description));
         if (!nameHi && product.name) {
           try {
             const translated = await translateToHindi(product.name);
@@ -923,6 +928,30 @@ export function ProductForm(){
     notify('Image URL added to gallery');
   };
 
+  const handleMoveLeft = (idx) => {
+    if (idx <= 0) return;
+    setImageList(prev => {
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[idx - 1];
+      copy[idx - 1] = temp;
+      return copy;
+    });
+    notify(`Image moved to Slot ${idx}`);
+  };
+
+  const handleMoveRight = (idx) => {
+    if (idx >= imageList.length - 1) return;
+    setImageList(prev => {
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[idx + 1];
+      copy[idx + 1] = temp;
+      return copy;
+    });
+    notify(`Image moved to Slot ${idx + 2}`);
+  };
+
   const handleRemoveImage = (indexToRemove) => {
     const item = imageList[indexToRemove];
     if (item?.preview?.startsWith('blob:')) URL.revokeObjectURL(item.preview);
@@ -1026,7 +1055,8 @@ export function ProductForm(){
         throw new Error('At least 1 product image is required (Slot 1: Cover image)');
       }
 
-      let next = { ...form, image: finalUrls[0], images: finalUrls };
+      const finalDesc = formatProductDetails(details) || form.description;
+      let next = { ...form, description: finalDesc, image: finalUrls[0], images: finalUrls };
       if (next.name && next.nameHi) {
         try {
           const raw = localStorage.getItem('r2cart_auto_translations');
@@ -1158,12 +1188,52 @@ export function ProductForm(){
 
             {/* Slot Action Buttons */}
             <div style={{display:'flex',flexDirection:'column',gap:'4px',marginTop:'auto'}}>
-              <div style={{display:'flex',gap:'4px'}}>
+              <div style={{display:'flex',gap:'3px',alignItems:'center'}}>
+                <button
+                  type="button"
+                  disabled={idx === 0}
+                  onClick={() => handleMoveLeft(idx)}
+                  style={{
+                    background: idx === 0 ? '#f1f5f9' : '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    padding: '4px 6px',
+                    cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                    opacity: idx === 0 ? 0.35 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#1e293b'
+                  }}
+                  title="Adjust ranking: Move Left"
+                >
+                  <ChevronLeft size={13}/>
+                </button>
+                <button
+                  type="button"
+                  disabled={idx === imageList.length - 1}
+                  onClick={() => handleMoveRight(idx)}
+                  style={{
+                    background: idx === imageList.length - 1 ? '#f1f5f9' : '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    padding: '4px 6px',
+                    cursor: idx === imageList.length - 1 ? 'not-allowed' : 'pointer',
+                    opacity: idx === imageList.length - 1 ? 0.35 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#1e293b'
+                  }}
+                  title="Adjust ranking: Move Right"
+                >
+                  <ChevronRight size={13}/>
+                </button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => handleOpenCropperForIndex(idx)}
-                  style={{flex:1,padding:'4px 6px',fontSize:'11px',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'4px'}}
+                  style={{flex:1,padding:'4px 6px',fontSize:'11px',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'3px'}}
                   title="Crop & adjust image (1:1)"
                 >
                   <Crop size={12}/>
@@ -1408,6 +1478,8 @@ export function ProductForm(){
       </div>
     </div>
    </section>
+
+   <ProductSpecificationsEditor details={details} onChange={setDetails} />
 
    <section className="admin-card">
     <h3>Pricing & inventory</h3>
