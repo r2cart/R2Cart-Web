@@ -1,5 +1,5 @@
 import {useEffect,useState,useRef} from 'react';
-import {ArrowDown,ArrowUp,Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle,Check,Sparkles,Layers,Palette,Hash} from 'lucide-react';
+import {ArrowDown,ArrowUp,Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -278,24 +278,12 @@ export function AdminCategories(){
   </div>
 
   <Modal open={!!edit} onClose={()=>!saving&&setEdit(null)} title={edit?.id?'Edit category':'Add category'}>
-   <form className="modal-body admin-form cat-edit-modal-wrap" onSubmit={save}>
-    <div className="cat-form-group">
-      <label className="cat-form-label">Category name *</label>
-      <input className="cat-form-input" name="name" required autoFocus defaultValue={edit?.name||''} placeholder="e.g. Resin Art, Fresh Fruits..."/>
-    </div>
-
-    <div className="cat-form-group">
-      <label className="cat-form-label">Parent category <span>(Leave empty for top-level)</span></label>
-      <select className="cat-form-input" name="parentId" defaultValue={edit?.parentId||''}>
-        <option value="">None — main category</option>
-        {list.filter(item=>item.id!==edit?.id&&!item.parentId).map(item=><option value={item.id} key={item.id}>{item.name}</option>)}
-      </select>
-    </div>
-
-    <div className="cat-form-group">
-     <label className="cat-form-label">
-      Category Icon / Main Image 
-      <span>Upload file or paste direct CDN URL</span>
+   <form className="modal-body admin-form" onSubmit={save}>
+    <label>Category name<input name="name" required autoFocus defaultValue={edit?.name||''} placeholder="e.g. Frozen Foods"/></label>
+    <label>Parent category<select name="parentId" defaultValue={edit?.parentId||''}><option value="">None — main category</option>{list.filter(item=>item.id!==edit?.id&&!item.parentId).map(item=><option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+    <div className="category-image-uploader-section" style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+     <label style={{display:'block',fontWeight:600,fontSize:'0.875rem',marginBottom:'2px'}}>
+      Category Icon / Main Image <span className="muted" style={{fontWeight:400}}>(Upload file or paste URL)</span>
      </label>
      
      <input 
@@ -306,15 +294,12 @@ export function AdminCategories(){
       onChange={handleImageUpload} 
      />
 
-     <div className="cat-img-box">
-      <div 
-        className="cat-preview-tile"
-        style={{background:edit?.color||'#EAF8E8'}}
-      >
+     <div style={{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px',background:'var(--surface-subtle,#f8fafc)',border:'1px dashed var(--border-color,#cbd5e1)',borderRadius:'10px'}}>
+      <div style={{width:'52px',height:'52px',borderRadius:'10px',background:edit?.color||'#EAF8E8',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0,border:'1px solid rgba(0,0,0,0.06)'}}>
        {edit?.image ? (
-        <img src={edit.image} alt="" onError={e=>{e.currentTarget.style.display='none'}}/>
+        <img src={edit.image} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}} onError={e=>{e.currentTarget.style.display='none'}}/>
        ) : (
-        <FolderTree size={28} style={{opacity:0.45,color:'#0f172a'}}/>
+        <FolderTree size={24} style={{opacity:0.45}}/>
        )}
       </div>
 
@@ -326,10 +311,10 @@ export function AdminCategories(){
          size="sm" 
          disabled={uploadingImage||saving} 
          onClick={()=>fileInputRef.current?.click()}
-         style={{gap:'6px',fontSize:'0.82rem',padding:'6px 14px',borderRadius:'8px'}}
+         style={{gap:'6px',fontSize:'0.82rem',padding:'6px 12px'}}
         >
          {uploadingImage?<LoaderCircle size={15} className="spin"/>:<Upload size={15}/>}
-         {uploadingImage?'Uploading to Cloudinary…':edit?.image?'Change image':'Upload image'}
+         {uploadingImage?'Uploading…':edit?.image?'Change image':'Upload image from device'}
         </Button>
         {edit?.image&&(
          <Button 
@@ -341,14 +326,14 @@ export function AdminCategories(){
            setEdit(c=>({...c,image:''}));
            if(fileInputRef.current)fileInputRef.current.value='';
           }}
-          style={{gap:'4px',fontSize:'0.82rem',color:'var(--text-danger,#ef4444)',borderRadius:'8px'}}
+          style={{gap:'4px',fontSize:'0.82rem',color:'var(--text-danger,#ef4444)'}}
          >
           <Trash2 size={14}/> Remove
          </Button>
         )}
        </div>
-       <div style={{marginTop:'6px',fontSize:'0.75rem',color:'var(--text-muted,#64748b)',lineHeight:1.35}}>
-        PNG, JPG, WEBP or SVG. <b>Old Cloudinary images are automatically deleted</b> when replaced or removed.
+       <div style={{marginTop:'4px',fontSize:'0.75rem',color:'var(--text-muted,#64748b)'}}>
+        Supports PNG, JPG, WEBP, SVG. Cloudinary CDN automatically optimizes.
        </div>
       </div>
      </div>
@@ -358,63 +343,16 @@ export function AdminCategories(){
       type="url" 
       value={edit?.image||''} 
       onChange={e=>setEdit(c=>({...c,image:e.target.value}))} 
-      placeholder="Or paste Cloudinary image URL (https://res.cloudinary.com/...)" 
-      className="cat-form-input"
-      style={{fontSize:'0.82rem',marginTop:'4px'}}
+      placeholder="Or paste direct image URL (https://...)" 
+      style={{fontSize:'0.82rem',padding:'7px 10px'}}
      />
     </div>
-
-    <div className="form-grid" style={{gridTemplateColumns:'repeat(3,1fr)',gap:'12px'}}>
-     <div className="cat-form-group">
-      <label className="cat-form-label">
-        Display order
-      </label>
-      <input 
-        name="position" 
-        type="number" 
-        min="1" 
-        className="cat-form-input"
-        defaultValue={edit?.position??(list.length+1)}
-        placeholder="1, 2, 3..."
-      />
-      <span style={{fontSize:'11px',color:'#64748b',marginTop:'2px'}}>Lower = shows earlier</span>
-     </div>
-
-     <div className="cat-form-group">
-      <label className="cat-form-label">
-        Theme colour
-      </label>
-      <div style={{display:'flex',alignItems:'center',gap:'8px',height:'42px'}}>
-        <input 
-          name="color" 
-          type="color" 
-          defaultValue={edit?.color||'#EAF8E8'} 
-          onChange={e=>setEdit(c=>({...c,color:e.target.value}))}
-          style={{width:'40px',height:'40px',padding:0,border:'1px solid #cbd5e1',borderRadius:'8px',cursor:'pointer'}}
-        />
-        <span style={{fontSize:'12px',fontWeight:700,fontFamily:'monospace',color:'#334155'}}>
-          {edit?.color||'#EAF8E8'}
-        </span>
-      </div>
-     </div>
-
-     <div className="cat-form-group">
-      <label className="cat-form-label">Status</label>
-      <select name="status" className="cat-form-input" defaultValue={edit?.status||'ACTIVE'}>
-        <option value="ACTIVE">Active</option>
-        <option value="INACTIVE">Inactive</option>
-      </select>
-     </div>
+    <div className="form-grid">
+     <label>Display order<input name="position" type="number" min="0" defaultValue={edit?.position??list.length}/></label>
+     <label>Theme colour<input name="color" type="color" defaultValue={edit?.color||'#EAF8E8'} onChange={e=>setEdit(c=>({...c,color:e.target.value}))}/></label>
+     <label>Status<select name="status" defaultValue={edit?.status||'ACTIVE'}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
     </div>
-
-    <div className="cat-modal-actions">
-      <Button type="button" variant="ghost" disabled={saving||uploadingImage} onClick={()=>setEdit(null)}>
-        Cancel
-      </Button>
-      <Button disabled={saving||uploadingImage} style={{minWidth:'120px'}}>
-        {saving?'Saving…':'Save category'}
-      </Button>
-    </div>
+    <div className="row end gap"><Button type="button" variant="ghost" disabled={saving||uploadingImage} onClick={()=>setEdit(null)}>Cancel</Button><Button disabled={saving||uploadingImage}>{saving?'Saving…':'Save category'}</Button></div>
    </form>
   </Modal>
 
