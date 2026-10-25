@@ -1,5 +1,5 @@
 import {useEffect,useState,useRef} from 'react';
-import {ArrowDown,ArrowUp,Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle} from 'lucide-react';
+import {Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -15,7 +15,7 @@ function CategoryListSkeleton(){
     <div className="cat-skeleton-list" aria-label="Loading categories">
       {[1,2,3,4,5,6,7,8].map(i=>(
         <div key={i} className="cat-skeleton-row">
-          <div className="cat-skel-arrows cat-skeleton-shimmer"/>
+          <div className="cat-skel-badge cat-skeleton-shimmer" style={{width:'38px',height:'28px',borderRadius:'8px'}}/>
           <div className="cat-skel-icon cat-skeleton-shimmer"/>
           <div className="cat-skel-text">
             <div className="cat-skel-title cat-skeleton-shimmer" style={{width: i%2===0?'180px':'130px'}}/>
@@ -74,7 +74,7 @@ export function AdminCategories(){
     adminCategoriesCache=null;
     await refreshCategories();
     window.dispatchEvent(new Event('grocify:categories-updated'));
-    notify(`Image for "${cat.name}" updated (old asset removed from Cloudinary)`,'success');
+    notify(`Image for "${cat.name}" updated successfully`,'success');
    }
   }catch(err){
    notify(err.message||'Failed to update category image','error');
@@ -103,31 +103,6 @@ export function AdminCategories(){
   }finally{
    setUploadingImage(false);
    if(event.target)event.target.value='';
-  }
- };
-
- const move=async(index,direction)=>{
-  const target=index+direction;
-  if(target<0||target>=list.length)return;
-  const previousList=[...list];
-  const next=[...list];
-  const temp=next[index];
-  next[index]=next[target];
-  next[target]=temp;
-  
-  // Instant optimistic re-index (1-based position)
-  const resequenced=next.map((item,idx)=>({...item,position:idx+1}));
-  setList(resequenced);
-  adminCategoriesCache=resequenced;
-
-  try{
-   await adminService.reorderCategories(resequenced.map(item=>item.id));
-   await refreshCategories();
-   window.dispatchEvent(new Event('grocify:categories-updated'));
-  }catch(reason){
-   setList(previousList);
-   adminCategoriesCache=previousList;
-   notify(reason.message||'Failed to save reordered positions','error');
   }
  };
 
@@ -219,26 +194,9 @@ export function AdminCategories(){
    {!loading&&error&&<div className="modal-body"><p className="text-danger">{error}</p><Button variant="outline" onClick={()=>load(true)}>Try again</Button></div>}
    {!loading&&!error&&!list.length&&<div className="modal-body muted">No categories yet. Add your first category.</div>}
    {!loading&&!error&&list.map((category,index)=><div key={category.id} className="category-admin-row">
-    <div className="category-order-actions">
-      <button 
-        type="button"
-        disabled={saving||index===0} 
-        onClick={()=>move(index,-1)} 
-        aria-label={`Move ${category.name} up`}
-        title="Move up (instant)"
-      >
-        <ArrowUp size={15}/>
-      </button>
-      <button 
-        type="button"
-        disabled={saving||index===list.length-1} 
-        onClick={()=>move(index,1)} 
-        aria-label={`Move ${category.name} down`}
-        title="Move down (instant)"
-      >
-        <ArrowDown size={15}/>
-      </button>
-    </div>
+    <span className="category-rank-badge" title={`Display Order #${category.position || index + 1}`}>
+      #{category.position || index + 1}
+    </span>
 
     <div 
       className="cat-icon category-thumbnail-wrap" 
@@ -257,12 +215,7 @@ export function AdminCategories(){
       onClick={()=>setViewCategory(category)}
       title={`Click to view ${category.name} products in cards`}
     >
-      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-        <b>{category.name}</b>
-        <span style={{fontSize:'10px',fontWeight:700,background:'#f1f5f9',color:'#475569',padding:'1px 6px',borderRadius:'4px'}}>
-          #{category.position || index + 1}
-        </span>
-      </div>
+      <b>{category.name}</b>
       <small>
         {(category._count?.products ?? 0) === 1 ? '1 product' : `${category._count?.products ?? 0} products`}
         {category.parent?.name?` · Under ${category.parent.name}`:category.children?.length?` · ${category.children.length} subcategories`:''}

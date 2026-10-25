@@ -144,46 +144,43 @@ main>.page,main>.static-page,main>.success-page{animation:pageEnter .38s cubic-b
 .category-view-pill{display:none;font-size:10px;color:var(--green,#10b981);font-weight:700;margin-left:4px}
 .category-admin-row:hover .category-view-pill{display:inline}
 
-/* ── Category Order Arrow Interactive Styles ── */
-.category-order-actions{display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center}
-.category-order-actions button{
+/* ── Category Clean Admin Row Styles ── */
+.category-admin-list .category-admin-row{
   display:grid;
-  place-items:center;
-  width:26px;
-  height:24px;
-  border-radius:6px;
-  border:1px solid #e2e8f0;
-  background:#ffffff;
-  color:#64748b;
-  cursor:pointer;
-  transition:all .18s cubic-bezier(.34,1.56,.64,1);
-  padding:0;
+  grid-template-columns:42px 48px 1fr auto 36px 36px 36px;
+  gap:14px;
+  align-items:center;
+  padding:13px 18px;
+  border-bottom:1px solid #f1f5f9;
+  transition:all .16s ease;
 }
-.category-order-actions button:hover:not(:disabled){
-  background:#E6FBF3;
-  color:#059669;
-  border-color:#A7F3D0;
-  transform:scale(1.12);
-  box-shadow:0 2px 8px rgba(16,185,129,.18);
-}
-.category-order-actions button:active:not(:disabled){
-  transform:scale(0.92);
-}
-.category-order-actions button:disabled{
-  opacity:0.3;
-  cursor:not-allowed;
+.category-admin-list .category-admin-row:hover{
   background:#f8fafc;
-  border-color:#e2e8f0;
+}
+.category-rank-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:28px;
+  min-width:38px;
+  padding:0 6px;
+  border-radius:8px;
+  background:#f1f5f9;
+  color:#475569;
+  font-size:11.5px;
+  font-weight:800;
+  border:1px solid #e2e8f0;
+  user-select:none;
 }
 
 /* ── Category List Skeleton Loader ── */
 .cat-skeleton-list{display:flex;flex-direction:column;width:100%}
 .cat-skeleton-row{
   display:grid;
-  grid-template-columns:30px 48px 1fr 80px 32px 32px 32px;
+  grid-template-columns:42px 48px 1fr 80px 36px 36px 36px;
   gap:14px;
   align-items:center;
-  padding:14px 18px;
+  padding:13px 18px;
   border-bottom:1px solid #f1f5f9;
 }
 .cat-skeleton-shimmer{
@@ -196,21 +193,26 @@ main>.page,main>.static-page,main>.success-page{animation:pageEnter .38s cubic-b
   0%{background-position:200% 0}
   100%{background-position:-200% 0}
 }
-.cat-skel-arrows{width:22px;height:42px;border-radius:6px}
-.cat-skel-icon{width:46px;height:46px;border-radius:12px}
+.cat-skel-icon{width:48px;height:48px;border-radius:12px}
 .cat-skel-text{display:flex;flex-direction:column;gap:6px;flex:1}
 .cat-skel-title{width:160px;height:16px;border-radius:4px}
 .cat-skel-sub{width:110px;height:12px;border-radius:4px}
 .cat-skel-badge{width:68px;height:24px;border-radius:20px}
-.cat-skel-btn{width:32px;height:32px;border-radius:8px}
+.cat-skel-btn{width:36px;height:36px;border-radius:8px}
 
 @media(max-width:560px){
-  .cat-skeleton-row{
-    grid-template-columns:22px 40px 1fr auto;
+  .category-admin-list .category-admin-row{
+    grid-template-columns:34px 42px 1fr auto;
     gap:10px;
-    padding:12px 14px;
+    padding:11px 12px;
   }
-  .cat-skel-badge,.cat-skel-btn:nth-child(n+6){display:none}
+  .category-admin-row>button:nth-child(n+6){display:none}
+  .cat-skeleton-row{
+    grid-template-columns:34px 42px 1fr auto;
+    gap:10px;
+    padding:11px 12px;
+  }
+  .cat-skel-btn:nth-child(n+6){display:none}
 }
 
 /* ── Enhanced Edit Category Modal UI ── */
