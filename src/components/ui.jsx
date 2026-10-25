@@ -283,7 +283,26 @@ function BaseProductCard({product,packSelector}){
   <div className="product-copy">
     <span className="delivery-pill"><Zap/> {tEta(eta)}</span>
     <Link to={`/product/${product.id}`} className="product-name">{tProd(product.name)}</Link>
-    {packSelector||<div className="product-meta-row"><span className="unit">{product.unit}</span>{product.stock>0?<span className={`stock-tag ${product.stock<=(product.lowStockThreshold||5)?'low':''}`}>{formatStock(product.stock, product.lowStockThreshold||5)}</span>:<span className="stock-tag out">{t('outOfStock')}</span>}</div>}
+    {packSelector||(
+      <div className="product-meta-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', width: '100%', overflow: 'hidden', minHeight: '18px' }}>
+        <span
+          className="unit"
+          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}
+          title={product.unit}
+        >
+          {product.unit}
+        </span>
+        {product.stock > 0 ? (
+          <span className={`stock-tag ${product.stock <= (product.lowStockThreshold || 5) ? 'low' : ''}`} style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+            {formatStock(product.stock, product.lowStockThreshold || 5)}
+          </span>
+        ) : (
+          <span className="stock-tag out" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+            {t('outOfStock')}
+          </span>
+        )}
+      </div>
+    )}
     <div className="product-foot">
       <div><strong>{money(product.price)}</strong>{product.mrp>product.price&&<del>{money(product.mrp)}</del>}</div>
       <QuantitySelector id={product.id} small product={product}/>

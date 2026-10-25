@@ -12,9 +12,9 @@ body{color:var(--ink);background:#fff}.logo{color:#26363c;letter-spacing:-1.45px
   .delivery-pill{margin-top:-22px!important;font-size:7.5px!important;padding:1px 5px!important;border-radius:5px!important}
   .delivery-pill svg{width:8.5px!important;height:8.5px!important}
   .product-name{font-size:11px!important;line-height:14px!important;height:28px!important;min-height:28px!important;max-height:28px!important;margin:2px 0 1px!important}
-  .product-meta-row{margin:1px 0 2px!important;min-height:15px!important}
-  .product-meta-row .unit{font-size:9.5px!important}
-  .product-meta-row .stock-tag{font-size:9px!important;padding:1px 4px!important}
+  .product-meta-row{margin:1px 0 2px!important;min-height:15px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:4px!important;width:100%!important;overflow:hidden!important}
+  .product-meta-row .unit{font-size:9.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;flex:1 1 auto!important;min-width:0!important}
+  .product-meta-row .stock-tag{font-size:9px!important;padding:1px 4px!important;flex-shrink:0!important;white-space:nowrap!important}
   .product-foot{margin-top:3px!important;min-height:24px!important}
   .product-foot strong{font-size:12px!important}
   .product-foot del{font-size:9.5px!important}

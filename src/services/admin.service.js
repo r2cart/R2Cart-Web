@@ -34,6 +34,7 @@ export const adminService = {
   importProducts: rows => api.post('/admin/products/import', { rows }),
   updateCouponStatus: (id, status) => api.patch(`/admin/coupons/${id}/status`, { status }),
   categories: () => api.get('/admin/categories'),
+  uploadCategoryImage: file => upload('/admin/uploads/categories', file),
   createCategory: value => api.post('/admin/categories', value),
   updateCategory: (id, value) => api.patch(`/admin/categories/${id}`, value),
   deleteCategory: id => api.delete(`/admin/categories/${id}`),

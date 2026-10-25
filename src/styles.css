@@ -24,7 +24,9 @@ footer{background:#173a27;color:#fff;padding-top:55px}.footer-grid{display:grid;
 
 
 /* Stock Badges & Indicators */
-.product-meta-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:3px 0 2px;min-height:18px}
+.product-meta-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:3px 0 2px;min-height:18px;width:100%;overflow:hidden}
+.product-meta-row .unit{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0}
+.product-meta-row .stock-tag{flex-shrink:0;white-space:nowrap}
 .stock-tag{display:inline-flex;align-items:center;font-size:10px;font-weight:700;color:#059669;background:#E6FBF3;padding:1px 6px;border-radius:4px;white-space:nowrap}
 .stock-tag.low{color:#B45309;background:#FEF3C7}
 .stock-tag.out{color:#DC2626;background:#FEE2E2}
