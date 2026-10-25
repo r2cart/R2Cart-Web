@@ -8,7 +8,7 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
-import {ArrowLeft,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2} from 'lucide-react';
+import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -93,7 +93,44 @@ export function AdminProducts(){
  const changeFilter=setter=>value=>{setter(value);setPage(1)};
 
  const toggle=async product=>{adminProductsCache=null;setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
- const destroy=async()=>{adminProductsCache=null;const product=confirm;if(!product)return;setBusy(product.id);try{await adminService.deleteProduct(product.id);setConfirm(null);if(list.length===1&&page>1)setPage(value=>value-1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" deleted successfully`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+ const destroy=async()=>{
+  const product=confirm;
+  if(!product)return;
+  const toRemoveId=product.id;
+  const removedName=product.name;
+  const removedPacks=product.packCount||1;
+
+  // 1. Instant close dialog and optimistic UI removal (0ms latency, no full-page reload)
+  setConfirm(null);
+  setList(prev=>prev.filter(p=>p.id!==toRemoveId));
+  setPagination(prev=>({
+    ...prev,
+    total:Math.max(0,prev.total-1),
+    pages:Math.max(1,Math.ceil(Math.max(0,prev.total-1)/20))
+  }));
+  setTotalProducts(prev=>Math.max(0,prev-removedPacks));
+
+  if(adminProductsCache){
+    adminProductsCache.list=(adminProductsCache.list||[]).filter(p=>p.id!==toRemoveId);
+    adminProductsCache.totalProducts=Math.max(0,(adminProductsCache.totalProducts||0)-removedPacks);
+    if(adminProductsCache.pagination){
+      adminProductsCache.pagination.total=Math.max(0,adminProductsCache.pagination.total-1);
+      adminProductsCache.pagination.pages=Math.max(1,Math.ceil(adminProductsCache.pagination.total/20));
+    }
+  }
+
+  // 2. Background DB soft-delete with non-blocking Cloudinary cleanup
+  try{
+    await adminService.deleteProduct(toRemoveId);
+    notify(`"${removedName}" deleted successfully`,'success');
+    refreshProducts();
+    window.dispatchEvent(new Event('grocify:products-updated'));
+  }catch(reason){
+    notify(reason.message||'Failed to delete product','error');
+    adminProductsCache=null;
+    setRefresh(v=>v+1);
+  }
+ };
  const destroyAll=async()=>{adminProductsCache=null;setBusy('all');try{const res=await adminService.deleteAllProducts();setDeleteAllConfirm(false);setPage(1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(res?.message||'All products deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
   const destroyCategoryProducts=async()=>{adminProductsCache=null;
     const target=deleteCatConfirm;
@@ -352,7 +389,19 @@ export function AdminProducts(){
 
 export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
   const [copied, setCopied] = useState(false);
+  const [activeImage, setActiveImage] = useState(view?.image || view?.images?.[0] || '');
+
+  useEffect(() => {
+    if (view) {
+      setActiveImage(view.image || view.images?.[0] || '');
+    }
+  }, [view]);
+
   if (!view) return null;
+
+  const galleryImages = (view.images && view.images.length > 0)
+    ? view.images
+    : (view.image ? [view.image] : []);
 
   const copySku = () => {
     if (view.sku) {
@@ -383,21 +432,46 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
             marginBottom: '16px'
           }}
         >
-          {view.image ? (
-            <img
-              src={view.image}
-              alt={view.name}
-              style={{
-                width: '80px',
-                height: '80px',
-                objectFit: 'contain',
-                borderRadius: '12px',
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                padding: '4px',
-                flexShrink: 0
-              }}
-            />
+          {activeImage ? (
+            <div style={{display:'flex',flexDirection:'column',gap:'6px',flexShrink:0}}>
+              <img
+                src={activeImage}
+                alt={view.name}
+                style={{
+                  width: '90px',
+                  height: '90px',
+                  objectFit: 'contain',
+                  borderRadius: '12px',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  padding: '4px'
+                }}
+              />
+              {galleryImages.length > 1 && (
+                <div style={{display:'flex',gap:'4px',maxWidth:'90px',overflowX:'auto',paddingBottom:'2px'}}>
+                  {galleryImages.map((src, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveImage(src)}
+                      style={{
+                        padding: 0,
+                        border: activeImage === src ? '2px solid #059669' : '1px solid #e2e8f0',
+                        borderRadius: '4px',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        width: '22px',
+                        height: '22px',
+                        flexShrink: 0,
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <img src={src} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <div
               style={{
@@ -638,129 +712,210 @@ export function ProductForm(){
  const [form,setForm]=useState(emptyProduct);
  const [loading,setLoading]=useState(Boolean(id));
  const [saving,setSaving]=useState(false);
- const [imageFile,setImageFile]=useState(null);
- const [preview,setPreview]=useState('');
- const [packs,setPacks]=useState([]);
- const [loadError,setLoadError]=useState(''),[reload,setReload]=useState(0);
+ const [imageList, setImageList] = useState([]);
+ const [packs, setPacks] = useState([]);
+ const [loadError, setLoadError] = useState(''), [reload, setReload] = useState(0);
 
  // Cropper state
  const [cropperOpen, setCropperOpen] = useState(false);
+ const [cropTargetIndex, setCropTargetIndex] = useState(null);
  const [rawImageToCrop, setRawImageToCrop] = useState('');
- const [originalImageSrc, setOriginalImageSrc] = useState('');
  const [cropConfig, setCropConfig] = useState({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
+ const [urlInput, setUrlInput] = useState('');
 
- useEffect(() => {
-   let active = true;
-   setLoadError('');
-   setImageFile(null);
-   setPreview('');
-   setPacks([]);
-   setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
-   setOriginalImageSrc('');
-   if (!id) {
-     setForm(emptyProduct);
-     setLoading(false);
-     return;
-   }
-   setLoading(true);
-   Promise.all([
-     adminService.product(id),
-     adminService.productVariants(id).catch(() => [])
-   ])
-     .then(async ([product, variants]) => {
-       if (!active) return;
-       const cachedHi = getCachedHindi(product.name);
-       let nameHi = product.nameHi || cachedHi || '';
-       setForm({ ...emptyProduct, ...product, ...(nameHi ? { nameHi } : {}) });
-       if (!nameHi && product.name) {
-         try {
-           const translated = await translateToHindi(product.name);
-           if (translated && active) {
-             setForm(prev => ({ ...prev, nameHi: translated }));
-           }
-         } catch {}
-       }
-       const otherPacks = Array.isArray(variants)
-         ? variants
-             .filter(v => v.id !== product.id)
-             .map(v => ({
-               id: v.id,
-               unit: v.unit || '',
-               mrp: v.mrp !== undefined && v.mrp !== null ? String(v.mrp) : '',
-               price: v.price !== undefined && v.price !== null ? String(v.price) : '',
-               stock: v.stock !== undefined && v.stock !== null ? String(v.stock) : '',
-               status: v.status || 'ACTIVE'
-             }))
-         : [];
-       setPacks(otherPacks);
-     })
-     .catch(reason => {
-       if (active) setLoadError(reason.message);
-     })
-     .finally(() => {
-       if (active) setLoading(false);
-     });
-   return () => { active = false; };
- }, [id, reload]);
- useEffect(()=>()=>{
-   if(preview.startsWith('blob:'))URL.revokeObjectURL(preview);
-   if(originalImageSrc.startsWith('blob:')&&originalImageSrc!==preview)URL.revokeObjectURL(originalImageSrc);
- },[preview,originalImageSrc]);
- const set=(key,value)=>setForm(current=>({...current,[key]:value}));
- const field=(key,label,type='text')=><label>{label}<input type={type} required min={type==='number'?0:undefined} step={['mrp','price'].includes(key)?'0.01':undefined} value={form[key]??''} onChange={event=>set(key,event.target.value)}/></label>;
+  useEffect(() => {
+    let active = true;
+    setLoadError('');
+    setImageList([]);
+    setPacks([]);
+    setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
+    if (!id) {
+      setForm(emptyProduct);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    Promise.all([
+      adminService.product(id),
+      adminService.productVariants(id).catch(() => [])
+    ])
+      .then(async ([product, variants]) => {
+        if (!active) return;
+        const cachedHi = getCachedHindi(product.name);
+        let nameHi = product.nameHi || cachedHi || '';
+        setForm({ ...emptyProduct, ...product, ...(nameHi ? { nameHi } : {}) });
+        if (!nameHi && product.name) {
+          try {
+            const translated = await translateToHindi(product.name);
+            if (translated && active) {
+              setForm(prev => ({ ...prev, nameHi: translated }));
+            }
+          } catch {}
+        }
 
- const [translatingName, setTranslatingName] = useState(false);
- const handleAutoTranslateName = async () => {
-   if (!form.name || !form.name.trim()) {
-     return notify('Please enter the Product Name in English first', 'error');
-   }
-   setTranslatingName(true);
-   try {
-     const translated = await translateToHindi(form.name);
-     if (translated) {
-       set('nameHi', translated);
-       notify('✨ Hindi translation generated!');
-     }
-   } catch {
-     notify('Could not auto-translate name', 'error');
-   } finally {
-     setTranslatingName(false);
-   }
- };
+        const imgs = (product.images && product.images.length > 0)
+          ? product.images
+          : (product.image ? [product.image] : []);
+        setImageList(imgs.map((url, i) => ({
+          id: `img-${i}-${Date.now()}`,
+          url,
+          file: null,
+          preview: url,
+          originalSrc: url
+        })));
 
- const chooseImage=(event)=>{
-   const file=event.target.files?.[0];
-   if(!file)return;
-   if(!['image/jpeg','image/png','image/webp'].includes(file.type))return notify('Choose a JPG, PNG or WebP image','error');
-   if(file.size>10*1024*1024)return notify('Image must be smaller than 10 MB','error');
-   const objectUrl=URL.createObjectURL(file);
-   setOriginalImageSrc(objectUrl);
-   setRawImageToCrop(objectUrl);
-   setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
-   setCropperOpen(true);
-   event.target.value='';
- };
+        const otherPacks = Array.isArray(variants)
+          ? variants
+              .filter(v => v.id !== product.id)
+              .map(v => ({
+                id: v.id,
+                unit: v.unit || '',
+                mrp: v.mrp !== undefined && v.mrp !== null ? String(v.mrp) : '',
+                price: v.price !== undefined && v.price !== null ? String(v.price) : '',
+                stock: v.stock !== undefined && v.stock !== null ? String(v.stock) : '',
+                status: v.status || 'ACTIVE'
+              }))
+          : [];
+        setPacks(otherPacks);
+      })
+      .catch(reason => {
+        if (active) setLoadError(reason.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [id, reload]);
 
- const handleCropDone=(croppedFile,croppedPreviewUrl,savedConfig)=>{
-   if(preview&&preview.startsWith('blob:')&&preview!==rawImageToCrop&&preview!==originalImageSrc){
-     URL.revokeObjectURL(preview);
-   }
-   setImageFile(croppedFile);
-   setPreview(croppedPreviewUrl);
-   if(savedConfig){
-     setCropConfig(savedConfig);
-   }
-   setCropperOpen(false);
-   notify(`Image cropped at ${Math.round((savedConfig?.zoom||1)*100)}% zoom`);
- };
+  useEffect(() => () => {
+    imageList.forEach(item => {
+      if (item.preview && item.preview.startsWith('blob:')) URL.revokeObjectURL(item.preview);
+      if (item.originalSrc && item.originalSrc.startsWith('blob:') && item.originalSrc !== item.preview) URL.revokeObjectURL(item.originalSrc);
+    });
+  }, [imageList]);
 
- const handleOpenCropperForCurrent=()=>{
-   const srcToUse=originalImageSrc||preview||form.image;
-   if(!srcToUse)return;
-   setRawImageToCrop(srcToUse);
-   setCropperOpen(true);
- };
+  const set=(key,value)=>setForm(current=>({...current,[key]:value}));
+  const field=(key,label,type='text')=><label>{label}<input type={type} required min={type==='number'?0:undefined} step={['mrp','price'].includes(key)?'0.01':undefined} value={form[key]??''} onChange={event=>set(key,event.target.value)}/></label>;
 
+  const [translatingName, setTranslatingName] = useState(false);
+  const handleAutoTranslateName = async () => {
+    if (!form.name || !form.name.trim()) {
+      return notify('Please enter the Product Name in English first', 'error');
+    }
+    setTranslatingName(true);
+    try {
+      const translated = await translateToHindi(form.name);
+      if (translated) {
+        set('nameHi', translated);
+        notify('✨ Hindi translation generated!');
+      }
+    } catch {
+      notify('Could not auto-translate name', 'error');
+    } finally {
+      setTranslatingName(false);
+    }
+  };
+
+  const handleChooseFiles = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    const remaining = 8 - imageList.length;
+    if (remaining <= 0) {
+      return notify('Maximum 8 images allowed. Remove an image first.', 'error');
+    }
+    const toProcess = files.slice(0, remaining);
+    const valid = [];
+    for (const file of toProcess) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        notify(`Skipped "${file.name}": Only JPG, PNG, and WebP supported`, 'error');
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        notify(`Skipped "${file.name}": Image exceeds 10 MB`, 'error');
+        continue;
+      }
+      const objectUrl = URL.createObjectURL(file);
+      valid.push({
+        id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        url: '',
+        file,
+        preview: objectUrl,
+        originalSrc: objectUrl
+      });
+    }
+    if (valid.length > 0) {
+      setImageList(prev => [...prev, ...valid]);
+      notify(`Added ${valid.length} image${valid.length > 1 ? 's' : ''} to gallery`);
+    }
+    event.target.value = '';
+  };
+
+  const handleAddFromUrl = () => {
+    const trimmed = String(urlInput || '').trim();
+    if (!trimmed) return;
+    if (imageList.length >= 8) {
+      return notify('Maximum 8 images allowed. Remove an image first.', 'error');
+    }
+    setImageList(prev => [
+      ...prev,
+      {
+        id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        url: trimmed,
+        file: null,
+        preview: trimmed,
+        originalSrc: trimmed
+      }
+    ]);
+    setUrlInput('');
+    notify('Image URL added to gallery');
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    const item = imageList[indexToRemove];
+    if (item?.preview?.startsWith('blob:')) URL.revokeObjectURL(item.preview);
+    if (item?.originalSrc?.startsWith('blob:') && item?.originalSrc !== item?.preview) URL.revokeObjectURL(item.originalSrc);
+    setImageList(prev => prev.filter((_, i) => i !== indexToRemove));
+  };
+
+  const handleSetAsCover = (indexToPromote) => {
+    if (indexToPromote === 0) return;
+    setImageList(prev => {
+      const copy = [...prev];
+      const [promoted] = copy.splice(indexToPromote, 1);
+      copy.unshift(promoted);
+      return copy;
+    });
+    notify('⭐ Set as Primary Cover Image!');
+  };
+
+  const handleOpenCropperForIndex = (index) => {
+    const item = imageList[index];
+    if (!item) return;
+    const srcToUse = item.originalSrc || item.preview || item.url;
+    if (!srcToUse) return;
+    setCropTargetIndex(index);
+    setRawImageToCrop(srcToUse);
+    setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
+    setCropperOpen(true);
+  };
+
+  const handleCropDone = (croppedFile, croppedPreviewUrl, savedConfig) => {
+    if (cropTargetIndex !== null && imageList[cropTargetIndex]) {
+      const old = imageList[cropTargetIndex];
+      if (old.preview?.startsWith('blob:') && old.preview !== old.originalSrc && old.preview !== rawImageToCrop) {
+        URL.revokeObjectURL(old.preview);
+      }
+      setImageList(prev => prev.map((item, i) => i === cropTargetIndex ? {
+        ...item,
+        file: croppedFile,
+        preview: croppedPreviewUrl
+      } : item));
+    }
+    if (savedConfig) setCropConfig(savedConfig);
+    setCropperOpen(false);
+    setCropTargetIndex(null);
+    notify(`Image cropped at ${Math.round((savedConfig?.zoom || 1) * 100)}% zoom`);
+  };
  const [genIndex, setGenIndex] = useState(0);
 
  const handleGenerateDescription = () => {
@@ -796,33 +951,51 @@ export function ProductForm(){
      const units = [form, ...packs].map(pack => pack.unit.trim().toLowerCase().replace(/\s+/g, ''));
      if (new Set(units).size !== units.length) throw new Error('Each pack size must be different');
 
-     let next = form;
-     if (imageFile) {
-       const uploaded = await adminService.uploadProductImage(imageFile, form.category);
-       next = { ...form, image: uploaded.url };
-     }
-     if (next.name && next.nameHi) {
-       try {
-         const raw = localStorage.getItem('r2cart_auto_translations');
-         const cache = raw ? JSON.parse(raw) : {};
-         cache[next.name.trim()] = next.nameHi.trim();
-         localStorage.setItem('r2cart_auto_translations', JSON.stringify(cache));
-         window.dispatchEvent(new CustomEvent('r2cart:translation-updated', { detail: { text: next.name.trim(), hi: next.nameHi.trim() } }));
-       } catch {}
-     }
+      // 1. Mandatory 1 Cover Image & max 8 validation
+      if (!imageList.length) {
+        throw new Error('At least 1 product image is required (Slot 1: Cover image)');
+      }
+      if (imageList.length > 8) {
+        throw new Error('Maximum 8 product images allowed');
+      }
 
-     const cleanPacks = packs.map(p => ({
-       ...(p.id ? { id: p.id } : {}),
-       unit: p.unit.trim(),
-       mrp: Number(p.mrp),
-       price: Number(p.price),
-       stock: Number(p.stock),
-       status: p.status || form.status
-     }));
+      // 2. Concurrently upload any newly selected device files
+      const uploadedUrls = await Promise.all(imageList.map(async (item) => {
+        if (item.file) {
+          const res = await adminService.uploadProductImage(item.file, form.category);
+          return res.url;
+        }
+        return item.url || item.preview;
+      }));
 
-     await (id
-       ? adminService.updateProduct(id, { ...payload(next), packs: cleanPacks })
-       : adminService.createProduct({ ...payload(next), packs: cleanPacks }));
+      const finalUrls = uploadedUrls.filter(Boolean);
+      if (!finalUrls.length) {
+        throw new Error('At least 1 product image is required (Slot 1: Cover image)');
+      }
+
+      let next = { ...form, image: finalUrls[0], images: finalUrls };
+      if (next.name && next.nameHi) {
+        try {
+          const raw = localStorage.getItem('r2cart_auto_translations');
+          const cache = raw ? JSON.parse(raw) : {};
+          cache[next.name.trim()] = next.nameHi.trim();
+          localStorage.setItem('r2cart_auto_translations', JSON.stringify(cache));
+          window.dispatchEvent(new CustomEvent('r2cart:translation-updated', { detail: { text: next.name.trim(), hi: next.nameHi.trim() } }));
+        } catch {}
+      }
+
+      const cleanPacks = packs.map(p => ({
+        ...(p.id ? { id: p.id } : {}),
+        unit: p.unit.trim(),
+        mrp: Number(p.mrp),
+        price: Number(p.price),
+        stock: Number(p.stock),
+        status: p.status || form.status
+      }));
+
+      await (id
+        ? adminService.updateProduct(id, { ...payload(next), image: finalUrls[0], images: finalUrls, packs: cleanPacks })
+        : adminService.createProduct({ ...payload(next), image: finalUrls[0], images: finalUrls, packs: cleanPacks }));
 
      await refreshProducts();
      window.dispatchEvent(new Event('grocify:products-updated'));
@@ -842,36 +1015,237 @@ export function ProductForm(){
   {categoryError&&<div className="admin-card bulk-error"><p role="alert">{categoryError}</p><Button variant="outline" onClick={reloadCategories}>Retry categories</Button></div>}
   <form className="admin-form" onSubmit={save}>
    <section className="admin-card">
-    <h3>Product media</h3>
-    <div className="upload-box">
-      {(preview||form.image)?(
-        <div style={{textAlign:'center',marginBottom:'14px'}}>
-          <img src={preview||form.image} alt="Product preview" className="upload-preview" style={{width:'160px',height:'160px',objectFit:'contain',borderRadius:'14px',border:'2px solid #059669',background:'#f8fafc',padding:'6px'}}/>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',marginTop:'10px'}}>
-            <Button type="button" variant="outline" onClick={handleOpenCropperForCurrent} style={{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:'12px'}}>
-              <Crop size={14}/>
-              <span>Crop & Adjust (1:1)</span>
-            </Button>
-            <Button type="button" variant="ghost" onClick={()=>{if(preview?.startsWith('blob:'))URL.revokeObjectURL(preview);if(originalImageSrc?.startsWith('blob:')&&originalImageSrc!==preview)URL.revokeObjectURL(originalImageSrc);setImageFile(null);setPreview('');setOriginalImageSrc('');setCropConfig({zoom:1,rotation:0,offset:{x:0,y:0}});set('image','');}} style={{color:'#ef4444',fontSize:'12px'}}>
-              Remove
-            </Button>
-          </div>
-        </div>
-      ):<ImagePlus size={40} color="#059669"/>}
-      <b>Upload product image</b>
-      <span>JPG, PNG or WebP · Auto-crops to 1:1 square ratio</span>
-      <label className="btn btn-outline" style={{cursor:'pointer'}}>
-        Choose from device
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage} hidden/>
-      </label>
-      <span>or paste an image URL</span>
-      <div style={{display:'flex',gap:'8px',width:'100%',maxWidth:'420px'}}>
-        <input type="url" value={form.image||''} onChange={event=>{set('image',event.target.value);setImageFile(null);setPreview('')}} placeholder="https://example.com/product.jpg" style={{flex:1}}/>
-        {form.image&&(
-          <Button type="button" variant="outline" onClick={handleOpenCropperForCurrent} title="Crop image from URL">
-            <Crop size={15}/>
-          </Button>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px',marginBottom:'14px'}}>
+      <div>
+        <h3 style={{margin:0,fontSize:'16px'}}>Product Media & Gallery</h3>
+        <p style={{margin:'3px 0 0',fontSize:'12.5px',color:'#64748b'}}>
+          Slot 1 is the <b>Mandatory Cover Image</b>. Slots 2–8 are gallery slides.
+        </p>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+        {imageList.length === 0 ? (
+          <span style={{background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:800}}>
+            ⚠️ Cover Image Required (0/8)
+          </span>
+        ) : (
+          <span style={{background:'#ecfdf5',border:'1px solid #a7f3d0',color:'#047857',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:800}}>
+            ✓ {imageList.length}/8 Images Added
+          </span>
         )}
+      </div>
+    </div>
+
+    {/* Gallery Grid (Up to 8 slots) */}
+    <div style={{
+      display:'grid',
+      gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))',
+      gap:'14px',
+      marginBottom:'18px'
+    }}>
+      {imageList.map((img, idx) => {
+        const isCover = idx === 0;
+        const displaySrc = img.preview || img.url;
+        return (
+          <div
+            key={img.id || idx}
+            style={{
+              position:'relative',
+              background:'#ffffff',
+              border: isCover ? '2px solid #059669' : '1px solid #e2e8f0',
+              borderRadius:'12px',
+              padding:'8px',
+              display:'flex',
+              flexDirection:'column',
+              boxShadow: isCover ? '0 4px 12px -2px rgba(5, 150, 105, 0.15)' : 'none',
+              transition:'all 0.2s ease'
+            }}
+          >
+            {/* Slot Badge */}
+            <div style={{
+              position:'absolute',
+              top:'6px',
+              left:'6px',
+              zIndex:2,
+              background: isCover ? '#059669' : '#1e293b',
+              color:'#ffffff',
+              fontSize:'10px',
+              fontWeight:800,
+              padding:'2px 6px',
+              borderRadius:'5px',
+              letterSpacing:'0.3px',
+              display:'flex',
+              alignItems:'center',
+              gap:'3px'
+            }}>
+              {isCover ? <><Star size={10} fill="currentColor"/> COVER *</> : `#${idx + 1} SLIDE`}
+            </div>
+
+            {/* 1:1 Square Preview Box */}
+            <div style={{
+              width:'100%',
+              height:'140px',
+              background:'#f8fafc',
+              borderRadius:'8px',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              overflow:'hidden',
+              marginBottom:'8px'
+            }}>
+              {displaySrc ? (
+                <img
+                  src={displaySrc}
+                  alt={`Slot ${idx + 1}`}
+                  style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}}
+                />
+              ) : (
+                <ImagePlus size={32} color="#94a3b8"/>
+              )}
+            </div>
+
+            {/* Slot Action Buttons */}
+            <div style={{display:'flex',flexDirection:'column',gap:'4px',marginTop:'auto'}}>
+              <div style={{display:'flex',gap:'4px'}}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleOpenCropperForIndex(idx)}
+                  style={{flex:1,padding:'4px 6px',fontSize:'11px',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'4px'}}
+                  title="Crop & adjust image (1:1)"
+                >
+                  <Crop size={12}/>
+                  <span>Crop</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => handleRemoveImage(idx)}
+                  style={{padding:'4px 8px',fontSize:'11px',color:'#ef4444'}}
+                  title="Remove image"
+                >
+                  <Trash2 size={13}/>
+                </Button>
+              </div>
+
+              {!isCover && (
+                <button
+                  type="button"
+                  onClick={() => handleSetAsCover(idx)}
+                  style={{
+                    background:'#ecfdf5',
+                    border:'1px solid #a7f3d0',
+                    color:'#047857',
+                    borderRadius:'6px',
+                    padding:'3px 6px',
+                    fontSize:'10.5px',
+                    fontWeight:700,
+                    cursor:'pointer',
+                    display:'flex',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    gap:'3px'
+                  }}
+                  title="Move to first position as Cover Image"
+                >
+                  <Star size={11} fill="#047857"/>
+                  <span>Make Cover</span>
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Empty Slot Card for adding more */}
+      {imageList.length < 8 && (
+        <label
+          style={{
+            border:'2px dashed #cbd5e1',
+            borderRadius:'12px',
+            minHeight:'180px',
+            display:'flex',
+            flexDirection:'column',
+            alignItems:'center',
+            justifyContent:'center',
+            padding:'16px',
+            cursor:'pointer',
+            background:'#fafafa',
+            color:'#64748b',
+            textAlign:'center',
+            transition:'all 0.15s ease'
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = '#059669'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+        >
+          <input
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleChooseFiles}
+            hidden
+          />
+          <div style={{
+            width:'40px',
+            height:'40px',
+            borderRadius:'50%',
+            background:'#ecfdf5',
+            color:'#059669',
+            display:'grid',
+            placeItems:'center',
+            marginBottom:'8px'
+          }}>
+            <Plus size={22}/>
+          </div>
+          <b style={{fontSize:'12.5px',color:'#0f172a'}}>+ Add Image</b>
+          <span style={{fontSize:'11px',color:'#94a3b8',marginTop:'2px'}}>
+            Slot {imageList.length + 1} of 8
+          </span>
+        </label>
+      )}
+    </div>
+
+    {/* Bottom Add Actions */}
+    <div style={{
+      background:'#f8fafc',
+      border:'1px solid #e2e8f0',
+      borderRadius:'12px',
+      padding:'12px 16px',
+      display:'flex',
+      flexWrap:'wrap',
+      alignItems:'center',
+      justifyContent:'space-between',
+      gap:'12px'
+    }}>
+      <label className="btn btn-outline" style={{cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'6px',fontSize:'12.5px'}}>
+        <Upload size={14}/>
+        <span>Choose from device (Multiple allowed)</span>
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleChooseFiles}
+          hidden
+        />
+      </label>
+
+      <div style={{display:'flex',alignItems:'center',gap:'8px',flex:1,maxWidth:'460px'}}>
+        <input
+          type="url"
+          value={urlInput}
+          onChange={e => setUrlInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddFromUrl(); } }}
+          placeholder="Paste image URL (https://...)"
+          style={{flex:1,fontSize:'12.5px',padding:'7px 10px'}}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleAddFromUrl}
+          disabled={!urlInput.trim() || imageList.length >= 8}
+          style={{fontSize:'12px',fontWeight:700}}
+        >
+          + Add URL
+        </Button>
       </div>
     </div>
    </section>
