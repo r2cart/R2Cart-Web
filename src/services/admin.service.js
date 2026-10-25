@@ -27,6 +27,7 @@ export const adminService = {
   createProduct: value => api.post('/admin/products', value),
   updateProduct: (id, value) => api.patch(`/admin/products/${id}`, value),
   updateProductStatus: (id, status) => api.patch(`/admin/products/${id}/status`, { status }),
+  updateProductStock: (id, stock) => api.patch(`/admin/products/${id}/stock`, { stock }),
   deleteProduct: id => api.delete(`/admin/products/${id}`),
   deleteProductsByCategory: categoryId => api.delete(`/admin/products/category/${categoryId}`),
   deleteAllProducts: () => api.delete('/admin/products/all'),

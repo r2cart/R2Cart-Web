@@ -1,5 +1,5 @@
 import {useEffect,useState,useRef} from 'react';
-import {ArrowDown,ArrowUp,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle} from 'lucide-react';
+import {ArrowDown,ArrowUp,Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -21,6 +21,49 @@ export function AdminCategories(){
  const [saving,setSaving]=useState(false);
  const [uploadingImage,setUploadingImage]=useState(false);
  const fileInputRef=useRef(null);
+ const directUploadInputRef=useRef(null);
+ const [categoryForUpload,setCategoryForUpload]=useState(null);
+
+ const triggerDirectCategoryUpload=category=>{
+  setCategoryForUpload(category);
+  if(directUploadInputRef.current){
+   directUploadInputRef.current.value='';
+   directUploadInputRef.current.click();
+  }
+ };
+
+ const onDirectCategoryFileSelected=async e=>{
+  const file=e.target.files?.[0];
+  if(!file||!categoryForUpload)return;
+  const cat=categoryForUpload;
+  const oldImage=cat.image;
+  setSaving(true);
+  try{
+   const uploaded=await adminService.uploadCategoryImage(file);
+   if(uploaded?.url){
+    setList(curr=>curr.map(c=>c.id===cat.id?{...c,image:uploaded.url}:c));
+    await adminService.updateCategory(cat.id,{
+     name:cat.name,
+     color:cat.color,
+     position:cat.position,
+     status:cat.status,
+     parentId:cat.parentId||null,
+     image:uploaded.url
+    });
+    adminCategoriesCache=null;
+    await refreshCategories();
+    window.dispatchEvent(new Event('grocify:categories-updated'));
+    notify(`Image for "${cat.name}" updated successfully!`,'success');
+   }
+  }catch(err){
+   notify(err.message||'Failed to update category image','error');
+   setList(curr=>curr.map(c=>c.id===cat.id?{...c,image:oldImage}:c));
+  }finally{
+   setSaving(false);
+   setCategoryForUpload(null);
+   if(e.target)e.target.value='';
+  }
+ };
 
  const handleImageUpload=async event=>{
   const file=event.target.files?.[0];
@@ -88,6 +131,7 @@ export function AdminCategories(){
 
  return <>
   <AdminTitle title="Categories" text="Organise your catalogue and storefront navigation." action={<Button onClick={()=>setEdit({status:'ACTIVE',color:'#EAF8E8',position:list.length})}><Plus/> Add category</Button>}/>
+  <input ref={directUploadInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" onChange={onDirectCategoryFileSelected} hidden />
   <div className="admin-card category-admin-list">
    {loading&&<div className="modal-body muted">Loading categories…</div>}
    {!loading&&error&&<div className="modal-body"><p className="text-danger">{error}</p><Button variant="outline" onClick={load}>Try again</Button></div>}
@@ -95,12 +139,15 @@ export function AdminCategories(){
    {!loading&&!error&&list.map((category,index)=><div key={category.id} className="category-admin-row">
     <div className="category-order-actions"><button disabled={saving||index===0} onClick={()=>move(index,-1)} aria-label="Move category up"><ArrowUp size={16}/></button><button disabled={saving||index===list.length-1} onClick={()=>move(index,1)} aria-label="Move category down"><ArrowDown size={16}/></button></div>
     <div 
-      className="cat-icon category-clickable-target" 
-      style={{background:category.color||'#EAF8E8'}}
-      onClick={()=>setViewCategory(category)}
-      title={`Click to view ${category.name} products in cards`}
+      className="cat-icon category-thumbnail-wrap" 
+      style={{background:category.color||'#EAF8E8', position:'relative', overflow:'hidden', cursor:'pointer'}}
+      onClick={()=>triggerDirectCategoryUpload(category)}
+      title={`Click to upload or change "${category.name}" image`}
     >
       {category.image?<img src={category.image} alt="" onError={event=>{event.currentTarget.style.display='none'}}/>:<FolderTree/>}
+      <div className="cat-icon-hover-overlay" title="Click to upload / change image">
+        <Camera size={16}/>
+      </div>
     </div>
     <span 
       className="category-admin-name-cell"

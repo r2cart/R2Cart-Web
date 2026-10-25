@@ -86,7 +86,7 @@ export function AdminProducts(){
  },[page,q,cat,stock,status,refresh]);
  useEffect(()=>{
    const onSync=e=>{
-     if(e?.detail?.source==='admin-local-delete')return;
+     if(e?.detail?.source==='admin-local-delete'||e?.detail?.source==='admin-local-action')return;
      adminProductsCache=null;
      setRefresh(v=>v+1);
    };
@@ -99,7 +99,45 @@ export function AdminProducts(){
  },[]);
   const changeFilter=setter=>value=>{setter(value);setPage(1);setLoading(true);};
 
- const toggle=async product=>{adminProductsCache=null;setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+ const toggle=async product=>{
+  const prevStatus=product.status;
+  const next=prevStatus==='ACTIVE'?'INACTIVE':'ACTIVE';
+  setList(prev=>prev.map(p=>p.id===product.id?{...p,status:next}:p));
+  if(adminProductsCache?.list){
+    adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,status:next}:p);
+  }
+  try{
+    await adminService.updateProductStatus(product.id,next);
+    notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success');
+    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-action',id:product.id}}));
+  }catch(reason){
+    notify(reason.message||'Failed to update status','error');
+    setList(prev=>prev.map(p=>p.id===product.id?{...p,status:prevStatus}:p));
+    if(adminProductsCache?.list){
+      adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,status:prevStatus}:p);
+    }
+  }
+ };
+
+ const toggleStock=async (product, targetStock)=>{
+  const prevStock=product.stock;
+  const newStock=Number(targetStock);
+  setList(prev=>prev.map(p=>p.id===product.id?{...p,stock:newStock}:p));
+  if(adminProductsCache?.list){
+    adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,stock:newStock}:p);
+  }
+  try{
+    await adminService.updateProductStock(product.id,newStock);
+    notify(newStock<=0?`"${product.name}" marked as Sold Out (Unavailable)`:`"${product.name}" marked In Stock (${newStock} units)`,'success');
+    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-action',id:product.id}}));
+  }catch(reason){
+    notify(reason.message||'Failed to update stock','error');
+    setList(prev=>prev.map(p=>p.id===product.id?{...p,stock:prevStock}:p));
+    if(adminProductsCache?.list){
+      adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,stock:prevStock}:p);
+    }
+  }
+ };
  const destroy=async()=>{
   const product=confirm;
   if(!product)return;
@@ -143,25 +181,73 @@ export function AdminProducts(){
     adminProductsCache=null;
   }
  };
- const destroyAll=async()=>{adminProductsCache=null;setBusy('all');try{const res=await adminService.deleteAllProducts();setDeleteAllConfirm(false);setPage(1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(res?.message||'All products deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
-  const destroyCategoryProducts=async()=>{adminProductsCache=null;
-    const target=deleteCatConfirm;
-    if(!target)return;
-    setBusy('cat-delete');
-    try{
-      const res=await adminService.deleteProductsByCategory(target.slug||target.id);
-      setDeleteCatConfirm(null);
-      setPage(1);
-      setRefresh(v=>v+1);
-      await refreshProducts();
-      window.dispatchEvent(new Event('grocify:products-updated'));
-      notify(res?.message||`All products in "${target.name}" deleted successfully`,'success');
-    }catch(err){
-      notify(err.message||'Failed to delete category products','error');
-    }finally{
-      setBusy('');
+ const destroyAll=async()=>{
+  setDeleteAllConfirm(false);
+  const prevList=list;
+  const prevPagination=pagination;
+  const prevTotal=totalProducts;
+
+  setList([]);
+  setPagination({pages:1,total:0});
+  setTotalProducts(0);
+  adminProductsCache=null;
+
+  try{
+    const res=await adminService.deleteAllProducts();
+    notify(res?.message||'All products deleted successfully','success');
+    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-delete'}}));
+  }catch(reason){
+    notify(reason.message||'Failed to delete all products','error');
+    setList(prevList);
+    setPagination(prevPagination);
+    setTotalProducts(prevTotal);
+  }
+ };
+
+ const destroyCategoryProducts=async()=>{
+  const target=deleteCatConfirm;
+  if(!target)return;
+  const targetSlug=target.slug||target.id;
+  const targetId=target.id;
+  const targetName=target.name;
+
+  setDeleteCatConfirm(null);
+  const prevList=list;
+  const prevPagination=pagination;
+  const prevTotal=totalProducts;
+
+  const isMatch=p=>(p.categorySlug===targetSlug||p.category===targetSlug||p.categoryId===targetId);
+  const removedCount=list.filter(isMatch).length;
+
+  setList(prev=>prev.filter(p=>!isMatch(p)));
+  setPagination(prev=>({
+    ...prev,
+    total:Math.max(0,prev.total-removedCount),
+    pages:Math.max(1,Math.ceil(Math.max(0,prev.total-removedCount)/20))
+  }));
+  setTotalProducts(prev=>Math.max(0,prev-removedCount));
+
+  if(adminProductsCache){
+    adminProductsCache.list=(adminProductsCache.list||[]).filter(p=>!isMatch(p));
+    adminProductsCache.totalProducts=Math.max(0,(adminProductsCache.totalProducts||0)-removedCount);
+    if(adminProductsCache.pagination){
+      adminProductsCache.pagination.total=Math.max(0,adminProductsCache.pagination.total-removedCount);
+      adminProductsCache.pagination.pages=Math.max(1,Math.ceil(adminProductsCache.pagination.total/20));
     }
-  };
+  }
+
+  try{
+    const res=await adminService.deleteProductsByCategory(targetSlug);
+    notify(res?.message||`All products in "${targetName}" deleted successfully`,'success');
+    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-delete'}}));
+  }catch(err){
+    notify(err.message||'Failed to delete category products','error');
+    setList(prevList);
+    setPagination(prevPagination);
+    setTotalProducts(prevTotal);
+    adminProductsCache=null;
+  }
+ };
  const inspect=async id=>{setBusy(id);try{setView(await adminService.product(id))}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
 
  return <>
@@ -345,8 +431,13 @@ export function AdminProducts(){
                  <Package size={44} color="#94a3b8" />
                )}
                {hasDiscount && <span className="card-discount-pill">{discountPct}% OFF</span>}
-               <span className={`card-stock-pill ${isOutOfStock ? 'out' : isLowStock ? 'low' : 'in'}`}>
-                 {isOutOfStock ? '0 left' : isLowStock ? `${product.stock} Low` : `${product.stock} in stock`}
+               <span 
+                 className={`card-stock-pill ${isOutOfStock ? 'out' : isLowStock ? 'low' : 'in'}`}
+                 style={{cursor:'pointer'}}
+                 onClick={(e)=>{e.stopPropagation(); toggleStock(product, isOutOfStock ? 20 : 0);}}
+                 title={isOutOfStock ? "Click to Mark In Stock (+20)" : "Click to Mark Sold Out (0)"}
+               >
+                 {isOutOfStock ? '0 Sold Out' : isLowStock ? `${product.stock} Low` : `${product.stock} in stock`}
                </span>
                <span className={`card-status-pill ${product.status === 'ACTIVE' ? 'active' : 'inactive'}`}>
                  {product.status === 'ACTIVE' ? '● Active' : '○ Inactive'}
@@ -364,6 +455,16 @@ export function AdminProducts(){
                </div>
                <div className="card-action-bar">
                  <button type="button" className="card-detail-btn" onClick={() => inspect(product.id)} title="View details"><Eye size={14}/> Details</button>
+                 <button 
+                   type="button" 
+                   disabled={!!busy} 
+                   className="card-icon-action-btn" 
+                   style={{fontSize:'10px',width:'auto',padding:'0 7px',fontWeight:700,color:isOutOfStock?'#15803d':'#dc2626',background:isOutOfStock?'#f0fdf4':'#fef2f2',borderColor:isOutOfStock?'#bbf7d0':'#fecaca'}} 
+                   onClick={()=>toggleStock(product, isOutOfStock ? 20 : 0)} 
+                   title={isOutOfStock ? "Click to mark In Stock (+20)" : "Click to mark Sold Out (Unavailable)"}
+                 >
+                   {isOutOfStock ? '+ Restock' : 'Sold Out'}
+                 </button>
                  <Link to={`${basePath}/products/${product.id}/edit`} className="card-icon-action-btn" title="Edit"><Edit2 size={14}/></Link>
                  <button type="button" disabled={!!busy} className={`card-icon-action-btn ${product.status === 'ACTIVE' ? 'active-toggle' : 'inactive-toggle'}`} onClick={() => toggle(product)} title="Toggle status"><Check size={14}/></button>
                  <button type="button" disabled={!!busy} className="card-icon-action-btn" style={{color:'#ef4444'}} onClick={() => setConfirm(product)} title="Delete product"><Trash2 size={14}/></button>
@@ -375,7 +476,7 @@ export function AdminProducts(){
      )}
    </div>
   ) : (
-   <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>MRP</th><th>Selling price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+   <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th style={{width:'34%',minWidth:'260px'}}>Product</th><th style={{width:'15%',minWidth:'130px'}}>Category</th><th style={{width:'12%',minWidth:'110px'}}>Unit</th><th style={{width:'8%',minWidth:'70px'}}>MRP</th><th style={{width:'9%',minWidth:'85px'}}>Selling price</th><th style={{width:'13%',minWidth:'135px'}}>Stock status</th><th style={{width:'8%',minWidth:'85px'}}>Status</th><th style={{width:'9%',minWidth:'90px'}}>Actions</th></tr></thead><tbody>
     {loading ? (
       Array.from({ length: 8 }).map((_, i) => (
         <tr key={i} className="skeleton-table-row">
@@ -403,7 +504,7 @@ export function AdminProducts(){
           </td>
         </tr>
       ))
-    ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
+    ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td style={{verticalAlign:'middle'}}><div className="product-cell">{product.image?<img src={product.image} alt="" onError={e=>{e.currentTarget.style.display='none'}}/>:<div style={{width:'44px',height:'44px',borderRadius:'8px',background:'#f1f5f9',display:'grid',placeItems:'center',flexShrink:0,color:'#94a3b8'}}><Package size={20}/></div>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b title={product.name}>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td className="product-table-cat-col" title={product.categoryName||product.category}><b>{product.categoryName||product.category}</b></td><td style={{whiteSpace:'nowrap'}}><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td style={{whiteSpace:'nowrap'}}>{money(product.mrp)}</td><td style={{whiteSpace:'nowrap'}}><b>{money(product.price)}</b></td><td style={{whiteSpace:'nowrap',verticalAlign:'middle'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span className={product.stock<=0?'badge badge-red':product.stock<=product.lowStockThreshold?'badge badge-amber':''} style={{fontSize:'11px',fontWeight:700}}>{product.stock<=0?'0 Sold Out':`${product.stock} in stock`}</span>{product.stock>0?<button type="button" onClick={()=>toggleStock(product,0)} title="Click to Mark as Sold Out / Out of Stock" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontWeight:700}}>Sold Out</button>:<button type="button" onClick={()=>toggleStock(product,20)} title="Click to Restock / Mark In Stock (+20 units)" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:700}}>+ In Stock</button>}</div></td><td style={{whiteSpace:'nowrap'}}><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td style={{whiteSpace:'nowrap'}}><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
