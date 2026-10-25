@@ -7,7 +7,7 @@ function getAdminUser() {
 }
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
-import {Link,useNavigate,useParams,useSearchParams} from 'react-router-dom';
+import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
 import {ArrowLeft,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
@@ -154,7 +154,7 @@ export function AdminProducts(){
                </div>
                <div className="card-action-bar">
                  <button type="button" className="card-detail-btn" onClick={() => inspect(product.id)} title="View details"><Eye size={14}/> Details</button>
-                 <Link to={`/admin/products/${product.id}/edit`} className="card-icon-action-btn" title="Edit"><Edit2 size={14}/></Link>
+                 <Link to={`${basePath}/products/${product.id}/edit`} className="card-icon-action-btn" title="Edit"><Edit2 size={14}/></Link>
                  <button type="button" disabled={!!busy} className={`card-icon-action-btn ${product.status === 'ACTIVE' ? 'active-toggle' : 'inactive-toggle'}`} onClick={() => toggle(product)} title="Toggle status"><Check size={14}/></button>
                  <button type="button" disabled={!!busy} className="card-icon-action-btn" style={{color:'#ef4444'}} onClick={() => setConfirm(product)} title="Delete product"><Trash2 size={14}/></button>
                </div>
@@ -166,7 +166,7 @@ export function AdminProducts(){
    </div>
   ) : (
    <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>MRP</th><th>Selling price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-    {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td>{product.unit}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`/admin/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
+    {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><b>{product.name}</b><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td>{product.unit}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
@@ -453,6 +453,10 @@ function FilterBar({q,setQ,children}){return <div className="filter-bar"><div cl
 export function ProductForm(){
  const {id}=useParams();
  const nav=useNavigate();
+ const location=useLocation();
+ const currentUser = getAdminUser();
+ const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN' || location.pathname.startsWith('/super-admin');
+ const basePath = isSuper ? '/super-admin' : '/admin';
  const {notify,refreshProducts}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();
  const [form,setForm]=useState(emptyProduct);
@@ -469,7 +473,49 @@ export function ProductForm(){
  const [originalImageSrc, setOriginalImageSrc] = useState('');
  const [cropConfig, setCropConfig] = useState({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
 
- useEffect(()=>{let active=true;setLoadError('');setImageFile(null);setPreview('');setPacks([]);setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });setOriginalImageSrc('');if(!id){setForm(emptyProduct);setLoading(false);return}setLoading(true);adminService.product(id).then(product=>{if(active)setForm({...emptyProduct,...product})}).catch(reason=>{if(active)setLoadError(reason.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[id,reload]);
+ useEffect(() => {
+   let active = true;
+   setLoadError('');
+   setImageFile(null);
+   setPreview('');
+   setPacks([]);
+   setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
+   setOriginalImageSrc('');
+   if (!id) {
+     setForm(emptyProduct);
+     setLoading(false);
+     return;
+   }
+   setLoading(true);
+   Promise.all([
+     adminService.product(id),
+     adminService.productVariants(id).catch(() => [])
+   ])
+     .then(([product, variants]) => {
+       if (!active) return;
+       setForm({ ...emptyProduct, ...product });
+       const otherPacks = Array.isArray(variants)
+         ? variants
+             .filter(v => v.id !== product.id)
+             .map(v => ({
+               id: v.id,
+               unit: v.unit || '',
+               mrp: v.mrp !== undefined && v.mrp !== null ? String(v.mrp) : '',
+               price: v.price !== undefined && v.price !== null ? String(v.price) : '',
+               stock: v.stock !== undefined && v.stock !== null ? String(v.stock) : '',
+               status: v.status || 'ACTIVE'
+             }))
+         : [];
+       setPacks(otherPacks);
+     })
+     .catch(reason => {
+       if (active) setLoadError(reason.message);
+     })
+     .finally(() => {
+       if (active) setLoading(false);
+     });
+   return () => { active = false; };
+ }, [id, reload]);
  useEffect(()=>()=>{
    if(preview.startsWith('blob:'))URL.revokeObjectURL(preview);
    if(originalImageSrc.startsWith('blob:')&&originalImageSrc!==preview)URL.revokeObjectURL(originalImageSrc);
@@ -541,11 +587,71 @@ export function ProductForm(){
    notify('✨ Product description generated successfully');
  };
 
- const save=async event=>{event.preventDefault();setSaving(true);try{if(!form.category)throw new Error('Select a product category');if([form,...packs].some(pack=>Number(pack.price)>Number(pack.mrp)))throw new Error('Selling price cannot exceed MRP for any pack');const units=[form,...packs].map(pack=>pack.unit.trim().toLowerCase().replace(/\s+/g,''));if(new Set(units).size!==units.length)throw new Error('Each pack size must be different');let next=form;if(imageFile){const uploaded=await adminService.uploadProductImage(imageFile,form.category);next={...form,image:uploaded.url}}if(next.name&&next.nameHi){try{const raw=localStorage.getItem('r2cart_auto_translations');const cache=raw?JSON.parse(raw):{};cache[next.name.trim()]=next.nameHi.trim();localStorage.setItem('r2cart_auto_translations',JSON.stringify(cache));window.dispatchEvent(new CustomEvent('r2cart:translation-updated',{detail:{text:next.name.trim(),hi:next.nameHi.trim()}}))}catch{}}await(id?adminService.updateProduct(id,payload(next)):adminService.createProduct({...payload(next),packs}));await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(id?'Product updated':'Product and all pack sizes published');nav('/admin/products')}catch(error){notify(error.message,'error')}finally{setSaving(false)}};
+ const save = async event => {
+   event.preventDefault();
+   setSaving(true);
+   try {
+     if (!form.category) throw new Error('Select a product category');
+     if (!form.unit?.trim()) throw new Error('Please enter a Unit / Pack size for Pack 1');
+     if (!form.mrp || Number(form.mrp) <= 0) throw new Error('Pack 1 has an invalid MRP');
+     if (!form.price || Number(form.price) <= 0) throw new Error('Pack 1 has an invalid Selling Price');
+     if (Number(form.price) > Number(form.mrp)) throw new Error('Pack 1: Selling price cannot exceed MRP');
+
+     for (let i = 0; i < packs.length; i++) {
+       const p = packs[i];
+       const packNum = i + 2;
+       if (!p.unit || !p.unit.trim()) throw new Error(`Pack ${packNum} is missing a Unit / Pack size`);
+       if (!p.mrp || Number(p.mrp) <= 0) throw new Error(`Pack ${packNum} (${p.unit}) has an invalid MRP`);
+       if (!p.price || Number(p.price) <= 0) throw new Error(`Pack ${packNum} (${p.unit}) has an invalid Selling Price`);
+       if (Number(p.price) > Number(p.mrp)) throw new Error(`Pack ${packNum} (${p.unit}): Selling price cannot exceed MRP`);
+       if (p.stock === '' || Number(p.stock) < 0) throw new Error(`Pack ${packNum} (${p.unit}) has invalid Stock`);
+     }
+
+     const units = [form, ...packs].map(pack => pack.unit.trim().toLowerCase().replace(/\s+/g, ''));
+     if (new Set(units).size !== units.length) throw new Error('Each pack size must be different');
+
+     let next = form;
+     if (imageFile) {
+       const uploaded = await adminService.uploadProductImage(imageFile, form.category);
+       next = { ...form, image: uploaded.url };
+     }
+     if (next.name && next.nameHi) {
+       try {
+         const raw = localStorage.getItem('r2cart_auto_translations');
+         const cache = raw ? JSON.parse(raw) : {};
+         cache[next.name.trim()] = next.nameHi.trim();
+         localStorage.setItem('r2cart_auto_translations', JSON.stringify(cache));
+         window.dispatchEvent(new CustomEvent('r2cart:translation-updated', { detail: { text: next.name.trim(), hi: next.nameHi.trim() } }));
+       } catch {}
+     }
+
+     const cleanPacks = packs.map(p => ({
+       ...(p.id ? { id: p.id } : {}),
+       unit: p.unit.trim(),
+       mrp: Number(p.mrp),
+       price: Number(p.price),
+       stock: Number(p.stock),
+       status: p.status || form.status
+     }));
+
+     await (id
+       ? adminService.updateProduct(id, { ...payload(next), packs: cleanPacks })
+       : adminService.createProduct({ ...payload(next), packs: cleanPacks }));
+
+     await refreshProducts();
+     window.dispatchEvent(new Event('grocify:products-updated'));
+     notify(id ? 'Product and all pack sizes updated' : 'Product and all pack sizes published');
+     nav(`${basePath}/products`);
+   } catch (error) {
+     notify(error.message, 'error');
+   } finally {
+     setSaving(false);
+   }
+ };
  if(loading)return <div className="admin-card modal-body">Loading product…</div>;
- if(loadError)return <div className="admin-card bulk-error"><p role="alert">{loadError}</p><Button variant="outline" onClick={()=>setReload(value=>value+1)}>Try again</Button><Link className="back-link" to="/admin/products">Back to products</Link></div>;
+ if(loadError)return <div className="admin-card bulk-error"><p role="alert">{loadError}</p><Button variant="outline" onClick={()=>setReload(value=>value+1)}>Try again</Button><Link className="back-link" to={`${basePath}/products`}>Back to products</Link></div>;
  return <>
-  <Link className="back-link" to="/admin/products"><ArrowLeft/> Back to products</Link>
+  <Link className="back-link" to={`${basePath}/products`}><ArrowLeft/> Back to products</Link>
   <AdminTitle title={id?'Edit product':'Add new product'} text="Saved changes are published to the customer catalogue."/>
   {categoryError&&<div className="admin-card bulk-error"><p role="alert">{categoryError}</p><Button variant="outline" onClick={reloadCategories}>Retry categories</Button></div>}
   <form className="admin-form" onSubmit={save}>
@@ -712,7 +818,7 @@ export function ProductForm(){
     </div>
    </section>
 
-   {id?<ProductVariants key={id} productId={id}/>:<NewProductPacks basePack={form} packs={packs} onChange={setPacks} disabled={saving}/>}
+   <NewProductPacks basePack={form} packs={packs} onChange={setPacks} disabled={saving} />
 
    <section className="admin-card">
     <h3>Stock alert threshold</h3>
@@ -720,7 +826,7 @@ export function ProductForm(){
    </section>
 
    <div className="form-actions">
-     <Button type="button" variant="ghost" disabled={saving} onClick={()=>nav('/admin/products')}>Cancel</Button>
+     <Button type="button" variant="ghost" disabled={saving} onClick={()=>nav(`${basePath}/products`)}>Cancel</Button>
      <Button disabled={saving||!!categoryError}>{saving?'Saving…':'Save product'}</Button>
    </div>
   </form>

@@ -9,7 +9,7 @@ let refreshAdminPromise=null;
 let refreshDeliveryPromise=null;
 
 const isDeliveryPath=path=>path.startsWith('/delivery-portal')||path.startsWith('/delivery/auth')||(typeof window!=='undefined'&&window.location.pathname.startsWith('/delivery'));
-const isAdminPath=path=>path.startsWith('/admin')||(typeof window!=='undefined'&&window.location.pathname.startsWith('/admin'));
+const isAdminPath=path=>path.startsWith('/admin')||path.startsWith('/super-admin')||(typeof window!=='undefined'&&(window.location.pathname.startsWith('/admin')||window.location.pathname.startsWith('/super-admin')||window.location.pathname.includes('administrator')));
 
 const tokenKey=path=>{
  if(isDeliveryPath(path)){
