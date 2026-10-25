@@ -100,13 +100,13 @@ export function Dashboard() {
     };
     refresh();
     const timer = setInterval(refresh, 60000);
-    window.addEventListener('focus', refresh);
+    
     window.addEventListener('grocify:orders-updated', refresh);
     window.addEventListener('grocify:products-updated', refresh);
     return () => {
       active = false;
       clearInterval(timer);
-      window.removeEventListener('focus', refresh);
+      
       window.removeEventListener('grocify:orders-updated', refresh);
       window.removeEventListener('grocify:products-updated', refresh);
     };

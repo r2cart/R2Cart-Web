@@ -8,26 +8,33 @@ import CategoryProductsModal from '../../components/admin/CategoryProductsModal'
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
 const labelStatus=status=>status==='ACTIVE'?'Active':'Inactive';
 
+let adminCategoriesCache = null;
+
 export function AdminCategories(){
  const {notify,refreshCategories}=useApp();
- const [list,setList]=useState([]);
- const [loading,setLoading]=useState(true);
+ const [list,setList]=useState(adminCategoriesCache || []);
+ const [loading,setLoading]=useState(!adminCategoriesCache);
  const [error,setError]=useState('');
  const [edit,setEdit]=useState(null);
  const [remove,setRemove]=useState(null);
  const [viewCategory,setViewCategory]=useState(null);
  const [saving,setSaving]=useState(false);
- const move=async(index,direction)=>{const next=[...list],target=index+direction;if(target<0||target>=next.length)return;[next[index],next[target]]=[next[target],next[index]];setSaving(true);try{await adminService.reorderCategories(next.map(item=>item.id));await load();await refreshCategories();window.dispatchEvent(new Event('grocify:categories-updated'))}catch(reason){notify(reason.message,'error')}finally{setSaving(false)}};
+ const move=async(index,direction)=>{adminCategoriesCache=null;const next=[...list],target=index+direction;if(target<0||target>=next.length)return;[next[index],next[target]]=[next[target],next[index]];setSaving(true);try{await adminService.reorderCategories(next.map(item=>item.id));await load();await refreshCategories();window.dispatchEvent(new Event('grocify:categories-updated'))}catch(reason){notify(reason.message,'error')}finally{setSaving(false)}};
 
- const load=async()=>{
-  setLoading(true);setError('');
-  try{setList(await adminService.categories())}
+ const load=async(force=false)=>{
+  if(force || !adminCategoriesCache) setLoading(true);
+  setError('');
+  try{
+    const data = await adminService.categories();
+    adminCategoriesCache = data;
+    setList(data);
+  }
   catch(err){setError(err.message)}
   finally{setLoading(false)}
  };
  useEffect(()=>{load()},[]);
 
- const save=async event=>{
+ const save=async event=>{adminCategoriesCache=null;
   event.preventDefault();
   const form=Object.fromEntries(new FormData(event.currentTarget));
   const payload={name:form.name,image:form.image,color:form.color,parentId:form.parentId||null,position:Number(form.position||0),status:form.status};
@@ -43,7 +50,7 @@ export function AdminCategories(){
   finally{setSaving(false)}
  };
 
- const destroy=async()=>{
+ const destroy=async()=>{adminCategoriesCache=null;
   const category=remove;
   if(!category)return;
   try{

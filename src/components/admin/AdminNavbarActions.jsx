@@ -62,7 +62,7 @@ export default function AdminNavbarActions(){
  useEffect(()=>{
   load();
   const timer=setInterval(load,12000);
-  window.addEventListener('focus',load);
+  
   window.addEventListener('grocify:settings-updated',load);
 
   // Background push notification event from service worker
@@ -89,7 +89,7 @@ export default function AdminNavbarActions(){
   document.addEventListener('pointerdown',close);
   return()=>{
    clearInterval(timer);
-   window.removeEventListener('focus',load);
+   
    window.removeEventListener('grocify:settings-updated',load);
    if('serviceWorker' in navigator)navigator.serviceWorker.removeEventListener('message',onSwPush);
    document.removeEventListener('pointerdown',close);

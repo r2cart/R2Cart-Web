@@ -119,7 +119,7 @@ export function AppProvider({children}){
   setTimeout(()=>setToast(null),2600);
  };
  const refreshOrders=async()=>{if(!online())return;try{setOrderList(await orderService.list())}catch(error){if(error.status!==401)notify(error.message,'error')}};
- useEffect(()=>{if(!user?.id)return;window.addEventListener('focus',refreshOrders);window.addEventListener('grocify:orders-updated',refreshOrders);return()=>{window.removeEventListener('focus',refreshOrders);window.removeEventListener('grocify:orders-updated',refreshOrders)}},[user?.id]);
+ useEffect(()=>{if(!user?.id)return;window.addEventListener('grocify:orders-updated',refreshOrders);return()=>{window.removeEventListener('grocify:orders-updated',refreshOrders)}},[user?.id]);
  const refreshCategories=async(retryCount=0)=>{
   try{
    const rows=await catalogService.listCategories();
@@ -222,7 +222,7 @@ export function AppProvider({children}){
     return [];
   }
  };
- useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('focus',refresh);window.addEventListener('grocify:categories-updated',refresh);window.addEventListener('grocify:products-updated',refresh);window.addEventListener('grocify:banners-updated',refresh);window.addEventListener('grocify:delivery-updated',refresh);window.addEventListener('grocify:settings-updated',refresh);return()=>{window.removeEventListener('focus',refresh);window.removeEventListener('grocify:categories-updated',refresh);window.removeEventListener('grocify:products-updated',refresh);window.removeEventListener('grocify:banners-updated',refresh);window.removeEventListener('grocify:delivery-updated',refresh);window.removeEventListener('grocify:settings-updated',refresh)}},[]);
+ useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('grocify:categories-updated',refresh);window.addEventListener('grocify:products-updated',refresh);window.addEventListener('grocify:banners-updated',refresh);window.addEventListener('grocify:delivery-updated',refresh);window.addEventListener('grocify:settings-updated',refresh);return()=>{window.removeEventListener('grocify:categories-updated',refresh);window.removeEventListener('grocify:products-updated',refresh);window.removeEventListener('grocify:banners-updated',refresh);window.removeEventListener('grocify:delivery-updated',refresh);window.removeEventListener('grocify:settings-updated',refresh)}},[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
  const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
  const add=id=>{const quantity=(cart[id]||0)+1;if(!canSetQuantity(id,quantity))return;setCart(current=>({...current,[id]:quantity}));syncCart(id,quantity);notify('Added to your basket')};

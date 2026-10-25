@@ -26,6 +26,8 @@ import { hasPermission } from '../../utils/permissions';
 const statuses = ['New', 'Confirmed', 'Packing', 'Out for Delivery', 'Delivered', 'Cancelled'];
 const date = value => new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
+let adminOrdersCache = null;
+
 export function AdminOrders() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -40,8 +42,8 @@ export function AdminOrders() {
   const [tab, setTab] = useState(statuses.includes(initialStatus) ? initialStatus : 'All');
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [page, setPage] = useState(1);
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState(adminOrdersCache || null);
+  const [loading, setLoading] = useState(!adminOrdersCache);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
 
@@ -94,7 +96,7 @@ export function AdminOrders() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    if (!adminOrdersCache) setLoading(true);
 
     const query = {
       page,
@@ -106,6 +108,7 @@ export function AdminOrders() {
 
     adminService.ordersPage(query).then(value => {
       if (active) {
+        adminOrdersCache = value;
         setResult(value);
         setError('');
       }

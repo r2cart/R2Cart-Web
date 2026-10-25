@@ -24,6 +24,8 @@ const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{t
 const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
 const payload=product=>({name:product.name,category:product.category,unit:product.unit,mrp:Number(product.mrp),price:Number(product.price),stock:Number(product.stock),...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),description:product.description,image:product.image||'',status:product.status==='Active'?'ACTIVE':product.status,featured:Boolean(product.featured),bestSeller:Boolean(product.bestSeller)});
 
+let adminProductsCache = null;
+
 export function AdminProducts(){
  const {notify,refreshProducts}=useApp();
  const currentUser = getAdminUser();
@@ -40,13 +42,14 @@ export function AdminProducts(){
  const [cat,setCat]=useState(urlCat);
  const [stock,setStock]=useState('all');
  const [status,setStatus]=useState('all');
- const [list,setList]=useState([]);
- const [loading,setLoading]=useState(true);
+ const [list,setList]=useState(adminProductsCache?.list || []);
+ const [loading,setLoading]=useState(!adminProductsCache);
+ const [manageOpen,setManageOpen]=useState(false);
  const [confirm,setConfirm]=useState(null);
  const [deleteAllConfirm,setDeleteAllConfirm]=useState(false);
   const [deleteCatConfirm,setDeleteCatConfirm]=useState(null);
  const [error,setError]=useState(''),[busy,setBusy]=useState(''),[view,setView]=useState(null);
- const [page,setPage]=useState(1),[pagination,setPagination]=useState({pages:1,total:0}),[totalProducts,setTotalProducts]=useState(0),[refresh,setRefresh]=useState(0);
+ const [page,setPage]=useState(1),[pagination,setPagination]=useState(adminProductsCache?.pagination || {pages:1,total:0}),[totalProducts,setTotalProducts]=useState(adminProductsCache?.totalProducts || 0),[refresh,setRefresh]=useState(0);
 
  useEffect(() => {
    const c = searchParams.get('cat') || searchParams.get('category');
@@ -60,14 +63,39 @@ export function AdminProducts(){
    }
  }, [searchParams]);
 
- useEffect(()=>{let active=true;setLoading(true);const timer=setTimeout(()=>{adminService.productsPage({page,limit:20,q,...(cat!=='all'&&{category:cat}),...(stock!=='all'&&{stock}),...(status!=='all'&&{status})}).then(result=>{if(!active)return;setList(result.products);setPagination(result.pagination);setTotalProducts(result.totalProducts);setError('')}).catch(reason=>{if(active){setList([]);setError(reason.message)}}).finally(()=>{if(active)setLoading(false)})},200);return()=>{active=false;clearTimeout(timer)}},[page,q,cat,stock,status,refresh]);
- useEffect(()=>{const onSync=()=>setRefresh(v=>v+1);window.addEventListener('focus',onSync);window.addEventListener('grocify:orders-updated',onSync);window.addEventListener('grocify:products-updated',onSync);return()=>{window.removeEventListener('focus',onSync);window.removeEventListener('grocify:orders-updated',onSync);window.removeEventListener('grocify:products-updated',onSync)}},[]);
+ useEffect(()=>{
+   let active=true;
+   if(!adminProductsCache) setLoading(true);
+   const timer=setTimeout(()=>{
+     adminService.productsPage({page,limit:20,q,...(cat!=='all'&&{category:cat}),...(stock!=='all'&&{stock}),...(status!=='all'&&{status})})
+       .then(result=>{
+         if(!active)return;
+         adminProductsCache={list:result.products,pagination:result.pagination,totalProducts:result.totalProducts};
+         setList(result.products);
+         setPagination(result.pagination);
+         setTotalProducts(result.totalProducts);
+         setError('');
+       })
+       .catch(reason=>{if(active){setList([]);setError(reason.message)}})
+       .finally(()=>{if(active)setLoading(false)});
+   }, 150);
+   return()=>{active=false;clearTimeout(timer)};
+ },[page,q,cat,stock,status,refresh]);
+ useEffect(()=>{
+   const onSync=()=>{adminProductsCache=null;setRefresh(v=>v+1);};
+   window.addEventListener('grocify:orders-updated',onSync);
+   window.addEventListener('grocify:products-updated',onSync);
+   return()=>{
+     window.removeEventListener('grocify:orders-updated',onSync);
+     window.removeEventListener('grocify:products-updated',onSync);
+   };
+ },[]);
  const changeFilter=setter=>value=>{setter(value);setPage(1)};
 
- const toggle=async product=>{setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
- const destroy=async()=>{const product=confirm;if(!product)return;setBusy(product.id);try{await adminService.deleteProduct(product.id);setConfirm(null);if(list.length===1&&page>1)setPage(value=>value-1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" deleted successfully`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
- const destroyAll=async()=>{setBusy('all');try{const res=await adminService.deleteAllProducts();setDeleteAllConfirm(false);setPage(1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(res?.message||'All products deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
-  const destroyCategoryProducts=async()=>{
+ const toggle=async product=>{adminProductsCache=null;setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+ const destroy=async()=>{adminProductsCache=null;const product=confirm;if(!product)return;setBusy(product.id);try{await adminService.deleteProduct(product.id);setConfirm(null);if(list.length===1&&page>1)setPage(value=>value-1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" deleted successfully`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+ const destroyAll=async()=>{adminProductsCache=null;setBusy('all');try{const res=await adminService.deleteAllProducts();setDeleteAllConfirm(false);setPage(1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(res?.message||'All products deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
+  const destroyCategoryProducts=async()=>{adminProductsCache=null;
     const target=deleteCatConfirm;
     if(!target)return;
     setBusy('cat-delete');
@@ -88,20 +116,134 @@ export function AdminProducts(){
  const inspect=async id=>{setBusy(id);try{setView(await adminService.product(id))}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
 
  return <>
-  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${pagination.total} Products · ${totalProducts} Total Packs across store`} action={<div className="bulk-upload-actions">{cat !== 'all' && pagination.total > 0 && (
-    <Button
-      variant="danger"
-      disabled={!!busy}
-      onClick={()=>{
-        const cObj = categories.find(c => c.slug === cat) || { slug: cat, name: cat };
-        setDeleteCatConfirm(cObj);
-      }}
-      style={{display:'inline-flex',alignItems:'center',gap:'6px'}}
-      title={`Delete all ${pagination.total} products in selected category`}
-    >
-      <Trash2 size={16}/> Delete All in Category ({pagination.total})
-    </Button>
-  )}{isSuper && totalProducts>0&&<Button variant="danger" disabled={!!busy} onClick={()=>setDeleteAllConfirm(true)}><Trash2 size={16}/> Delete all</Button>}{canCreate && <Link className="btn btn-outline" to={`${basePath}/products/import`}>Bulk import</Link>}{canCreate && <Link className="btn btn-primary" to={`${basePath}/products/new`}><Plus/> Add product</Link>}</div>}/>
+  <AdminTitle title="Products" text={loading?'Loading catalogue…':error?'Catalogue unavailable':`${pagination.total} Products · ${totalProducts} Total Packs across store`} action={
+    <div className="bulk-upload-actions" style={{display:'flex',alignItems:'center',gap:'8px',position:'relative'}}>
+      {(isSuper && totalProducts > 0 || (cat !== 'all' && pagination.total > 0)) && (
+        <div style={{position:'relative'}}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={()=>setManageOpen(v=>!v)}
+            style={{
+              display:'inline-flex',
+              alignItems:'center',
+              gap:'6px',
+              borderColor:'#fca5a5',
+              color:'#dc2626',
+              background:'#fef2f2',
+              fontWeight:700,
+              fontSize:'12.5px'
+            }}
+            title="Manage & cleanup catalogue"
+          >
+            <Trash2 size={14} color="#dc2626" />
+            <span>Manage ▾</span>
+          </Button>
+
+          {manageOpen && (
+            <>
+              <div
+                style={{position:'fixed',inset:0,zIndex:998}}
+                onClick={()=>setManageOpen(false)}
+              />
+              <div
+                style={{
+                  position:'absolute',
+                  right:0,
+                  top:'calc(100% + 6px)',
+                  background:'#ffffff',
+                  borderRadius:'12px',
+                  border:'1px solid #fecaca',
+                  boxShadow:'0 10px 25px -5px rgba(220, 38, 38, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                  padding:'6px',
+                  minWidth:'230px',
+                  zIndex:999,
+                  display:'flex',
+                  flexDirection:'column',
+                  gap:'4px'
+                }}
+              >
+                {cat !== 'all' && pagination.total > 0 && (
+                  <button
+                    type="button"
+                    disabled={!!busy}
+                    onClick={()=>{
+                      setManageOpen(false);
+                      const cObj = categories.find(c => c.slug === cat) || { slug: cat, name: cat };
+                      setDeleteCatConfirm(cObj);
+                    }}
+                    style={{
+                      display:'flex',
+                      alignItems:'center',
+                      gap:'8px',
+                      width:'100%',
+                      padding:'9px 12px',
+                      border:'none',
+                      borderRadius:'8px',
+                      background:'transparent',
+                      color:'#dc2626',
+                      fontSize:'12.5px',
+                      fontWeight:600,
+                      cursor:'pointer',
+                      textAlign:'left'
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.background='#fef2f2'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete All in Category ({pagination.total})</span>
+                  </button>
+                )}
+
+                {isSuper && totalProducts > 0 && (
+                  <button
+                    type="button"
+                    disabled={!!busy}
+                    onClick={()=>{
+                      setManageOpen(false);
+                      setDeleteAllConfirm(true);
+                    }}
+                    style={{
+                      display:'flex',
+                      alignItems:'center',
+                      gap:'8px',
+                      width:'100%',
+                      padding:'9px 12px',
+                      border:'none',
+                      borderRadius:'8px',
+                      background:'transparent',
+                      color:'#dc2626',
+                      fontSize:'12.5px',
+                      fontWeight:600,
+                      cursor:'pointer',
+                      textAlign:'left'
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.background='#fef2f2'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete All Products ({totalProducts})</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {canCreate && (
+        <Link className="btn btn-outline" to={`${basePath}/products/import`} style={{display:'inline-flex',alignItems:'center',gap:'6px'}}>
+          Bulk import
+        </Link>
+      )}
+
+      {canCreate && (
+        <Link className="btn btn-primary" to={`${basePath}/products/new`} style={{display:'inline-flex',alignItems:'center',gap:'6px'}}>
+          <Plus size={16} /> Add product
+        </Link>
+      )}
+    </div>
+  }/>
   {categoryError&&<div className="admin-card bulk-error">{categoryError}<Button variant="outline" onClick={reloadCategories}>Retry categories</Button></div>}
   <FilterBar q={q} setQ={changeFilter(setQ)}>
    <select value={cat} onChange={event=>changeFilter(setCat)(event.target.value)}><option value="all">All categories</option>{categories.map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select>
