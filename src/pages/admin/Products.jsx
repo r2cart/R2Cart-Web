@@ -1479,7 +1479,14 @@ export function ProductForm(){
     </div>
    </section>
 
-   <ProductSpecificationsEditor details={details} onChange={setDetails} />
+   <ProductSpecificationsEditor
+     details={details}
+     onChange={setDetails}
+     productName={form.name}
+     category={form.category}
+     unit={form.unit}
+     image={imageList[0]?.preview || imageList[0]?.url || form.image}
+   />
 
    <section className="admin-card">
     <h3>Pricing & inventory</h3>

@@ -1,7 +1,17 @@
-import React from 'react';
-import { Sparkles, Check, AlertCircle, Info, Plus, Trash2, Heart } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, Check, AlertCircle, Info, Plus, Trash2, Heart, Wand2 } from 'lucide-react';
+import { generateDetailedSpecifications } from '../../utils/productDetails';
 
-export default function ProductSpecificationsEditor({ details, onChange }) {
+export default function ProductSpecificationsEditor({
+  details,
+  onChange,
+  productName = '',
+  category = '',
+  unit = '',
+  image = ''
+}) {
+  const [selectedPreset, setSelectedPreset] = useState('');
+
   const update = (key, value) => {
     onChange(prev => ({
       ...prev,
@@ -34,43 +44,28 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
     update('keyFeatures', next);
   };
 
-  const loadSampleNestle = () => {
-    onChange({
-      summary: 'Nestle Classic Rich and Creamy Milk Treat Chocolate bar made with rich cocoa and smooth milk solids.',
-      brand: 'Nestle',
-      productType: 'Milk Chocolate',
-      dietaryPreference: 'Veg',
-      flavour: 'Chocolate',
-      itemForm: 'Bar',
-      weight: '28 g',
-      itemIncluded: '1 x Chocolate bar',
-      packagingType: 'Packet',
-      countryOfOrigin: 'India',
-      shelfLife: '9 Months',
-      keyFeatures: [
-        'Delicious Taste of Rich and Creamy Milk Choco',
-        'Enjoy a smooth, indulgent taste experience with every bite',
-        'Enjoy life’s little moments with the delicious Nestle Classic. Ideal for sharing'
-      ],
-      ingredients: 'Sugar, Milk solids, Fractionated vegetable fat, Hydrogenated vegetable fats, Cocoa solids (5.5%), Emulsifier (Soya lecithin) and Artificial (Vanilla) flavouring substances. Allergen Note: Contains Milk, Sesame, Soy and Wheat',
-      allergens: 'Contains: Milk, Sesame, Soy, and Wheat',
-      storage: 'Store in a cool, dry and hygienic place and avoid direct sunlight',
-      nutrition: {
-        serving: 'Per 100g',
-        energy: '515 kcal',
-        protein: '8.7 g',
-        carbs: '57.5 g',
-        sugars: '49.8 g',
-        addedSugars: '39.2 g',
-        fat: '27.8 g'
-      },
-      customSpecs: []
-    });
+  // Smart Auto-Generate based on this exact product's name, category & unit
+  const handleAutoGenerate = (presetOverrideName = null) => {
+    const nameToUse = presetOverrideName || productName || 'Daily Grocery Item';
+    const generated = generateDetailedSpecifications(nameToUse, category, unit, image);
+    onChange(generated);
+  };
+
+  const handlePresetChange = (e) => {
+    const val = e.target.value;
+    setSelectedPreset(val);
+    if (!val) return;
+
+    if (val === 'auto') {
+      handleAutoGenerate();
+    } else {
+      handleAutoGenerate(val);
+    }
   };
 
   return (
     <section className="admin-card" style={{ marginTop: '20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>Product Highlights & Specifications</span>
@@ -79,30 +74,70 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
             </span>
           </h3>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-            These details show as premium Blinkit/Zepto-style Highlights, Nutrition Facts, and Ingredients on mobile & laptop storefront.
+            Production-level specifications, authentic ingredients & nutrition table generated uniquely for this product.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadSampleNestle}
-          style={{
-            background: '#f8fafc',
-            border: '1px solid #cbd5e1',
-            borderRadius: '8px',
-            padding: '5px 12px',
-            fontSize: '11.5px',
-            fontWeight: 700,
-            color: '#334155',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-          title="Auto-fill with the Nestle Chocolate specifications sample"
-        >
-          <Sparkles size={13} color="#059669" />
-          <span>Load Nestle Sample Template</span>
-        </button>
+
+        {/* Dynamic Action Buttons: Auto-Generate based on name/category/image */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => handleAutoGenerate()}
+            style={{
+              background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '7px 14px',
+              fontSize: '12px',
+              fontWeight: 800,
+              color: '#ffffff',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)'
+            }}
+            title="Auto-fill specifications uniquely tailored to this product's name, category & unit"
+          >
+            <Wand2 size={14} color="#ffffff" />
+            <span>✨ Auto-Fill from Name & Category</span>
+          </button>
+
+          <select
+            value={selectedPreset}
+            onChange={handlePresetChange}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '8px',
+              border: '1.5px solid #cbd5e1',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#334155',
+              background: '#ffffff',
+              cursor: 'pointer'
+            }}
+            title="Choose a specific category template"
+          >
+            <option value="">📋 Template Presets...</option>
+            <option value="auto">⚡ Auto-Detect (Current Name & Category)</option>
+            <option value="Nestle Classic Milk Chocolate Bar">🍫 Chocolates & Confectionery</option>
+            <option value="Aashirvaad Shudh Chakki Whole Wheat Atta">🌾 Atta, Flours & Grains</option>
+            <option value="India Gate Feast Rozzana Basmati Rice">🍚 Basmati Rice & Dals</option>
+            <option value="Fortune Sunlite Refined Sunflower Oil">🌻 Edible Oil & Desi Ghee</option>
+            <option value="Amul Taaza Homogenised Toned Milk">🥛 Dairy, Milk & Paneer</option>
+            <option value="Tata Tea Gold Leaf Tea">☕ Tea & Coffee</option>
+            <option value="Parle-G Original Gluco Biscuits">🍪 Biscuits & Bakery</option>
+            <option value="Haldiram's Nagpur Aloo Bhujia Sev">🥨 Chips, Snacks & Namkeen</option>
+            <option value="Maggi 2-Minute Masala Instant Noodles">🍜 Instant Noodles, Sauces & Ketchup</option>
+            <option value="Surf Excel Matic Front Load Detergent Powder">🧺 Laundry Detergents & Fabric Care</option>
+            <option value="Vim Lemon Dishwash Gel">🍋 Cleaners & Dishwash</option>
+            <option value="Dove Cream Beauty Bathing Soap Bar">🧼 Personal Care, Soaps & Shampoos</option>
+            <option value="Pampers All round Protection Baby Diaper Pants">👶 Baby Care & Diapers</option>
+            <option value="Tanishq Gold Plated Traditional Earrings">💍 Jewellery & Accessories</option>
+            <option value="Volini Maxx Instant Pain Relief Spray">💊 Pharma, Balms & Wellness</option>
+            <option value="Fresh Organic Farm Produce">🍎 Fresh Fruits & Vegetables</option>
+          </select>
+        </div>
       </div>
 
       {/* Grid of basic specs */}
@@ -143,7 +178,7 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
             Dietary Preference / Speciality
           </label>
           <select
-            value={details.dietaryPreference || 'Veg'}
+            value={details.dietaryPreference || ''}
             onChange={e => update('dietaryPreference', e.target.value)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
           >
@@ -152,6 +187,7 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
             <option value="Vegan">🌱 100% Vegan</option>
             <option value="Eggless">🥚 Eggless</option>
             <option value="Organic">🌿 Certified Organic</option>
+            <option value="">⚪ Not Applicable (Non-Food / Utility)</option>
           </select>
         </div>
 
@@ -188,7 +224,7 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
           <input
             type="text"
             placeholder="e.g. 28 g, 1 kg, 500 ml"
-            value={details.weight || ''}
+            value={details.weight || unit || ''}
             onChange={e => update('weight', e.target.value)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
           />
@@ -213,8 +249,8 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
           </label>
           <input
             type="text"
-            placeholder="e.g. 1 x Chocolate bar"
-            value={details.itemIncluded || ''}
+            placeholder="e.g. 1 x Pack"
+            value={details.itemIncluded || (productName ? `1 x ${productName}` : '')}
             onChange={e => update('itemIncluded', e.target.value)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
           />
@@ -276,7 +312,7 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
 
         {(!details.keyFeatures || details.keyFeatures.length === 0) ? (
           <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-            No key feature bullets added yet. Click "+ Add Feature Bullet" or click "Load Nestle Sample Template" above.
+            No key feature bullets added yet. Click "+ Add Feature Bullet" or click "✨ Auto-Fill from Name & Category" above.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -317,7 +353,7 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
           </label>
           <textarea
             rows={3}
-            placeholder="e.g. Sugar, Milk solids, Cocoa solids (5.5%), Emulsifier (Soya lecithin)..."
+            placeholder="e.g. Sugar, Milk solids, Cocoa solids, Wheat flour..."
             value={details.ingredients || ''}
             onChange={e => update('ingredients', e.target.value)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', resize: 'vertical', boxSizing: 'border-box' }}
@@ -330,7 +366,7 @@ export default function ProductSpecificationsEditor({ details, onChange }) {
           </label>
           <textarea
             rows={3}
-            placeholder="e.g. Contains: Milk, Sesame, Soy, and Wheat"
+            placeholder="e.g. Contains: Milk, Wheat (Gluten), Soy"
             value={details.allergens || ''}
             onChange={e => update('allergens', e.target.value)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', resize: 'vertical', boxSizing: 'border-box' }}
