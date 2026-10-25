@@ -1,5 +1,5 @@
 import {useEffect,useState,useRef} from 'react';
-import {ArrowDown,ArrowUp,Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle} from 'lucide-react';
+import {ArrowDown,ArrowUp,Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle,Check,Sparkles,Layers,Palette,Hash} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -9,6 +9,27 @@ const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{t
 const labelStatus=status=>status==='ACTIVE'?'Active':'Inactive';
 
 let adminCategoriesCache = null;
+
+function CategoryListSkeleton(){
+  return (
+    <div className="cat-skeleton-list" aria-label="Loading categories">
+      {[1,2,3,4,5,6,7,8].map(i=>(
+        <div key={i} className="cat-skeleton-row">
+          <div className="cat-skel-arrows cat-skeleton-shimmer"/>
+          <div className="cat-skel-icon cat-skeleton-shimmer"/>
+          <div className="cat-skel-text">
+            <div className="cat-skel-title cat-skeleton-shimmer" style={{width: i%2===0?'180px':'130px'}}/>
+            <div className="cat-skel-sub cat-skeleton-shimmer" style={{width: i%2===0?'90px':'120px'}}/>
+          </div>
+          <div className="cat-skel-badge cat-skeleton-shimmer"/>
+          <div className="cat-skel-btn cat-skeleton-shimmer"/>
+          <div className="cat-skel-btn cat-skeleton-shimmer"/>
+          <div className="cat-skel-btn cat-skeleton-shimmer"/>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function AdminCategories(){
  const {notify,refreshCategories}=useApp();
@@ -53,7 +74,7 @@ export function AdminCategories(){
     adminCategoriesCache=null;
     await refreshCategories();
     window.dispatchEvent(new Event('grocify:categories-updated'));
-    notify(`Image for "${cat.name}" updated successfully!`,'success');
+    notify(`Image for "${cat.name}" updated (old asset removed from Cloudinary)`,'success');
    }
   }catch(err){
    notify(err.message||'Failed to update category image','error');
@@ -73,7 +94,7 @@ export function AdminCategories(){
    const result=await adminService.uploadCategoryImage(file);
    if(result?.url){
     setEdit(curr=>({...curr,image:result.url}));
-    notify('Category image uploaded successfully','success');
+    notify('Category image uploaded to Cloudinary','success');
    }else{
     throw new Error('Upload succeeded but no URL was returned');
    }
@@ -85,7 +106,30 @@ export function AdminCategories(){
   }
  };
 
- const move=async(index,direction)=>{adminCategoriesCache=null;const next=[...list],target=index+direction;if(target<0||target>=next.length)return;[next[index],next[target]]=[next[target],next[index]];setSaving(true);try{await adminService.reorderCategories(next.map(item=>item.id));await load();await refreshCategories();window.dispatchEvent(new Event('grocify:categories-updated'))}catch(reason){notify(reason.message,'error')}finally{setSaving(false)}};
+ const move=async(index,direction)=>{
+  const target=index+direction;
+  if(target<0||target>=list.length)return;
+  const previousList=[...list];
+  const next=[...list];
+  const temp=next[index];
+  next[index]=next[target];
+  next[target]=temp;
+  
+  // Instant optimistic re-index (1-based position)
+  const resequenced=next.map((item,idx)=>({...item,position:idx+1}));
+  setList(resequenced);
+  adminCategoriesCache=resequenced;
+
+  try{
+   await adminService.reorderCategories(resequenced.map(item=>item.id));
+   await refreshCategories();
+   window.dispatchEvent(new Event('grocify:categories-updated'));
+  }catch(reason){
+   setList(previousList);
+   adminCategoriesCache=previousList;
+   notify(reason.message||'Failed to save reordered positions','error');
+  }
+ };
 
  const load=async(force=false)=>{
   if(force || !adminCategoriesCache) setLoading(true);
@@ -98,82 +142,160 @@ export function AdminCategories(){
   catch(err){setError(err.message)}
   finally{setLoading(false)}
  };
+
  useEffect(()=>{load()},[]);
 
- const save=async event=>{adminCategoriesCache=null;
+ const save=async event=>{
   event.preventDefault();
   const form=Object.fromEntries(new FormData(event.currentTarget));
-  const payload={name:form.name,image:form.image,color:form.color,parentId:form.parentId||null,position:Number(form.position||0),status:form.status};
+  const rawPos = form.position !== '' && !isNaN(Number(form.position)) ? Number(form.position) : (list.length + 1);
+  const payload={
+    name:String(form.name||'').trim(),
+    image:String(form.image||'').trim()||null,
+    color:String(form.color||'#EAF8E8').trim(),
+    parentId:form.parentId||null,
+    position:rawPos,
+    status:form.status||'ACTIVE'
+  };
+
   setSaving(true);
   try{
    const category=edit?.id?await adminService.updateCategory(edit.id,payload):await adminService.createCategory(payload);
-   setList(current=>edit?.id?current.map(item=>item.id===edit.id?category:item):[...current,category].sort((a,b)=>a.position-b.position||a.name.localeCompare(b.name)));
+   
+   // Resequence list with updated item and sort cleanly by position
+   let nextList;
+   if(edit?.id){
+     nextList=list.map(item=>item.id===edit.id?{...item,...category,position:rawPos}:item);
+   }else{
+     nextList=[...list,category];
+   }
+   nextList.sort((a,b)=>(Number(a.position)||0)-(Number(b.position)||0)||a.name.localeCompare(b.name));
+   const normalized=nextList.map((item,idx)=>({...item,position:idx+1}));
+   setList(normalized);
+   adminCategoriesCache=normalized;
+
+   // Sync order to backend
+   try{
+     await adminService.reorderCategories(normalized.map(item=>item.id));
+   }catch(e){
+     console.warn('Reorder sync notice:', e.message);
+   }
+
    setEdit(null);
    await refreshCategories();
    window.dispatchEvent(new Event('grocify:categories-updated'));
-   notify(edit?.id?`Category "${category.name}" updated successfully`:`Category "${category.name}" added successfully`,'success');
-  }catch(err){notify(err.message || 'Failed to save category','error');return false}
-  finally{setSaving(false)}
+   notify(edit?.id?`Category "${category.name}" saved (order updated)`:`Category "${category.name}" added successfully`,'success');
+  }catch(err){
+   notify(err.message || 'Failed to save category','error');
+   return false;
+  }finally{
+   setSaving(false);
+  }
  };
 
- const destroy=async()=>{adminCategoriesCache=null;
+ const destroy=async()=>{
   const category=remove;
   if(!category)return;
   try{
    await adminService.deleteCategory(category.id);
    setList(current=>current.filter(item=>item.id!==category.id));
+   adminCategoriesCache=null;
    setRemove(null);
    await refreshCategories();
    window.dispatchEvent(new Event('grocify:categories-updated'));
    notify(`Category "${category.name}" deleted successfully`,'success');
-  }catch(err){notify(err.message || 'Failed to delete category','error');return false}
+  }catch(err){
+   notify(err.message || 'Failed to delete category','error');
+   return false;
+  }
  };
 
  return <>
-  <AdminTitle title="Categories" text="Organise your catalogue and storefront navigation." action={<Button onClick={()=>setEdit({status:'ACTIVE',color:'#EAF8E8',position:list.length})}><Plus/> Add category</Button>}/>
+  <AdminTitle title="Categories" text="Organise your catalogue and storefront navigation." action={<Button onClick={()=>setEdit({status:'ACTIVE',color:'#EAF8E8',position:list.length+1})}><Plus/> Add category</Button>}/>
   <input ref={directUploadInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" onChange={onDirectCategoryFileSelected} hidden />
+  
   <div className="admin-card category-admin-list">
-   {loading&&<div className="modal-body muted">Loading categories…</div>}
-   {!loading&&error&&<div className="modal-body"><p className="text-danger">{error}</p><Button variant="outline" onClick={load}>Try again</Button></div>}
+   {loading && <CategoryListSkeleton />}
+   {!loading&&error&&<div className="modal-body"><p className="text-danger">{error}</p><Button variant="outline" onClick={()=>load(true)}>Try again</Button></div>}
    {!loading&&!error&&!list.length&&<div className="modal-body muted">No categories yet. Add your first category.</div>}
    {!loading&&!error&&list.map((category,index)=><div key={category.id} className="category-admin-row">
-    <div className="category-order-actions"><button disabled={saving||index===0} onClick={()=>move(index,-1)} aria-label="Move category up"><ArrowUp size={16}/></button><button disabled={saving||index===list.length-1} onClick={()=>move(index,1)} aria-label="Move category down"><ArrowDown size={16}/></button></div>
+    <div className="category-order-actions">
+      <button 
+        type="button"
+        disabled={saving||index===0} 
+        onClick={()=>move(index,-1)} 
+        aria-label={`Move ${category.name} up`}
+        title="Move up (instant)"
+      >
+        <ArrowUp size={15}/>
+      </button>
+      <button 
+        type="button"
+        disabled={saving||index===list.length-1} 
+        onClick={()=>move(index,1)} 
+        aria-label={`Move ${category.name} down`}
+        title="Move down (instant)"
+      >
+        <ArrowDown size={15}/>
+      </button>
+    </div>
+
     <div 
       className="cat-icon category-thumbnail-wrap" 
       style={{background:category.color||'#EAF8E8', position:'relative', overflow:'hidden', cursor:'pointer'}}
       onClick={()=>triggerDirectCategoryUpload(category)}
-      title={`Click to upload or change "${category.name}" image`}
+      title={`Click to upload or replace "${category.name}" image`}
     >
-      {category.image?<img src={category.image} alt="" onError={event=>{event.currentTarget.style.display='none'}}/>:<FolderTree/>}
-      <div className="cat-icon-hover-overlay" title="Click to upload / change image">
+      {category.image?<img src={category.image} alt={category.name} onError={event=>{event.currentTarget.style.display='none'}}/>:<FolderTree/>}
+      <div className="cat-icon-hover-overlay" title="Click to upload / replace image">
         <Camera size={16}/>
       </div>
     </div>
+
     <span 
       className="category-admin-name-cell"
       onClick={()=>setViewCategory(category)}
       title={`Click to view ${category.name} products in cards`}
     >
-      <b>{category.name}</b>
+      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+        <b>{category.name}</b>
+        <span style={{fontSize:'10px',fontWeight:700,background:'#f1f5f9',color:'#475569',padding:'1px 6px',borderRadius:'4px'}}>
+          #{category.position || index + 1}
+        </span>
+      </div>
       <small>
         {(category._count?.products ?? 0) === 1 ? '1 product' : `${category._count?.products ?? 0} products`}
         {category.parent?.name?` · Under ${category.parent.name}`:category.children?.length?` · ${category.children.length} subcategories`:''}
         <span className="category-view-pill">· View products in cards &rarr;</span>
       </small>
     </span>
+
     <StatusBadge status={labelStatus(category.status)}/>
     <button type="button" className="r2c-cat-btn r2c-btn-view" onClick={()=>setViewCategory(category)} aria-label={`View ${category.name} products in cards`} title={`View ${category.name} products in cards`}><Eye size={15}/></button>
     <button type="button" className="r2c-cat-btn r2c-btn-edit" onClick={()=>setEdit(category)} aria-label={`Edit ${category.name}`} title="Edit category"><Edit2 size={15}/></button>
     <button type="button" className="r2c-cat-btn r2c-btn-delete" onClick={()=>setRemove(category)} aria-label={`Delete ${category.name}`} title="Delete category"><Trash2 size={15}/></button>
    </div>)}
   </div>
+
   <Modal open={!!edit} onClose={()=>!saving&&setEdit(null)} title={edit?.id?'Edit category':'Add category'}>
-   <form className="modal-body admin-form" onSubmit={save}>
-    <label>Category name<input name="name" required autoFocus defaultValue={edit?.name||''} placeholder="e.g. Frozen Foods"/></label>
-    <label>Parent category<select name="parentId" defaultValue={edit?.parentId||''}><option value="">None — main category</option>{list.filter(item=>item.id!==edit?.id&&!item.parentId).map(item=><option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
-    <div className="category-image-uploader-section" style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-     <label style={{display:'block',fontWeight:600,fontSize:'0.875rem',marginBottom:'2px'}}>
-      Category Icon / Main Image <span className="muted" style={{fontWeight:400}}>(Upload file or paste URL)</span>
+   <form className="modal-body admin-form cat-edit-modal-wrap" onSubmit={save}>
+    <div className="cat-form-group">
+      <label className="cat-form-label">Category name *</label>
+      <input className="cat-form-input" name="name" required autoFocus defaultValue={edit?.name||''} placeholder="e.g. Resin Art, Fresh Fruits..."/>
+    </div>
+
+    <div className="cat-form-group">
+      <label className="cat-form-label">Parent category <span>(Leave empty for top-level)</span></label>
+      <select className="cat-form-input" name="parentId" defaultValue={edit?.parentId||''}>
+        <option value="">None — main category</option>
+        {list.filter(item=>item.id!==edit?.id&&!item.parentId).map(item=><option value={item.id} key={item.id}>{item.name}</option>)}
+      </select>
+    </div>
+
+    <div className="cat-form-group">
+     <label className="cat-form-label">
+      Category Icon / Main Image 
+      <span>Upload file or paste direct CDN URL</span>
      </label>
      
      <input 
@@ -184,12 +306,15 @@ export function AdminCategories(){
       onChange={handleImageUpload} 
      />
 
-     <div style={{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px',background:'var(--surface-subtle,#f8fafc)',border:'1px dashed var(--border-color,#cbd5e1)',borderRadius:'10px'}}>
-      <div style={{width:'52px',height:'52px',borderRadius:'10px',background:edit?.color||'#EAF8E8',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0,border:'1px solid rgba(0,0,0,0.06)'}}>
+     <div className="cat-img-box">
+      <div 
+        className="cat-preview-tile"
+        style={{background:edit?.color||'#EAF8E8'}}
+      >
        {edit?.image ? (
-        <img src={edit.image} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}} onError={e=>{e.currentTarget.style.display='none'}}/>
+        <img src={edit.image} alt="" onError={e=>{e.currentTarget.style.display='none'}}/>
        ) : (
-        <FolderTree size={24} style={{opacity:0.45}}/>
+        <FolderTree size={28} style={{opacity:0.45,color:'#0f172a'}}/>
        )}
       </div>
 
@@ -201,10 +326,10 @@ export function AdminCategories(){
          size="sm" 
          disabled={uploadingImage||saving} 
          onClick={()=>fileInputRef.current?.click()}
-         style={{gap:'6px',fontSize:'0.82rem',padding:'6px 12px'}}
+         style={{gap:'6px',fontSize:'0.82rem',padding:'6px 14px',borderRadius:'8px'}}
         >
          {uploadingImage?<LoaderCircle size={15} className="spin"/>:<Upload size={15}/>}
-         {uploadingImage?'Uploading…':edit?.image?'Change image':'Upload image from device'}
+         {uploadingImage?'Uploading to Cloudinary…':edit?.image?'Change image':'Upload image'}
         </Button>
         {edit?.image&&(
          <Button 
@@ -216,14 +341,14 @@ export function AdminCategories(){
            setEdit(c=>({...c,image:''}));
            if(fileInputRef.current)fileInputRef.current.value='';
           }}
-          style={{gap:'4px',fontSize:'0.82rem',color:'var(--text-danger,#ef4444)'}}
+          style={{gap:'4px',fontSize:'0.82rem',color:'var(--text-danger,#ef4444)',borderRadius:'8px'}}
          >
           <Trash2 size={14}/> Remove
          </Button>
         )}
        </div>
-       <div style={{marginTop:'4px',fontSize:'0.75rem',color:'var(--text-muted,#64748b)'}}>
-        Supports PNG, JPG, WEBP, SVG. Cloudinary CDN automatically optimizes.
+       <div style={{marginTop:'6px',fontSize:'0.75rem',color:'var(--text-muted,#64748b)',lineHeight:1.35}}>
+        PNG, JPG, WEBP or SVG. <b>Old Cloudinary images are automatically deleted</b> when replaced or removed.
        </div>
       </div>
      </div>
@@ -233,18 +358,66 @@ export function AdminCategories(){
       type="url" 
       value={edit?.image||''} 
       onChange={e=>setEdit(c=>({...c,image:e.target.value}))} 
-      placeholder="Or paste direct image URL (https://...)" 
-      style={{fontSize:'0.82rem',padding:'7px 10px'}}
+      placeholder="Or paste Cloudinary image URL (https://res.cloudinary.com/...)" 
+      className="cat-form-input"
+      style={{fontSize:'0.82rem',marginTop:'4px'}}
      />
     </div>
-    <div className="form-grid">
-     <label>Display order<input name="position" type="number" min="0" defaultValue={edit?.position??list.length}/></label>
-     <label>Theme colour<input name="color" type="color" defaultValue={edit?.color||'#EAF8E8'} onChange={e=>setEdit(c=>({...c,color:e.target.value}))}/></label>
-     <label>Status<select name="status" defaultValue={edit?.status||'ACTIVE'}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+
+    <div className="form-grid" style={{gridTemplateColumns:'repeat(3,1fr)',gap:'12px'}}>
+     <div className="cat-form-group">
+      <label className="cat-form-label">
+        Display order
+      </label>
+      <input 
+        name="position" 
+        type="number" 
+        min="1" 
+        className="cat-form-input"
+        defaultValue={edit?.position??(list.length+1)}
+        placeholder="1, 2, 3..."
+      />
+      <span style={{fontSize:'11px',color:'#64748b',marginTop:'2px'}}>Lower = shows earlier</span>
+     </div>
+
+     <div className="cat-form-group">
+      <label className="cat-form-label">
+        Theme colour
+      </label>
+      <div style={{display:'flex',alignItems:'center',gap:'8px',height:'42px'}}>
+        <input 
+          name="color" 
+          type="color" 
+          defaultValue={edit?.color||'#EAF8E8'} 
+          onChange={e=>setEdit(c=>({...c,color:e.target.value}))}
+          style={{width:'40px',height:'40px',padding:0,border:'1px solid #cbd5e1',borderRadius:'8px',cursor:'pointer'}}
+        />
+        <span style={{fontSize:'12px',fontWeight:700,fontFamily:'monospace',color:'#334155'}}>
+          {edit?.color||'#EAF8E8'}
+        </span>
+      </div>
+     </div>
+
+     <div className="cat-form-group">
+      <label className="cat-form-label">Status</label>
+      <select name="status" className="cat-form-input" defaultValue={edit?.status||'ACTIVE'}>
+        <option value="ACTIVE">Active</option>
+        <option value="INACTIVE">Inactive</option>
+      </select>
+     </div>
     </div>
-    <div className="row end gap"><Button type="button" variant="ghost" disabled={saving||uploadingImage} onClick={()=>setEdit(null)}>Cancel</Button><Button disabled={saving||uploadingImage}>{saving?'Saving…':'Save category'}</Button></div>
+
+    <div className="cat-modal-actions">
+      <Button type="button" variant="ghost" disabled={saving||uploadingImage} onClick={()=>setEdit(null)}>
+        Cancel
+      </Button>
+      <Button disabled={saving||uploadingImage} style={{minWidth:'120px'}}>
+        {saving?'Saving…':'Save category'}
+      </Button>
+    </div>
    </form>
   </Modal>
+
   <ConfirmDialog
     open={!!remove}
     onClose={()=>setRemove(null)}
@@ -257,6 +430,7 @@ export function AdminCategories(){
     confirmText="Delete Category"
     cancelText="Cancel"
   />
+
   <CategoryProductsModal 
     category={viewCategory} 
     onClose={()=>setViewCategory(null)} 
