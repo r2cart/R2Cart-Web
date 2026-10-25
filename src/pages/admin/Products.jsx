@@ -27,6 +27,31 @@ const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',stock:
 const payload=product=>({name:product.name,category:product.category,unit:product.unit,mrp:Number(product.mrp),price:Number(product.price),stock:Number(product.stock),...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),description:product.description,image:product.image||'',status:product.status==='Active'?'ACTIVE':product.status,featured:Boolean(product.featured),bestSeller:Boolean(product.bestSeller)});
 
 let adminProductsCache = null;
+const adminCategoryCache = new Map();
+
+const updateGlobalCaches = (productId, updater) => {
+  if (adminProductsCache?.list) {
+    adminProductsCache.list = adminProductsCache.list.map(p => p.id === productId ? updater(p) : p);
+  }
+  for (const [key, val] of adminCategoryCache.entries()) {
+    if (val?.products) {
+      val.products = val.products.map(p => p.id === productId ? updater(p) : p);
+    }
+  }
+};
+
+const removeGlobalCaches = (productId, packCount = 1) => {
+  if (adminProductsCache?.list) {
+    adminProductsCache.list = adminProductsCache.list.filter(p => p.id !== productId);
+    adminProductsCache.totalProducts = Math.max(0, (adminProductsCache.totalProducts || 0) - packCount);
+  }
+  for (const [key, val] of adminCategoryCache.entries()) {
+    if (val?.products) {
+      val.products = val.products.filter(p => p.id !== productId);
+      val.totalProducts = Math.max(0, (val.totalProducts || 0) - packCount);
+    }
+  }
+};
 
 export function AdminProducts(){
  const {notify,refreshProducts}=useApp();
@@ -49,16 +74,48 @@ export function AdminProducts(){
  const [manageOpen,setManageOpen]=useState(false);
  const [confirm,setConfirm]=useState(null);
  const [deleteAllConfirm,setDeleteAllConfirm]=useState(false);
-  const [deleteCatConfirm,setDeleteCatConfirm]=useState(null);
+ const [deleteCatConfirm,setDeleteCatConfirm]=useState(null);
  const [error,setError]=useState(''),[busy,setBusy]=useState(''),[view,setView]=useState(null);
  const [page,setPage]=useState(1),[pagination,setPagination]=useState(adminProductsCache?.pagination || {pages:1,total:0}),[totalProducts,setTotalProducts]=useState(adminProductsCache?.totalProducts || 0),[refresh,setRefresh]=useState(0);
+
+ const changeCategory = (newCat) => {
+   setCat(newCat);
+   setPage(1);
+   const key = `${newCat}__${stock}__${status}__1__${q.trim().toLowerCase()}`;
+   if (adminCategoryCache.has(key)) {
+     const cached = adminCategoryCache.get(key);
+     setList(cached.products);
+     setPagination(cached.pagination);
+     setTotalProducts(cached.totalProducts);
+     setLoading(false);
+   } else {
+     setLoading(true);
+   }
+ };
+
+ const changeFilter = setter => value => {
+   setter(value);
+   setPage(1);
+   const nextCat = setter === setCat ? value : cat;
+   const nextStock = setter === setStock ? value : stock;
+   const nextStatus = setter === setStatus ? value : status;
+   const nextQ = setter === setQ ? value : q;
+   const key = `${nextCat}__${nextStock}__${nextStatus}__1__${nextQ.trim().toLowerCase()}`;
+   if (adminCategoryCache.has(key)) {
+     const cached = adminCategoryCache.get(key);
+     setList(cached.products);
+     setPagination(cached.pagination);
+     setTotalProducts(cached.totalProducts);
+     setLoading(false);
+   } else {
+     setLoading(true);
+   }
+ };
 
  useEffect(() => {
    const c = searchParams.get('cat') || searchParams.get('category');
    if (c && c !== cat) {
-      setCat(c);
-      setPage(1);
-      setLoading(true);
+     changeCategory(c);
    }
    const v = searchParams.get('view');
    if (v && (v === 'cards' || v === 'table')) {
@@ -68,26 +125,40 @@ export function AdminProducts(){
 
  useEffect(()=>{
    let active=true;
-    setLoading(true);
+   const cacheKey = `${cat}__${stock}__${status}__${page}__${q.trim().toLowerCase()}`;
+   if (adminCategoryCache.has(cacheKey)) {
+     const cached = adminCategoryCache.get(cacheKey);
+     setList(cached.products);
+     setPagination(cached.pagination);
+     setTotalProducts(cached.totalProducts);
+     setLoading(false);
+   } else {
+     setLoading(true);
+   }
+
+   const delay = q ? 200 : 0;
    const timer=setTimeout(()=>{
      adminService.productsPage({page,limit:20,q,...(cat!=='all'&&{category:cat}),...(stock!=='all'&&{stock}),...(status!=='all'&&{status})})
        .then(result=>{
          if(!active)return;
+         adminCategoryCache.set(cacheKey, result);
          adminProductsCache={list:result.products,pagination:result.pagination,totalProducts:result.totalProducts};
          setList(result.products);
          setPagination(result.pagination);
          setTotalProducts(result.totalProducts);
          setError('');
        })
-       .catch(reason=>{if(active){setList([]);setError(reason.message)}})
+       .catch(reason=>{if(active){if (!adminCategoryCache.has(cacheKey)) setList([]);setError(reason.message)}})
        .finally(()=>{if(active)setLoading(false)});
-   }, 150);
+   }, delay);
    return()=>{active=false;clearTimeout(timer)};
  },[page,q,cat,stock,status,refresh]);
+
  useEffect(()=>{
    const onSync=e=>{
      if(e?.detail?.source==='admin-local-delete'||e?.detail?.source==='admin-local-action')return;
      adminProductsCache=null;
+     adminCategoryCache.clear();
      setRefresh(v=>v+1);
    };
    window.addEventListener('grocify:orders-updated',onSync);
@@ -97,15 +168,12 @@ export function AdminProducts(){
      window.removeEventListener('grocify:products-updated',onSync);
    };
  },[]);
-  const changeFilter=setter=>value=>{setter(value);setPage(1);setLoading(true);};
 
  const toggle=async product=>{
   const prevStatus=product.status;
   const next=prevStatus==='ACTIVE'?'INACTIVE':'ACTIVE';
   setList(prev=>prev.map(p=>p.id===product.id?{...p,status:next}:p));
-  if(adminProductsCache?.list){
-    adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,status:next}:p);
-  }
+  updateGlobalCaches(product.id, p=>({...p,status:next}));
   try{
     await adminService.updateProductStatus(product.id,next);
     notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success');
@@ -113,9 +181,7 @@ export function AdminProducts(){
   }catch(reason){
     notify(reason.message||'Failed to update status','error');
     setList(prev=>prev.map(p=>p.id===product.id?{...p,status:prevStatus}:p));
-    if(adminProductsCache?.list){
-      adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,status:prevStatus}:p);
-    }
+    updateGlobalCaches(product.id, p=>({...p,status:prevStatus}));
   }
  };
 
@@ -123,9 +189,7 @@ export function AdminProducts(){
   const prevStock=product.stock;
   const newStock=Number(targetStock);
   setList(prev=>prev.map(p=>p.id===product.id?{...p,stock:newStock}:p));
-  if(adminProductsCache?.list){
-    adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,stock:newStock}:p);
-  }
+  updateGlobalCaches(product.id, p=>({...p,stock:newStock}));
   try{
     await adminService.updateProductStock(product.id,newStock);
     notify(newStock<=0?`"${product.name}" marked as Sold Out (Unavailable)`:`"${product.name}" marked In Stock (${newStock} units)`,'success');
@@ -133,9 +197,7 @@ export function AdminProducts(){
   }catch(reason){
     notify(reason.message||'Failed to update stock','error');
     setList(prev=>prev.map(p=>p.id===product.id?{...p,stock:prevStock}:p));
-    if(adminProductsCache?.list){
-      adminProductsCache.list=adminProductsCache.list.map(p=>p.id===product.id?{...p,stock:prevStock}:p);
-    }
+    updateGlobalCaches(product.id, p=>({...p,stock:prevStock}));
   }
  };
  const destroy=async()=>{
@@ -159,14 +221,7 @@ export function AdminProducts(){
   }));
   setTotalProducts(prev=>Math.max(0,prev-removedPacks));
 
-  if(adminProductsCache){
-    adminProductsCache.list=(adminProductsCache.list||[]).filter(p=>p.id!==toRemoveId);
-    adminProductsCache.totalProducts=Math.max(0,(adminProductsCache.totalProducts||0)-removedPacks);
-    if(adminProductsCache.pagination){
-      adminProductsCache.pagination.total=Math.max(0,adminProductsCache.pagination.total-1);
-      adminProductsCache.pagination.pages=Math.max(1,Math.ceil(adminProductsCache.pagination.total/20));
-    }
-  }
+  removeGlobalCaches(toRemoveId, removedPacks);
 
   // 2. Background DB soft-delete with non-blocking Cloudinary cleanup
   try{
@@ -179,6 +234,7 @@ export function AdminProducts(){
     setPagination(prevPagination);
     setTotalProducts(prevTotal);
     adminProductsCache=null;
+    adminCategoryCache.clear();
   }
  };
  const destroyAll=async()=>{
@@ -191,6 +247,7 @@ export function AdminProducts(){
   setPagination({pages:1,total:0});
   setTotalProducts(0);
   adminProductsCache=null;
+  adminCategoryCache.clear();
 
   try{
     const res=await adminService.deleteAllProducts();
@@ -235,6 +292,7 @@ export function AdminProducts(){
       adminProductsCache.pagination.pages=Math.max(1,Math.ceil(adminProductsCache.pagination.total/20));
     }
   }
+  adminCategoryCache.clear();
 
   try{
     const res=await adminService.deleteProductsByCategory(targetSlug);
@@ -381,7 +439,7 @@ export function AdminProducts(){
   }/>
   {categoryError&&<div className="admin-card bulk-error">{categoryError}<Button variant="outline" onClick={reloadCategories}>Retry categories</Button></div>}
   <FilterBar q={q} setQ={changeFilter(setQ)}>
-   <select value={cat} onChange={event=>changeFilter(setCat)(event.target.value)}><option value="all">All categories</option>{categories.map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select>
+   <select value={cat} onChange={event=>changeCategory(event.target.value)}><option value="all">All categories</option>{categories.map(category=><option value={category.slug} key={category.slug}>{category.name}</option>)}</select>
    <select value={stock} onChange={event=>changeFilter(setStock)(event.target.value)}><option value="all">All stock levels</option><option value="low">Low stock</option><option value="out">Out of stock</option></select>
    <select value={status} onChange={event=>changeFilter(setStatus)(event.target.value)}><option value="all">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select>
    <div className="view-mode-toggle" style={{display:'flex',gap:'4px',marginLeft:'auto',alignItems:'center'}}>
@@ -450,25 +508,36 @@ export function AdminProducts(){
                </div>
                <h4 className="card-product-title" title={product.name}>{product.name}</h4>
                <div className="card-price-row">
-                 <strong className="card-selling-price">{money(product.price)}</strong>
-                 {hasDiscount && <del className="card-mrp-price">{money(product.mrp)}</del>}
-               </div>
-               <div className="card-action-bar">
-                 <button type="button" className="card-detail-btn" onClick={() => inspect(product.id)} title="View details"><Eye size={14}/> Details</button>
-                 <button 
-                   type="button" 
-                   disabled={!!busy} 
-                   className="card-icon-action-btn" 
-                   style={{fontSize:'10px',width:'auto',padding:'0 7px',fontWeight:700,color:isOutOfStock?'#15803d':'#dc2626',background:isOutOfStock?'#f0fdf4':'#fef2f2',borderColor:isOutOfStock?'#bbf7d0':'#fecaca'}} 
-                   onClick={()=>toggleStock(product, isOutOfStock ? 20 : 0)} 
-                   title={isOutOfStock ? "Click to mark In Stock (+20)" : "Click to mark Sold Out (Unavailable)"}
-                 >
-                   {isOutOfStock ? '+ Restock' : 'Sold Out'}
-                 </button>
-                 <Link to={`${basePath}/products/${product.id}/edit`} className="card-icon-action-btn" title="Edit"><Edit2 size={14}/></Link>
-                 <button type="button" disabled={!!busy} className={`card-icon-action-btn ${product.status === 'ACTIVE' ? 'active-toggle' : 'inactive-toggle'}`} onClick={() => toggle(product)} title="Toggle status"><Check size={14}/></button>
-                 <button type="button" disabled={!!busy} className="card-icon-action-btn" style={{color:'#ef4444'}} onClick={() => setConfirm(product)} title="Delete product"><Trash2 size={14}/></button>
-               </div>
+                  <div className="card-price-left">
+                    <strong className="card-selling-price">{money(product.price)}</strong>
+                    {hasDiscount && <del className="card-mrp-price">{money(product.mrp)}</del>}
+                  </div>
+                  <button 
+                    type="button" 
+                    disabled={!!busy} 
+                    className={`card-quick-stock-btn ${isOutOfStock ? 'is-out' : 'is-in'}`}
+                    onClick={() => toggleStock(product, isOutOfStock ? 20 : 0)} 
+                    title={isOutOfStock ? "Click to Restock (+20)" : "Click to mark Sold Out (0)"}
+                  >
+                    {isOutOfStock ? '+ Restock' : 'Sold Out'}
+                  </button>
+                </div>
+                <div className="card-action-bar">
+                  <button
+                    type="button"
+                    disabled={!!busy}
+                    className={`card-status-toggle-btn ${product.status === 'ACTIVE' ? 'active' : 'inactive'}`}
+                    onClick={() => toggle(product)}
+                    title="Click to toggle Active / Inactive"
+                  >
+                    <span className="dot" /> {product.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                  </button>
+                  <div className="card-action-icons">
+                    <button type="button" className="r2c-action-btn r2c-btn-view" onClick={() => inspect(product.id)} title="View details"><Eye size={14}/></button>
+                    <Link to={`${basePath}/products/${product.id}/edit`} state={{ product }} className="r2c-action-btn r2c-btn-edit" title="Edit product"><Edit2 size={14}/></Link>
+                    <button type="button" disabled={!!busy} className="r2c-action-btn r2c-btn-delete" onClick={() => setConfirm(product)} title="Delete product"><Trash2 size={14}/></button>
+                  </div>
+                </div>
              </div>
            </div>
          );
@@ -504,7 +573,7 @@ export function AdminProducts(){
           </td>
         </tr>
       ))
-    ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td style={{verticalAlign:'middle'}}><div className="product-cell">{product.image?<img src={product.image} alt="" onError={e=>{e.currentTarget.style.display='none'}}/>:<div style={{width:'44px',height:'44px',borderRadius:'8px',background:'#f1f5f9',display:'grid',placeItems:'center',flexShrink:0,color:'#94a3b8'}}><Package size={20}/></div>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b title={product.name}>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td className="product-table-cat-col" title={product.categoryName||product.category}><b>{product.categoryName||product.category}</b></td><td style={{whiteSpace:'nowrap'}}><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td style={{whiteSpace:'nowrap'}}>{money(product.mrp)}</td><td style={{whiteSpace:'nowrap'}}><b>{money(product.price)}</b></td><td style={{whiteSpace:'nowrap',verticalAlign:'middle'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span className={product.stock<=0?'badge badge-red':product.stock<=product.lowStockThreshold?'badge badge-amber':''} style={{fontSize:'11px',fontWeight:700}}>{product.stock<=0?'0 Sold Out':`${product.stock} in stock`}</span>{product.stock>0?<button type="button" onClick={()=>toggleStock(product,0)} title="Click to Mark as Sold Out / Out of Stock" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontWeight:700}}>Sold Out</button>:<button type="button" onClick={()=>toggleStock(product,20)} title="Click to Restock / Mark In Stock (+20 units)" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:700}}>+ In Stock</button>}</div></td><td style={{whiteSpace:'nowrap'}}><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td style={{whiteSpace:'nowrap'}}><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
+    ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td style={{verticalAlign:'middle'}}><div className="product-cell">{product.image?<img src={product.image} alt="" onError={e=>{e.currentTarget.style.display='none'}}/>:<div style={{width:'44px',height:'44px',borderRadius:'8px',background:'#f1f5f9',display:'grid',placeItems:'center',flexShrink:0,color:'#94a3b8'}}><Package size={20}/></div>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b title={product.name}>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td className="product-table-cat-col" title={product.categoryName||product.category}><b>{product.categoryName||product.category}</b></td><td style={{whiteSpace:'nowrap'}}><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td style={{whiteSpace:'nowrap'}}>{money(product.mrp)}</td><td style={{whiteSpace:'nowrap'}}><b>{money(product.price)}</b></td><td style={{whiteSpace:'nowrap',verticalAlign:'middle'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span className={product.stock<=0?'badge badge-red':product.stock<=product.lowStockThreshold?'badge badge-amber':''} style={{fontSize:'11px',fontWeight:700}}>{product.stock<=0?'0 Sold Out':`${product.stock} in stock`}</span>{product.stock>0?<button type="button" onClick={()=>toggleStock(product,0)} title="Click to Mark as Sold Out / Out of Stock" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontWeight:700}}>Sold Out</button>:<button type="button" onClick={()=>toggleStock(product,20)} title="Click to Restock / Mark In Stock (+20 units)" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:700}}>+ In Stock</button>}</div></td><td style={{whiteSpace:'nowrap'}}><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td style={{whiteSpace:'nowrap'}}><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)} className="r2c-table-btn r2c-btn-view" title="View product details"><Eye size={15}/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`} state={{ product }} className="r2c-table-btn r2c-btn-edit" title="Edit product"><Edit2 size={15}/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)} className="r2c-table-btn r2c-btn-delete" title="Delete product"><Trash2 size={15}/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
@@ -859,19 +928,72 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
 
 function FilterBar({q,setQ,children}){return <div className="filter-bar"><div className="filter-search"><Search/><input value={q} onChange={event=>setQ(event.target.value)} placeholder="Search by name or SKU"/></div>{children}</div>}
 
+function ProductFormSkeleton({ basePath }) {
+  return (
+    <div className="product-form-skeleton-wrap" style={{ display: 'grid', gap: '18px', maxWidth: '950px' }}>
+      <div className="r2c-skeleton-box" style={{ width: '130px', height: '18px', borderRadius: '4px' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div className="r2c-skeleton-box" style={{ width: '220px', height: '28px', borderRadius: '6px' }} />
+        <div className="r2c-skeleton-box" style={{ width: '340px', height: '14px', borderRadius: '4px' }} />
+      </div>
+      <div className="admin-card" style={{ padding: '22px' }}>
+        <div className="r2c-skeleton-box" style={{ width: '180px', height: '20px', borderRadius: '5px', marginBottom: '8px' }} />
+        <div className="r2c-skeleton-box" style={{ width: '280px', height: '12px', borderRadius: '4px', marginBottom: '20px' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '14px' }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="r2c-skeleton-box" style={{ height: '170px', borderRadius: '12px' }} />
+          ))}
+        </div>
+      </div>
+      <div className="admin-card" style={{ padding: '22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className="r2c-skeleton-box" style={{ height: '42px', borderRadius: '8px' }} />
+        <div className="r2c-skeleton-box" style={{ height: '42px', borderRadius: '8px' }} />
+        <div className="r2c-skeleton-box" style={{ height: '42px', borderRadius: '8px' }} />
+        <div className="r2c-skeleton-box" style={{ height: '42px', borderRadius: '8px' }} />
+        <div className="r2c-skeleton-box" style={{ height: '80px', gridColumn: '1 / -1', borderRadius: '8px' }} />
+      </div>
+      <div className="admin-card" style={{ padding: '22px' }}>
+        <div className="r2c-skeleton-box" style={{ width: '200px', height: '20px', borderRadius: '5px', marginBottom: '14px' }} />
+        <div className="r2c-skeleton-box" style={{ height: '52px', borderRadius: '8px' }} />
+      </div>
+    </div>
+  );
+}
+
 export function ProductForm(){
  const {id}=useParams();
  const nav=useNavigate();
  const location=useLocation();
+ const routeProduct = location.state?.product;
  const currentUser = getAdminUser();
  const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN' || location.pathname.startsWith('/super-admin');
  const basePath = isSuper ? '/super-admin' : '/admin';
  const {notify,refreshProducts}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();
- const [form,setForm]=useState(emptyProduct);
- const [loading,setLoading]=useState(Boolean(id));
+ const [form,setForm]=useState(() => ({
+   ...emptyProduct,
+   ...(routeProduct ? {
+     ...routeProduct,
+     mrp: routeProduct.mrp !== undefined ? String(routeProduct.mrp) : '',
+     price: routeProduct.price !== undefined ? String(routeProduct.price) : '',
+     stock: routeProduct.stock !== undefined ? String(routeProduct.stock) : ''
+   } : {})
+ }));
+ const [loading,setLoading]=useState(Boolean(id && !routeProduct));
  const [saving,setSaving]=useState(false);
- const [imageList, setImageList] = useState([]);
+ const [imageList, setImageList] = useState(() => {
+   if (!routeProduct) return [];
+   const imgs = (routeProduct.images && routeProduct.images.length > 0)
+     ? routeProduct.images
+     : (routeProduct.image ? [routeProduct.image] : []);
+   return imgs.map((url, i) => ({
+     id: `img-${i}-${Date.now()}`,
+     url,
+     file: null,
+     preview: url,
+     originalSrc: url
+   }));
+ });
  const [packs, setPacks] = useState([]);
  const [loadError, setLoadError] = useState(''), [reload, setReload] = useState(0);
 
@@ -881,21 +1003,23 @@ export function ProductForm(){
  const [rawImageToCrop, setRawImageToCrop] = useState('');
  const [cropConfig, setCropConfig] = useState({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
  const [urlInput, setUrlInput] = useState('');
-  const [details, setDetails] = useState(() => parseProductDetails(''));
+ const [details, setDetails] = useState(() => parseProductDetails(routeProduct?.description || ''));
 
   useEffect(() => {
     let active = true;
     setLoadError('');
-    setImageList([]);
-    setPacks([]);
     setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
     if (!id) {
       setForm(emptyProduct);
+      setImageList([]);
+      setPacks([]);
       setDetails(parseProductDetails(''));
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!routeProduct) {
+      setLoading(true);
+    }
     Promise.all([
       adminService.product(id),
       adminService.productVariants(id).catch(() => [])
@@ -1180,21 +1304,39 @@ export function ProductForm(){
         status: p.status || form.status
       }));
 
-      await (id
+      const savedRes = await (id
         ? adminService.updateProduct(id, { ...payload(next), image: finalUrls[0], images: finalUrls, packs: cleanPacks })
         : adminService.createProduct({ ...payload(next), image: finalUrls[0], images: finalUrls, packs: cleanPacks }));
 
-     await refreshProducts();
-     window.dispatchEvent(new Event('grocify:products-updated'));
-     notify(id ? 'Product and all pack sizes updated' : 'Product and all pack sizes published');
-     nav(`${basePath}/products`);
+      const savedProduct = savedRes?.product || {
+        ...next,
+        id: id || savedRes?.id,
+        image: finalUrls[0],
+        images: finalUrls,
+        packCount: cleanPacks.length + 1
+      };
+
+      if (adminProductsCache?.list) {
+        if (id) {
+          adminProductsCache.list = adminProductsCache.list.map(p => p.id === id ? { ...p, ...savedProduct } : p);
+        } else {
+          adminProductsCache.list = [savedProduct, ...adminProductsCache.list];
+          adminProductsCache.totalProducts = (adminProductsCache.totalProducts || 0) + (cleanPacks.length + 1);
+        }
+      }
+      adminCategoryCache.clear();
+
+      refreshProducts().catch(() => {});
+      window.dispatchEvent(new CustomEvent('grocify:products-updated', { detail: { source: 'admin-local-action', product: savedProduct } }));
+      notify(id ? 'Product and all pack sizes updated' : 'Product and all pack sizes published');
+      nav(`${basePath}/products`);
    } catch (error) {
      notify(error.message, 'error');
    } finally {
      setSaving(false);
    }
  };
- if(loading)return <div className="admin-card modal-body">Loading product…</div>;
+ if(loading)return <ProductFormSkeleton basePath={basePath}/>;
  if(loadError)return <div className="admin-card bulk-error"><p role="alert">{loadError}</p><Button variant="outline" onClick={()=>setReload(value=>value+1)}>Try again</Button><Link className="back-link" to={`${basePath}/products`}>Back to products</Link></div>;
  return <>
   <Link className="back-link" to={`${basePath}/products`}><ArrowLeft/> Back to products</Link>

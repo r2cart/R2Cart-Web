@@ -162,9 +162,9 @@ export function AdminCategories(){
       </small>
     </span>
     <StatusBadge status={labelStatus(category.status)}/>
-    <button type="button" onClick={()=>setViewCategory(category)} aria-label={`View ${category.name} products in cards`} title={`View ${category.name} products in card shape`} style={{color:'var(--green, #10b981)'}}><Eye size={17}/></button>
-    <button type="button" onClick={()=>setEdit(category)} aria-label={`Edit ${category.name}`} title="Edit category"><Edit2/></button>
-    <button type="button" onClick={()=>setRemove(category)} aria-label={`Delete ${category.name}`} title="Delete category"><Trash2/></button>
+    <button type="button" className="r2c-cat-btn r2c-btn-view" onClick={()=>setViewCategory(category)} aria-label={`View ${category.name} products in cards`} title={`View ${category.name} products in cards`}><Eye size={15}/></button>
+    <button type="button" className="r2c-cat-btn r2c-btn-edit" onClick={()=>setEdit(category)} aria-label={`Edit ${category.name}`} title="Edit category"><Edit2 size={15}/></button>
+    <button type="button" className="r2c-cat-btn r2c-btn-delete" onClick={()=>setRemove(category)} aria-label={`Delete ${category.name}`} title="Delete category"><Trash2 size={15}/></button>
    </div>)}
   </div>
   <Modal open={!!edit} onClose={()=>!saving&&setEdit(null)} title={edit?.id?'Edit category':'Add category'}>
