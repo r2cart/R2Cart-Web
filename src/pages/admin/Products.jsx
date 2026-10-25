@@ -8,7 +8,7 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
-import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight} from 'lucide-react';
+import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -1003,6 +1003,8 @@ export function ProductForm(){
  const [rawImageToCrop, setRawImageToCrop] = useState('');
  const [cropConfig, setCropConfig] = useState({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
  const [urlInput, setUrlInput] = useState('');
+ const [draggedIndex, setDraggedIndex] = useState(null);
+ const [dragOverIndex, setDragOverIndex] = useState(null);
  const [details, setDetails] = useState(() => parseProductDetails(routeProduct?.description || ''));
 
   useEffect(() => {
@@ -1156,25 +1158,71 @@ export function ProductForm(){
     notify('Image URL added to gallery');
   };
 
-  const handleMoveLeft = (idx) => {
-    if (idx <= 0) return;
-    setImageList(prev => {
-      const copy = [...prev];
-      const temp = copy[idx];
-      copy[idx] = copy[idx - 1];
-      copy[idx - 1] = temp;
-      return copy;
-    });
-    notify(`Image moved to Slot ${idx}`);
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', String(index));
+    } catch {}
   };
 
-  const handleMoveRight = (idx) => {
-    if (idx >= imageList.length - 1) return;
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e, targetIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fromIndex = draggedIndex !== null ? draggedIndex : Number(e.dataTransfer.getData('text/plain'));
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    if (isNaN(fromIndex) || fromIndex === targetIndex || fromIndex < 0 || targetIndex < 0) return;
+
     setImageList(prev => {
+      if (fromIndex >= prev.length || targetIndex >= prev.length) return prev;
       const copy = [...prev];
-      const temp = copy[idx];
-      copy[idx] = copy[idx + 1];
-      copy[idx + 1] = temp;
+      const [movedItem] = copy.splice(fromIndex, 1);
+      copy.splice(targetIndex, 0, movedItem);
+      return copy;
+    });
+    notify(targetIndex === 0 ? '⭐ Set as Primary Cover Image!' : `Image moved to Slot ${targetIndex + 1}`);
+  };
+
+  const handleMoveLeft = (e, idx) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (idx <= 0) return;
+    setImageList(prev => {
+      if (idx <= 0 || idx >= prev.length) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(idx, 1);
+      copy.splice(idx - 1, 0, item);
+      return copy;
+    });
+    notify(idx - 1 === 0 ? '⭐ Moved to Cover Image!' : `Image moved to Slot ${idx}`);
+  };
+
+  const handleMoveRight = (e, idx) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setImageList(prev => {
+      if (idx < 0 || idx >= prev.length - 1) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(idx, 1);
+      copy.splice(idx + 1, 0, item);
       return copy;
     });
     notify(`Image moved to Slot ${idx + 2}`);
@@ -1187,9 +1235,14 @@ export function ProductForm(){
     setImageList(prev => prev.filter((_, i) => i !== indexToRemove));
   };
 
-  const handleSetAsCover = (indexToPromote) => {
+  const handleSetAsCover = (e, indexToPromote) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (indexToPromote === 0) return;
     setImageList(prev => {
+      if (indexToPromote <= 0 || indexToPromote >= prev.length) return prev;
       const copy = [...prev];
       const [promoted] = copy.splice(indexToPromote, 1);
       copy.unshift(promoted);
@@ -1374,19 +1427,29 @@ export function ProductForm(){
       {imageList.map((img, idx) => {
         const isCover = idx === 0;
         const displaySrc = img.preview || img.url;
+        const isDragging = draggedIndex === idx;
+        const isDragOver = dragOverIndex === idx;
         return (
           <div
             key={img.id || idx}
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDrop={(e) => handleDrop(e, idx)}
+            onDragEnd={handleDragEnd}
             style={{
               position:'relative',
-              background:'#ffffff',
-              border: isCover ? '2px solid #059669' : '1px solid #e2e8f0',
+              background: isDragOver ? '#ecfdf5' : '#ffffff',
+              border: isDragOver ? '2px dashed #059669' : isCover ? '2px solid #059669' : '1px solid #cbd5e1',
               borderRadius:'12px',
               padding:'8px',
               display:'flex',
               flexDirection:'column',
               boxShadow: isCover ? '0 4px 12px -2px rgba(5, 150, 105, 0.15)' : 'none',
-              transition:'all 0.2s ease'
+              opacity: isDragging ? 0.45 : 1,
+              transform: isDragOver ? 'scale(1.02)' : 'none',
+              cursor:'grab',
+              transition:'all 0.18s ease'
             }}
           >
             {/* Slot Badge */}
@@ -1409,6 +1472,27 @@ export function ProductForm(){
               {isCover ? <><Star size={10} fill="currentColor"/> COVER *</> : `#${idx + 1} SLIDE`}
             </div>
 
+            {/* Drag Handle Indicator */}
+            <div
+              style={{
+                position:'absolute',
+                top:'6px',
+                right:'6px',
+                zIndex:2,
+                background:'rgba(255,255,255,0.92)',
+                border:'1px solid #cbd5e1',
+                borderRadius:'5px',
+                padding:'2px 4px',
+                display:'flex',
+                alignItems:'center',
+                color:'#64748b',
+                cursor:'grab'
+              }}
+              title="Drag & Drop to reorder"
+            >
+              <GripVertical size={12}/>
+            </div>
+
             {/* 1:1 Square Preview Box */}
             <div style={{
               width:'100%',
@@ -1425,7 +1509,8 @@ export function ProductForm(){
                 <img
                   src={displaySrc}
                   alt={`Slot ${idx + 1}`}
-                  style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}}
+                  draggable={false}
+                  style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',pointerEvents:'none'}}
                 />
               ) : (
                 <ImagePlus size={32} color="#94a3b8"/>
@@ -1433,17 +1518,17 @@ export function ProductForm(){
             </div>
 
             {/* Slot Action Buttons */}
-            <div style={{display:'flex',flexDirection:'column',gap:'4px',marginTop:'auto'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:'4px',marginTop:'auto'}} onMouseDown={e=>e.stopPropagation()}>
               <div style={{display:'flex',gap:'3px',alignItems:'center'}}>
                 <button
                   type="button"
                   disabled={idx === 0}
-                  onClick={() => handleMoveLeft(idx)}
+                  onClick={(e) => handleMoveLeft(e, idx)}
                   style={{
                     background: idx === 0 ? '#f1f5f9' : '#ffffff',
                     border: '1px solid #cbd5e1',
                     borderRadius: '6px',
-                    padding: '4px 6px',
+                    padding: '4px 7px',
                     cursor: idx === 0 ? 'not-allowed' : 'pointer',
                     opacity: idx === 0 ? 0.35 : 1,
                     display: 'flex',
@@ -1451,19 +1536,19 @@ export function ProductForm(){
                     justifyContent: 'center',
                     color: '#1e293b'
                   }}
-                  title="Adjust ranking: Move Left"
+                  title="Move Left"
                 >
-                  <ChevronLeft size={13}/>
+                  <ChevronLeft size={13} style={{pointerEvents:'none'}}/>
                 </button>
                 <button
                   type="button"
                   disabled={idx === imageList.length - 1}
-                  onClick={() => handleMoveRight(idx)}
+                  onClick={(e) => handleMoveRight(e, idx)}
                   style={{
                     background: idx === imageList.length - 1 ? '#f1f5f9' : '#ffffff',
                     border: '1px solid #cbd5e1',
                     borderRadius: '6px',
-                    padding: '4px 6px',
+                    padding: '4px 7px',
                     cursor: idx === imageList.length - 1 ? 'not-allowed' : 'pointer',
                     opacity: idx === imageList.length - 1 ? 0.35 : 1,
                     display: 'flex',
@@ -1471,9 +1556,9 @@ export function ProductForm(){
                     justifyContent: 'center',
                     color: '#1e293b'
                   }}
-                  title="Adjust ranking: Move Right"
+                  title="Move Right"
                 >
-                  <ChevronRight size={13}/>
+                  <ChevronRight size={13} style={{pointerEvents:'none'}}/>
                 </button>
                 <Button
                   type="button"
@@ -1499,13 +1584,13 @@ export function ProductForm(){
               {!isCover && (
                 <button
                   type="button"
-                  onClick={() => handleSetAsCover(idx)}
+                  onClick={(e) => handleSetAsCover(e, idx)}
                   style={{
                     background:'#ecfdf5',
                     border:'1px solid #a7f3d0',
                     color:'#047857',
                     borderRadius:'6px',
-                    padding:'3px 6px',
+                    padding:'4px 6px',
                     fontSize:'10.5px',
                     fontWeight:700,
                     cursor:'pointer',
