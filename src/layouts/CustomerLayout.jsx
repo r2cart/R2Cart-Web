@@ -211,10 +211,7 @@ export function Footer(){
             <Logo/>
             <p>{BRAND.tagline}</p>
             <p style={{fontSize:'12px',color:'var(--muted)',marginTop:'6px'}}>{legalEntity} · {legalAddress}</p>
-            <div className="social">
-              <button type="button" onClick={handleShareClick} aria-label={`Share ${BRAND.name}`} title="Share Website / वेबसाइट शेयर करें">
-                <Share2/>
-              </button>
+            <div className="social" style={{ display: 'flex', alignItems: 'center', marginTop: '12px' }}>
               <button
                 type="button"
                 className="footer-share-pill"
@@ -227,15 +224,14 @@ export function Footer(){
                   background: 'rgba(16, 185, 129, 0.15)',
                   border: '1px solid rgba(16, 185, 129, 0.35)',
                   color: '#10b981',
-                  padding: '6px 14px',
+                  padding: '7px 16px',
                   borderRadius: '20px',
                   fontSize: '12px',
                   fontWeight: 700,
-                  cursor: 'pointer',
-                  marginLeft: '8px'
+                  cursor: 'pointer'
                 }}
               >
-                <Share2 size={13}/>
+                <Share2 size={14}/>
                 <span>Share / शेयर करें</span>
               </button>
             </div>

@@ -93,8 +93,8 @@ export function ProductPage() {
   const packs = packOptions(product, products);
   const categoryObj = categories.find((c) => c.slug === product.category);
 
-  // Parse rich structured details (or fallback to plain description)
-  const details = parseProductDetails(product.description);
+  // Parse rich structured details (or fallback to plain description with auto-inference)
+  const details = parseProductDetails(product.description, product);
   const dietaryPref = details.dietaryPreference || '';
   const isVeg = dietaryPref.toLowerCase().includes('veg') && !dietaryPref.toLowerCase().includes('non');
   const isNonVeg = dietaryPref.toLowerCase().includes('non-veg');
@@ -524,6 +524,9 @@ export function ProductPage() {
         }
 
         @media (max-width: 860px) {
+          .gallery-nav-btn {
+            display: none !important;
+          }
           .product-detail-layout {
             grid-template-columns: 1fr;
             gap: 20px;

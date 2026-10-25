@@ -169,19 +169,34 @@ function BaseProductCard({product,packSelector}){
  const off=Math.round((1-product.price/product.mrp)*100);
  const gallery=(product.images&&product.images.length>0)?product.images:(product.image?[product.image]:[]);
  const [imgIdx,setImgIdx]=useState(0);
+ const [touchStartX,setTouchStartX]=useState(null);
 
  useEffect(()=>{setImgIdx(0);},[product.id]);
 
  const nextImg=(e)=>{
-   e.preventDefault();
-   e.stopPropagation();
+   if(e){e.preventDefault();e.stopPropagation();}
    setImgIdx(prev=>(prev+1)%gallery.length);
  };
 
  const prevImg=(e)=>{
-   e.preventDefault();
-   e.stopPropagation();
+   if(e){e.preventDefault();e.stopPropagation();}
    setImgIdx(prev=>(prev-1+gallery.length)%gallery.length);
+ };
+
+ const onCardTouchStart = (e) => {
+   if (gallery.length <= 1) return;
+   setTouchStartX(e.touches[0].clientX);
+ };
+
+ const onCardTouchEnd = (e) => {
+   if (touchStartX === null || gallery.length <= 1) return;
+   const deltaX = touchStartX - e.changedTouches[0].clientX;
+   if (deltaX > 25) {
+     nextImg();
+   } else if (deltaX < -25) {
+     prevImg();
+   }
+   setTouchStartX(null);
  };
 
  const formatStock = (count, threshold = 5) => {
@@ -192,7 +207,12 @@ function BaseProductCard({product,packSelector}){
  const fallback=e=>{e.currentTarget.onerror=null;e.currentTarget.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22240%22 viewBox=%220 0 320 240%22%3E%3Crect width=%22320%22 height=%22240%22 fill=%22%23E6FBF3%22/%3E%3Cpath d=%22M160 178c-43-31-48-86 0-116 48 30 43 85 0 116Z%22 fill=%22%2310B981%22/%3E%3Cpath d=%22M160 178c0-48 16-77 39-98%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%228%22 stroke-linecap=%22round%22/%3E%3C/svg%3E'};
 
  return <article className="product-card">
-  <div className="product-media" style={{position:'relative',overflow:'hidden'}}>
+  <div
+    className="product-media"
+    style={{position:'relative',overflow:'hidden'}}
+    onTouchStart={onCardTouchStart}
+    onTouchEnd={onCardTouchEnd}
+  >
     {off>0&&<span className="discount">{off}% {t('off', 'OFF')}</span>}
     <button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'currentColor':'none'}/></button>
     <Link to={`/product/${product.id}`} style={{display:'block',width:'100%',height:'100%'}}>
@@ -204,6 +224,7 @@ function BaseProductCard({product,packSelector}){
           type="button"
           onClick={prevImg}
           aria-label="Previous image"
+          className="card-gallery-arrow prev"
           style={{
             position:'absolute',
             left:'4px',
@@ -229,6 +250,7 @@ function BaseProductCard({product,packSelector}){
           type="button"
           onClick={nextImg}
           aria-label="Next image"
+          className="card-gallery-arrow next"
           style={{
             position:'absolute',
             right:'4px',
@@ -260,22 +282,8 @@ function BaseProductCard({product,packSelector}){
   </div>
   <div className="product-copy">
     <span className="delivery-pill"><Zap/> {tEta(eta)}</span>
-    <Link to={`/product/${product.id}`} className="product-name" style={{
-      display:'-webkit-box',
-      WebkitLineClamp:2,
-      WebkitBoxOrient:'vertical',
-      overflow:'hidden',
-      textOverflow:'ellipsis',
-      height:'34px',
-      minHeight:'34px',
-      maxHeight:'34px',
-      lineHeight:'17px',
-      margin:'6px 0 4px',
-      fontWeight:700,
-      color:'#1C1C1E',
-      fontSize:'12.5px'
-    }}>{tProd(product.name)}</Link>
-    {packSelector||<div className="product-meta-row" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'6px',minHeight:'20px',margin:'2px 0 6px'}}><span className="unit" style={{fontSize:'11px',fontWeight:600,color:'#64748b'}}>{product.unit}</span>{product.stock>0?<span className={`stock-tag ${product.stock<=(product.lowStockThreshold||5)?'low':''}`}>{formatStock(product.stock, product.lowStockThreshold||5)}</span>:<span className="stock-tag out">{t('outOfStock')}</span>}</div>}
+    <Link to={`/product/${product.id}`} className="product-name">{tProd(product.name)}</Link>
+    {packSelector||<div className="product-meta-row"><span className="unit">{product.unit}</span>{product.stock>0?<span className={`stock-tag ${product.stock<=(product.lowStockThreshold||5)?'low':''}`}>{formatStock(product.stock, product.lowStockThreshold||5)}</span>:<span className="stock-tag out">{t('outOfStock')}</span>}</div>}
     <div className="product-foot">
       <div><strong>{money(product.price)}</strong>{product.mrp>product.price&&<del>{money(product.mrp)}</del>}</div>
       <QuantitySelector id={product.id} small product={product}/>
