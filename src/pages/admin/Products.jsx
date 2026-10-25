@@ -85,7 +85,11 @@ export function AdminProducts(){
    return()=>{active=false;clearTimeout(timer)};
  },[page,q,cat,stock,status,refresh]);
  useEffect(()=>{
-   const onSync=()=>{adminProductsCache=null;setRefresh(v=>v+1);};
+   const onSync=e=>{
+     if(e?.detail?.source==='admin-local-delete')return;
+     adminProductsCache=null;
+     setRefresh(v=>v+1);
+   };
    window.addEventListener('grocify:orders-updated',onSync);
    window.addEventListener('grocify:products-updated',onSync);
    return()=>{
@@ -103,8 +107,12 @@ export function AdminProducts(){
   const removedName=product.name;
   const removedPacks=product.packCount||1;
 
-  // 1. Instant close dialog and optimistic UI removal (0ms latency, no full-page reload)
+  // 1. Instant close dialog and optimistic UI removal (0ms latency, zero page reload)
   setConfirm(null);
+  const prevList=list;
+  const prevPagination=pagination;
+  const prevTotal=totalProducts;
+
   setList(prev=>prev.filter(p=>p.id!==toRemoveId));
   setPagination(prev=>({
     ...prev,
@@ -126,12 +134,13 @@ export function AdminProducts(){
   try{
     await adminService.deleteProduct(toRemoveId);
     notify(`"${removedName}" deleted successfully`,'success');
-    refreshProducts();
-    window.dispatchEvent(new Event('grocify:products-updated'));
+    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-delete',id:toRemoveId}}));
   }catch(reason){
     notify(reason.message||'Failed to delete product','error');
+    setList(prevList);
+    setPagination(prevPagination);
+    setTotalProducts(prevTotal);
     adminProductsCache=null;
-    setRefresh(v=>v+1);
   }
  };
  const destroyAll=async()=>{adminProductsCache=null;setBusy('all');try{const res=await adminService.deleteAllProducts();setDeleteAllConfirm(false);setPage(1);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(res?.message||'All products deleted')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
@@ -297,36 +306,26 @@ export function AdminProducts(){
   {viewMode === 'cards' ? (
    <div className="cat-products-card-grid" style={{marginBottom:'24px'}}>
      {loading ? (
-        <div style={{
-          gridColumn:'1/-1',
-          background:'#ffffff',
-          borderRadius:'16px',
-          border:'1px solid #e2e8f0',
-          padding:'60px 20px',
-          display:'flex',
-          flexDirection:'column',
-          alignItems:'center',
-          justifyContent:'center',
-          gap:'14px',
-          boxShadow:'0 4px 16px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{
-            width:'40px',
-            height:'40px',
-            border:'3.5px solid #d1fae5',
-            borderTopColor:'#059669',
-            borderRadius:'50%',
-            animation:'r2c-spin 0.8s linear infinite'
-          }} />
-          <div style={{textAlign:'center'}}>
-            <b style={{display:'block',fontSize:'14px',color:'#0f172a',marginBottom:'3px'}}>
-              Loading {cat !== 'all' ? `"${categories.find(c => c.slug === cat)?.name || cat}"` : ''} products…
-            </b>
-            <span style={{fontSize:'12px',color:'#64748b'}}>
-              Fetching real-time inventory and pack sizes
-            </span>
+        Array.from({ length: 10 }).map((_, i) => (
+          <div key={i} className="product-card-shape product-card-skeleton" style={{ background: '#ffffff', borderRadius: '16px', border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>
+            <div className="card-shape-media r2c-skeleton-box" style={{ height: '145px', borderBottom: '1px solid #f1f5f9' }} />
+            <div className="card-shape-body" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="r2c-skeleton-box" style={{ height: '10px', width: '45%', borderRadius: '4px' }} />
+              <div className="r2c-skeleton-box" style={{ height: '14px', width: '90%', borderRadius: '4px' }} />
+              <div className="r2c-skeleton-box" style={{ height: '14px', width: '60%', borderRadius: '4px' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <div className="r2c-skeleton-box" style={{ height: '18px', width: '38%', borderRadius: '4px' }} />
+                <div className="r2c-skeleton-box" style={{ height: '20px', width: '28%', borderRadius: '10px' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px', paddingTop: '8px', borderTop: '1px solid #f8fafc' }}>
+                <div className="r2c-skeleton-box" style={{ height: '28px', flex: 1, borderRadius: '6px' }} />
+                <div className="r2c-skeleton-box" style={{ height: '28px', width: '28px', borderRadius: '6px' }} />
+                <div className="r2c-skeleton-box" style={{ height: '28px', width: '28px', borderRadius: '6px' }} />
+                <div className="r2c-skeleton-box" style={{ height: '28px', width: '28px', borderRadius: '6px' }} />
+              </div>
+            </div>
           </div>
-        </div>
+        ))
      ) : error ? (
        <div style={{gridColumn:'1/-1',padding:'30px',textAlign:'center'}}><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(v=>v+1)}>Try again</Button></div>
      ) : !list.length ? (
@@ -378,29 +377,33 @@ export function AdminProducts(){
   ) : (
    <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>MRP</th><th>Selling price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>
     {loading ? (
-       <tr>
-         <td colSpan="8" style={{padding:'60px 20px',textAlign:'center'}}>
-           <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'14px'}}>
-             <div style={{
-               width:'40px',
-               height:'40px',
-               border:'3.5px solid #d1fae5',
-               borderTopColor:'#059669',
-               borderRadius:'50%',
-               animation:'r2c-spin 0.8s linear infinite'
-             }} />
-             <div style={{textAlign:'center'}}>
-               <b style={{display:'block',fontSize:'14px',color:'#0f172a',marginBottom:'3px'}}>
-                 Loading {cat !== 'all' ? `"${categories.find(c => c.slug === cat)?.name || cat}"` : ''} products…
-               </b>
-               <span style={{fontSize:'12px',color:'#64748b'}}>
-                 Fetching real-time inventory and pack sizes
-               </span>
-             </div>
-           </div>
-         </td>
-       </tr>
-     ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
+      Array.from({ length: 8 }).map((_, i) => (
+        <tr key={i} className="skeleton-table-row">
+          <td>
+            <div className="product-cell" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="r2c-skeleton-box" style={{ width: '42px', height: '42px', borderRadius: '8px', flexShrink: 0 }} />
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div className="r2c-skeleton-box" style={{ height: '14px', width: '75%', borderRadius: '4px' }} />
+                <div className="r2c-skeleton-box" style={{ height: '10px', width: '40%', borderRadius: '4px' }} />
+              </div>
+            </div>
+          </td>
+          <td><div className="r2c-skeleton-box" style={{ height: '13px', width: '70px', borderRadius: '4px' }} /></td>
+          <td><div className="r2c-skeleton-box" style={{ height: '13px', width: '55px', borderRadius: '4px' }} /></td>
+          <td><div className="r2c-skeleton-box" style={{ height: '13px', width: '45px', borderRadius: '4px' }} /></td>
+          <td><div className="r2c-skeleton-box" style={{ height: '14px', width: '50px', borderRadius: '4px' }} /></td>
+          <td><div className="r2c-skeleton-box" style={{ height: '18px', width: '42px', borderRadius: '12px' }} /></td>
+          <td><div className="r2c-skeleton-box" style={{ height: '20px', width: '55px', borderRadius: '12px' }} /></td>
+          <td>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <div className="r2c-skeleton-box" style={{ width: '28px', height: '28px', borderRadius: '6px' }} />
+              <div className="r2c-skeleton-box" style={{ width: '28px', height: '28px', borderRadius: '6px' }} />
+              <div className="r2c-skeleton-box" style={{ width: '28px', height: '28px', borderRadius: '6px' }} />
+            </div>
+          </td>
+        </tr>
+      ))
+    ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
