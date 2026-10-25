@@ -54,8 +54,9 @@ export function AdminProducts(){
  useEffect(() => {
    const c = searchParams.get('cat') || searchParams.get('category');
    if (c && c !== cat) {
-     setCat(c);
-     setPage(1);
+      setCat(c);
+      setPage(1);
+      setLoading(true);
    }
    const v = searchParams.get('view');
    if (v && (v === 'cards' || v === 'table')) {
@@ -65,7 +66,7 @@ export function AdminProducts(){
 
  useEffect(()=>{
    let active=true;
-   if(!adminProductsCache) setLoading(true);
+    setLoading(true);
    const timer=setTimeout(()=>{
      adminService.productsPage({page,limit:20,q,...(cat!=='all'&&{category:cat}),...(stock!=='all'&&{stock}),...(status!=='all'&&{status})})
        .then(result=>{
@@ -90,7 +91,7 @@ export function AdminProducts(){
      window.removeEventListener('grocify:products-updated',onSync);
    };
  },[]);
- const changeFilter=setter=>value=>{setter(value);setPage(1)};
+  const changeFilter=setter=>value=>{setter(value);setPage(1);setLoading(true);};
 
  const toggle=async product=>{adminProductsCache=null;setBusy(product.id);try{const next=product.status==='ACTIVE'?'INACTIVE':'ACTIVE';await adminService.updateProductStatus(product.id,next);setRefresh(value=>value+1);await refreshProducts();window.dispatchEvent(new Event('grocify:products-updated'));notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
  const destroy=async()=>{
@@ -294,7 +295,36 @@ export function AdminProducts(){
   {viewMode === 'cards' ? (
    <div className="cat-products-card-grid" style={{marginBottom:'24px'}}>
      {loading ? (
-       <div style={{gridColumn:'1/-1',padding:'30px',textAlign:'center',color:'var(--muted)'}}>Loading products in cards…</div>
+        <div style={{
+          gridColumn:'1/-1',
+          background:'#ffffff',
+          borderRadius:'16px',
+          border:'1px solid #e2e8f0',
+          padding:'60px 20px',
+          display:'flex',
+          flexDirection:'column',
+          alignItems:'center',
+          justifyContent:'center',
+          gap:'14px',
+          boxShadow:'0 4px 16px rgba(0,0,0,0.03)'
+        }}>
+          <div style={{
+            width:'40px',
+            height:'40px',
+            border:'3.5px solid #d1fae5',
+            borderTopColor:'#059669',
+            borderRadius:'50%',
+            animation:'r2c-spin 0.8s linear infinite'
+          }} />
+          <div style={{textAlign:'center'}}>
+            <b style={{display:'block',fontSize:'14px',color:'#0f172a',marginBottom:'3px'}}>
+              Loading {cat !== 'all' ? `"${categories.find(c => c.slug === cat)?.name || cat}"` : ''} products…
+            </b>
+            <span style={{fontSize:'12px',color:'#64748b'}}>
+              Fetching real-time inventory and pack sizes
+            </span>
+          </div>
+        </div>
      ) : error ? (
        <div style={{gridColumn:'1/-1',padding:'30px',textAlign:'center'}}><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(v=>v+1)}>Try again</Button></div>
      ) : !list.length ? (
@@ -345,7 +375,30 @@ export function AdminProducts(){
    </div>
   ) : (
    <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>MRP</th><th>Selling price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-    {loading?<tr><td colSpan="8">Loading products…</td></tr>:error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
+    {loading ? (
+       <tr>
+         <td colSpan="8" style={{padding:'60px 20px',textAlign:'center'}}>
+           <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'14px'}}>
+             <div style={{
+               width:'40px',
+               height:'40px',
+               border:'3.5px solid #d1fae5',
+               borderTopColor:'#059669',
+               borderRadius:'50%',
+               animation:'r2c-spin 0.8s linear infinite'
+             }} />
+             <div style={{textAlign:'center'}}>
+               <b style={{display:'block',fontSize:'14px',color:'#0f172a',marginBottom:'3px'}}>
+                 Loading {cat !== 'all' ? `"${categories.find(c => c.slug === cat)?.name || cat}"` : ''} products…
+               </b>
+               <span style={{fontSize:'12px',color:'#64748b'}}>
+                 Fetching real-time inventory and pack sizes
+               </span>
+             </div>
+           </div>
+         </td>
+       </tr>
+     ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td><div className="product-cell">{product.image&&<img src={product.image} alt=""/>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td>{product.categoryName||product.category}</td><td><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td>{money(product.mrp)}</td><td><b>{money(product.price)}</b></td><td><span className={product.stock<=product.lowStockThreshold?'text-danger':''}><b>{product.stock}</b></span>{product.stock<=0?<span className="badge badge-red" style={{marginLeft:'6px',fontSize:'10px'}}>0 left</span>:product.stock<=product.lowStockThreshold?<span className="badge badge-amber" style={{marginLeft:'6px',fontSize:'10px'}}>Low</span>:null}</td><td><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)}><Eye/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`}><Edit2/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)}><Trash2/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
