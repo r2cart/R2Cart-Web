@@ -257,15 +257,37 @@ export function AdminOrders() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px 0', color: '#64748b' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="confirm-loader-spin" style={{ width: '16px', height: '16px' }} />
-                      <span>Loading orders queue…</span>
-                    </div>
-                  </td>
-                </tr>
+              {loading && !result?.orders?.length ? (
+                Array.from({ length: 8 }).map((_, idx) => (
+                  <tr key={`ord-skel-${idx}`}>
+                    <td>
+                      <div className="r2c-skeleton-box" style={{ width: '110px', height: '16px', borderRadius: '4px', marginBottom: '6px' }} />
+                      <div className="r2c-skeleton-box" style={{ width: '130px', height: '12px', borderRadius: '4px' }} />
+                    </td>
+                    <td>
+                      <div className="r2c-skeleton-box" style={{ width: '140px', height: '16px', borderRadius: '4px', marginBottom: '6px' }} />
+                      <div className="r2c-skeleton-box" style={{ width: '100px', height: '12px', borderRadius: '4px' }} />
+                    </td>
+                    <td>
+                      <div className="r2c-skeleton-box" style={{ width: '80px', height: '14px', borderRadius: '4px' }} />
+                    </td>
+                    <td>
+                      <div className="r2c-skeleton-box" style={{ width: '70px', height: '16px', borderRadius: '4px' }} />
+                    </td>
+                    <td>
+                      <div className="r2c-skeleton-box" style={{ width: '60px', height: '22px', borderRadius: '12px' }} />
+                    </td>
+                    <td>
+                      <div className="r2c-skeleton-box" style={{ width: '80px', height: '22px', borderRadius: '12px' }} />
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div className="r2c-skeleton-box" style={{ width: '65px', height: '30px', borderRadius: '6px' }} />
+                        <div className="r2c-skeleton-box" style={{ width: '30px', height: '30px', borderRadius: '6px' }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : error ? (
                 <tr>
                   <td colSpan="7">

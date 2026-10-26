@@ -41,28 +41,73 @@ const couponBlank = {
   status: 'ACTIVE'
 };
 
+let cachedCampaigns = null;
+let cachedCoupons = null;
+let cachedCouponUsages = null;
+let cachedPerfReport = null;
+let lastMarketingFetch = 0;
+
+function MarketingSkeleton() {
+  return (
+    <div>
+      <div className="admin-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
+        <div>
+          <div className="r2c-skeleton-box" style={{ width: 340, height: 32, borderRadius: 8, marginBottom: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 480, height: 16, borderRadius: 6 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div className="r2c-skeleton-box" style={{ width: 100, height: 38, borderRadius: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 140, height: 38, borderRadius: 10 }} />
+        </div>
+      </div>
+
+      <div className="tabs admin-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {[170, 160, 150, 180].map((w, i) => (
+          <div key={i} className="r2c-skeleton-box" style={{ width: `${w}px`, height: 42, borderRadius: 10, flexShrink: 0 }} />
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="admin-card" style={{ padding: 22, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
+            <div className="r2c-skeleton-box" style={{ width: '60%', height: 20, borderRadius: 6, marginBottom: 10 }} />
+            <div className="r2c-skeleton-box" style={{ width: '85%', height: 14, borderRadius: 4, marginBottom: 20 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="r2c-skeleton-box" style={{ width: 70, height: 26, borderRadius: 14 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div className="r2c-skeleton-box" style={{ width: 32, height: 32, borderRadius: 8 }} />
+                <div className="r2c-skeleton-box" style={{ width: 32, height: 32, borderRadius: 8 }} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AdminMarketing() {
   const { notify, categories = [] } = useApp();
   const [tab, setTab] = useState('campaigns'); // 'campaigns' | 'popups' | 'coupons' | 'reports'
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedCampaigns);
   const [busy, setBusy] = useState(false);
 
   // Campaigns state
-  const [campaignsList, setCampaignsList] = useState([]);
+  const [campaignsList, setCampaignsList] = useState(() => cachedCampaigns || []);
   const [editCampaign, setEditCampaign] = useState(null);
   const [removeCampaign, setRemoveCampaign] = useState(null);
 
   // Coupons state
-  const [couponsList, setCouponsList] = useState([]);
-  const [couponUsages, setCouponUsages] = useState([]);
+  const [couponsList, setCouponsList] = useState(() => cachedCoupons || []);
+  const [couponUsages, setCouponUsages] = useState(() => cachedCouponUsages || []);
   const [editCoupon, setEditCoupon] = useState(null);
   const [removeCoupon, setRemoveCoupon] = useState(null);
 
   // Performance state
-  const [perfReport, setPerfReport] = useState(null);
+  const [perfReport, setPerfReport] = useState(() => cachedPerfReport || null);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent && !cachedCampaigns) setLoading(true);
     try {
       const [cData, coupData, usagesData, pData] = await Promise.all([
         adminService.getCampaigns(),
@@ -70,19 +115,31 @@ export function AdminMarketing() {
         adminService.getCouponUsages(),
         adminService.getMarketingPerformance()
       ]);
-      setCampaignsList(cData || []);
-      setCouponsList(coupData || []);
-      setCouponUsages(usagesData.usages || []);
-      setPerfReport(pData || null);
+      cachedCampaigns = cData || [];
+      cachedCoupons = coupData || [];
+      cachedCouponUsages = usagesData?.usages || [];
+      cachedPerfReport = pData || null;
+      lastMarketingFetch = Date.now();
+      setCampaignsList(cachedCampaigns);
+      setCouponsList(cachedCoupons);
+      setCouponUsages(cachedCouponUsages);
+      setPerfReport(cachedPerfReport);
     } catch (err) {
-      notify(err.message, 'error');
+      if (!cachedCampaigns) notify(err.message, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    if (cachedCampaigns) {
+      setLoading(false);
+      if (Date.now() - lastMarketingFetch > 60000) {
+        loadData(true);
+      }
+    } else {
+      loadData(false);
+    }
   }, []);
 
   // Campaign Handlers
@@ -217,12 +274,8 @@ export function AdminMarketing() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="admin-card delivery-loading">
-        <LoaderCircle className="spin" /> Loading marketing & campaign management…
-      </div>
-    );
+  if (loading && !campaignsList.length && !couponsList.length) {
+    return <MarketingSkeleton />;
   }
 
   const popupsAndBanners = campaignsList.filter(c => ['POPUP', 'ANNOUNCEMENT_BAR'].includes(c.type));

@@ -24,30 +24,43 @@ function getTicketPhone(t) {
   return match ? match[1].trim() : null;
 }
 
+let cachedTickets = null;
+let lastTicketsFetch = 0;
+
 export function AdminSupport() {
   const { notify } = useApp();
-  const [tickets, setTickets] = useState([]);
+  const [tickets, setTickets] = useState(() => cachedTickets || []);
   const [selected, setSelected] = useState(null);
   const [status, setStatus] = useState('OPEN');
   const [response, setResponse] = useState('');
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedTickets);
   const [error, setError] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent && !cachedTickets) setLoading(true);
     setError('');
     try {
-      setTickets(await adminService.support());
+      const data = await adminService.support();
+      cachedTickets = data;
+      lastTicketsFetch = Date.now();
+      setTickets(data);
     } catch (e) {
-      setError(e.message);
+      if (!cachedTickets) setError(e.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
+    if (cachedTickets) {
+      setLoading(false);
+      if (Date.now() - lastTicketsFetch > 60000) {
+        load(true);
+      }
+    } else {
+      load(false);
+    }
   }, []);
 
   const view = ticket => {
@@ -102,10 +115,22 @@ export function AdminSupport() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="8">Loading support tickets…</td>
-                </tr>
+              {loading && !tickets.length ? (
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <tr key={`ticket-skel-${idx}`}>
+                    <td><div className="r2c-skeleton-box" style={{ width: '80px', height: '16px', borderRadius: '4px' }} /></td>
+                    <td>
+                      <div className="r2c-skeleton-box" style={{ width: '120px', height: '14px', borderRadius: '4px', marginBottom: '4px' }} />
+                      <div className="r2c-skeleton-box" style={{ width: '90px', height: '11px', borderRadius: '4px' }} />
+                    </td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '90px', height: '14px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '140px', height: '14px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '80px', height: '14px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '100px', height: '12px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '65px', height: '22px', borderRadius: '12px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '70px', height: '30px', borderRadius: '6px' }} /></td>
+                  </tr>
+                ))
               ) : error ? (
                 <tr>
                   <td colSpan="8">

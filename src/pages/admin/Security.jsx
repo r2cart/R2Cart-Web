@@ -94,25 +94,82 @@ const staffBlank = {
   isStaffActive: true
 };
 
+let cachedStaff = null;
+let cachedAuditLogs = null;
+let cachedAuditPagination = null;
+let cachedLogins = null;
+let cachedVillagesForStaff = null;
+let lastSecurityFetch = 0;
+
+function SecuritySkeleton() {
+  return (
+    <div>
+      <div className="admin-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
+        <div>
+          <div className="r2c-skeleton-box" style={{ width: 340, height: 32, borderRadius: 8, marginBottom: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 480, height: 16, borderRadius: 6 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div className="r2c-skeleton-box" style={{ width: 100, height: 38, borderRadius: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 140, height: 38, borderRadius: 10 }} />
+        </div>
+      </div>
+
+      <div className="tabs admin-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {[180, 190, 160].map((w, i) => (
+          <div key={i} className="r2c-skeleton-box" style={{ width: `${w}px`, height: 42, borderRadius: 10, flexShrink: 0 }} />
+        ))}
+      </div>
+
+      <div className="admin-card" style={{ padding: 24, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div className="r2c-skeleton-box" style={{ width: 280, height: 42, borderRadius: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 140, height: 38, borderRadius: 10 }} />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: '#f8fafc', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div className="r2c-skeleton-box" style={{ width: 36, height: 36, borderRadius: '50%' }} />
+                <div>
+                  <div className="r2c-skeleton-box" style={{ width: 160, height: 16, borderRadius: 4, marginBottom: 6 }} />
+                  <div className="r2c-skeleton-box" style={{ width: 180, height: 12, borderRadius: 4 }} />
+                </div>
+              </div>
+              <div className="r2c-skeleton-box" style={{ width: 90, height: 24, borderRadius: 12 }} />
+              <div className="r2c-skeleton-box" style={{ width: 80, height: 14, borderRadius: 4 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div className="r2c-skeleton-box" style={{ width: 32, height: 32, borderRadius: 8 }} />
+                <div className="r2c-skeleton-box" style={{ width: 32, height: 32, borderRadius: 8 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminSecurity() {
   const { notify } = useApp();
   const [tab, setTab] = useState('staff'); // 'staff' | 'audit' | 'logins'
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedStaff);
   const [busy, setBusy] = useState(false);
 
   // Staff accounts state
-  const [staffList, setStaffList] = useState([]);
+  const [staffList, setStaffList] = useState(() => cachedStaff || []);
   const [searchStaff, setSearchStaff] = useState('');
   const [staffRoleFilter, setStaffRoleFilter] = useState('');
-  const [villagesList, setVillagesList] = useState([]);
+  const [villagesList, setVillagesList] = useState(() => cachedVillagesForStaff || []);
   const [editStaff, setEditStaff] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [removeStaff, setRemoveStaff] = useState(null);
   const [confirmToggleActive, setConfirmToggleActive] = useState(null);
 
   // Audit logs state
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [auditPagination, setAuditPagination] = useState({ page: 1, limit: 50, total: 0, pages: 1 });
+  const [auditLogs, setAuditLogs] = useState(() => cachedAuditLogs || []);
+  const [auditPagination, setAuditPagination] = useState(() => cachedAuditPagination || { page: 1, limit: 50, total: 0, pages: 1 });
   const [moduleFilter, setModuleFilter] = useState('');
   const [searchAudit, setSearchAudit] = useState('');
   const [viewLogDetails, setViewLogDetails] = useState(null);
@@ -133,10 +190,10 @@ export function AdminSecurity() {
   };
 
   // Login history state
-  const [logins, setLogins] = useState([]);
+  const [logins, setLogins] = useState(() => cachedLogins || []);
 
-  const loadData = async (auditPage = 1) => {
-    setLoading(true);
+  const loadData = async (auditPage = 1, silent = false) => {
+    if (!silent && !cachedStaff) setLoading(true);
     try {
       const [sData, aData, lData, vData] = await Promise.all([
         adminService.getStaff(),
@@ -149,20 +206,34 @@ export function AdminSecurity() {
         adminService.getLoginHistory({ limit: 50 }),
         adminService.getVillages().catch(() => [])
       ]);
-      setStaffList(sData || []);
-      setAuditLogs(aData.logs || []);
-      setAuditPagination(aData.pagination || { page: 1, limit: 50, total: 0, pages: 1 });
-      setLogins(lData.logins || []);
-      setVillagesList(vData || []);
+      cachedStaff = sData || [];
+      cachedAuditLogs = aData.logs || [];
+      cachedAuditPagination = aData.pagination || { page: 1, limit: 50, total: 0, pages: 1 };
+      cachedLogins = lData.logins || [];
+      cachedVillagesForStaff = vData || [];
+      lastSecurityFetch = Date.now();
+
+      setStaffList(cachedStaff);
+      setAuditLogs(cachedAuditLogs);
+      setAuditPagination(cachedAuditPagination);
+      setLogins(cachedLogins);
+      setVillagesList(cachedVillagesForStaff);
     } catch (err) {
-      notify(err.message, 'error');
+      if (!cachedStaff) notify(err.message, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData(1);
+    if (cachedStaff && !moduleFilter) {
+      setLoading(false);
+      if (Date.now() - lastSecurityFetch > 60000) {
+        loadData(1, true);
+      }
+    } else {
+      loadData(1, false);
+    }
   }, [moduleFilter]);
 
   // Handle staff save
@@ -224,13 +295,8 @@ export function AdminSecurity() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="admin-card delivery-loading" style={{ padding: '60px', textAlign: 'center' }}>
-        <LoaderCircle className="spin" size={32} style={{ margin: '0 auto 12px' }} />
-        <p>Loading security configuration and tamper-evident audit logs…</p>
-      </div>
-    );
+  if (loading && !staffList.length) {
+    return <SecuritySkeleton />;
   }
 
   const activeStaffCount = staffList.filter(s => s.isStaffActive !== false).length;
