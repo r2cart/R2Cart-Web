@@ -143,10 +143,22 @@ export async function readDeliveryFile(file) {
   const sheet = book.worksheets[0];
   if (!sheet) throw new Error('Excel workbook has no sheets.');
 
-  const headers = sheet.getRow(1).values.filter(Boolean).map(h => String(h).trim().toLowerCase());
-  
+  const headerRow = sheet.getRow(1);
+  const columnMap = new Map();
+  headerRow.eachCell((cell, colNumber) => {
+    const text = String(cell.text || cell.value || '').trim().toLowerCase();
+    if (text) {
+      columnMap.set(colNumber, text);
+    }
+  });
+
   const findCol = (...aliases) => {
-    return headers.findIndex(h => aliases.some(alias => h.includes(alias.toLowerCase()))) + 1;
+    for (const [colNumber, text] of columnMap.entries()) {
+      if (aliases.some(alias => text.includes(alias.toLowerCase()))) {
+        return colNumber;
+      }
+    }
+    return null;
   };
 
   const nameCol = findCol('village', 'locality', 'name', 'address');
@@ -155,13 +167,13 @@ export async function readDeliveryFile(file) {
   }
 
   const pinCol = findCol('pin', 'postal');
-  const zoneCol = findCol('zone', 'area');
-  const feeCol = findCol('fee', 'charge');
-  const minCol = findCol('minimum', 'min order');
+  const zoneCol = findCol('delivery zone', 'zone', 'area');
+  const feeCol = findCol('delivery fee', 'fee', 'charge');
+  const minCol = findCol('minimum order', 'minimum', 'min order');
   const freeCol = findCol('free delivery', 'threshold', 'free above');
   const radCol = findCol('radius');
-  const timeCol = findCol('time', 'estimated', 'minute');
-  const codCol = findCol('cod');
+  const timeCol = findCol('estimated time', 'time', 'minute');
+  const codCol = findCol('allow cod', 'cod');
   const statusCol = findCol('status');
   const notesCol = findCol('notes', 'remark');
 
@@ -182,11 +194,19 @@ export async function readDeliveryFile(file) {
 
     const getStr = (col) => {
       if (!col) return '';
-      return (row.getCell(col)?.text || String(row.getCell(col)?.value || '')).trim();
+      const cell = row.getCell(col);
+      if (!cell || cell.value == null) return '';
+      if (typeof cell.value === 'object') {
+        if (cell.text) return String(cell.text).trim();
+        if (cell.value.result != null) return String(cell.value.result).trim();
+        return '';
+      }
+      return String(cell.value).trim();
     };
 
     const pincode = getStr(pinCol);
-    const zoneName = getStr(zoneCol);
+    const rawZone = getStr(zoneCol);
+    const zoneName = rawZone || 'Hathua';
     const deliveryFee = getNum(feeCol, 30);
     const minimumOrder = getNum(minCol, 150);
     const freeDeliveryThreshold = getNum(freeCol, 499);
@@ -200,7 +220,8 @@ export async function readDeliveryFile(file) {
       rowNumber,
       name: nameVal,
       pincode: pincode || null,
-      zoneName: zoneName || null,
+      zoneName: zoneName,
+      areaName: zoneName,
       deliveryFee,
       minimumOrder,
       freeDeliveryThreshold,

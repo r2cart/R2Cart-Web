@@ -1732,7 +1732,7 @@ export function AdminDelivery() {
                       <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '6px 8px', fontWeight: 500 }}>{r.name}</td>
                         <td style={{ padding: '6px 8px', color: 'var(--muted)' }}>{r.pincode || '-'}</td>
-                        <td style={{ padding: '6px 8px', color: 'var(--muted)' }}>{r.areaName || '-'}</td>
+                        <td style={{ padding: '6px 8px', color: '#059669', fontWeight: 600 }}>{r.zoneName || r.areaName || 'Hathua'}</td>
                         <td style={{ padding: '6px 8px', textAlign: 'right' }}>₹{r.deliveryFee}</td>
                         <td style={{ padding: '6px 8px', textAlign: 'right' }}>₹{r.minimumOrder}</td>
                       </tr>
