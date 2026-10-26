@@ -253,6 +253,81 @@ const SECTION_META = {
  }
 };
 
+let cachedSettingsData=null;
+let cachedSavedData=null;
+let cachedBanners=null;
+let cachedCategories=null;
+let cachedAdminEmail=null;
+let lastSettingsFetch=0;
+
+function SettingsSkeleton(){
+ return (
+  <div style={{animation:'fadeIn 0.2s ease-in'}}>
+   <div className="admin-title" style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'16px',marginBottom:'20px'}}>
+    <div>
+     <div className="r2c-skeleton-box" style={{width:'340px',height:'32px',borderRadius:'8px',marginBottom:'10px'}}/>
+     <div className="r2c-skeleton-box" style={{width:'480px',height:'16px',borderRadius:'6px'}}/>
+    </div>
+    <div className="r2c-skeleton-box" style={{width:'140px',height:'28px',borderRadius:'20px'}}/>
+   </div>
+
+   <div className="tabs admin-tabs" style={{marginBottom:'20px',overflowX:'hidden',display:'flex',gap:'8px'}}>
+    {[190, 205, 220, 200, 150, 210].map((width, idx)=>(
+     <div
+      key={idx}
+      className="r2c-skeleton-box"
+      style={{
+       width:`${width}px`,
+       height:'42px',
+       borderRadius:'10px',
+       flexShrink:0
+      }}
+     />
+    ))}
+   </div>
+
+   <section className="admin-card" style={{padding:'24px',borderRadius:'16px',border:'1px solid #e2e8f0',background:'#ffffff',marginBottom:'24px'}}>
+    <div style={{display:'flex',alignItems:'center',gap:'14px',marginBottom:'26px',paddingBottom:'18px',borderBottom:'1px solid #f1f5f9'}}>
+     <div className="r2c-skeleton-box" style={{width:'44px',height:'44px',borderRadius:'12px',flexShrink:0}}/>
+     <div style={{flex:1}}>
+      <div className="r2c-skeleton-box" style={{width:'240px',height:'20px',borderRadius:'6px',marginBottom:'8px'}}/>
+      <div className="r2c-skeleton-box" style={{width:'380px',height:'14px',borderRadius:'4px'}}/>
+     </div>
+    </div>
+
+    <div style={{display:'flex',alignItems:'center',gap:'20px',marginBottom:'28px',paddingBottom:'24px',borderBottom:'1px solid #f1f5f9',flexWrap:'wrap'}}>
+     <div className="r2c-skeleton-box" style={{width:'108px',height:'108px',borderRadius:'18px',flexShrink:0}}/>
+     <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+      <div className="r2c-skeleton-box" style={{width:'130px',height:'18px',borderRadius:'6px'}}/>
+      <div className="r2c-skeleton-box" style={{width:'260px',height:'13px',borderRadius:'4px'}}/>
+      <div style={{display:'flex',gap:'10px',marginTop:'6px'}}>
+       <div className="r2c-skeleton-box" style={{width:'130px',height:'38px',borderRadius:'8px'}}/>
+       <div className="r2c-skeleton-box" style={{width:'95px',height:'38px',borderRadius:'8px'}}/>
+      </div>
+     </div>
+    </div>
+
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))',gap:'20px',marginBottom:'28px'}}>
+     {Array.from({length:6}).map((_, i)=>(
+      <div key={i} style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+       <div className="r2c-skeleton-box" style={{width:'130px',height:'14px',borderRadius:'4px'}}/>
+       <div className="r2c-skeleton-box" style={{width:'100%',height:'44px',borderRadius:'10px'}}/>
+      </div>
+     ))}
+    </div>
+
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:'18px',borderTop:'1px solid #f1f5f9'}}>
+     <div className="r2c-skeleton-box" style={{width:'180px',height:'16px',borderRadius:'4px'}}/>
+     <div style={{display:'flex',gap:'10px'}}>
+      <div className="r2c-skeleton-box" style={{width:'95px',height:'38px',borderRadius:'10px'}}/>
+      <div className="r2c-skeleton-box" style={{width:'135px',height:'38px',borderRadius:'10px'}}/>
+     </div>
+    </div>
+   </section>
+  </div>
+ );
+}
+
 export function AdminSettings(){
  const {notify}=useApp();
  const location=useLocation();
@@ -268,17 +343,17 @@ export function AdminSettings(){
  const [catSearch,setCatSearch]=useState('');
  const [sectionFilter,setSectionFilter]=useState('all');
 
- const [settings,setSettings]=useState(null);
- const [saved,setSaved]=useState(null);
- const [loading,setLoading]=useState(true);
+ const [settings,setSettings]=useState(()=>cachedSettingsData);
+ const [saved,setSaved]=useState(()=>cachedSavedData);
+ const [loading,setLoading]=useState(()=>!cachedSettingsData);
  const [saving,setSaving]=useState(false);
  const [uploading,setUploading]=useState(false);
 
- const [bannersList,setBannersList]=useState([]);
- const [categoriesList,setCategoriesList]=useState([]);
+ const [bannersList,setBannersList]=useState(()=>cachedBanners||[]);
+ const [categoriesList,setCategoriesList]=useState(()=>cachedCategories||[]);
 
- const [adminEmail,setAdminEmail]=useState('r2cartsupport@gmail.com');
- const [initialAdminEmail,setInitialAdminEmail]=useState('r2cartsupport@gmail.com');
+ const [adminEmail,setAdminEmail]=useState(()=>cachedAdminEmail||'r2cartsupport@gmail.com');
+ const [initialAdminEmail,setInitialAdminEmail]=useState(()=>cachedAdminEmail||'r2cartsupport@gmail.com');
  const [currentPassword,setCurrentPassword]=useState('');
  const [newPassword,setNewPassword]=useState('');
  const [confirmPassword,setConfirmPassword]=useState('');
@@ -293,14 +368,19 @@ export function AdminSettings(){
   else if(location.pathname.includes('/policies'))setActiveTab('policies');
  },[location.pathname]);
 
- const load=async()=>{
-  setLoading(true);
+ const load=async(silent=false)=>{
+  if(!silent&&!cachedSettingsData)setLoading(true);
   try{
    const [data,bans,cats]=await Promise.all([
     adminService.settings().then(normalize),
     adminService.banners().catch(()=>[]),
     adminService.categories().catch(()=>[])
    ]);
+   cachedSettingsData=data;
+   cachedSavedData=data;
+   cachedBanners=bans;
+   cachedCategories=cats;
+   lastSettingsFetch=Date.now();
    setSettings(data);
    setSaved(data);
    setBannersList(bans);
@@ -308,18 +388,28 @@ export function AdminSettings(){
    try{
     const prof=await adminService.getProfile();
     if(prof?.email){
+     cachedAdminEmail=prof.email;
      setAdminEmail(prof.email);
      setInitialAdminEmail(prof.email);
     }
    }catch{}
   }catch(error){
-   notify(error.message,'error');
+   if(!cachedSettingsData)notify(error.message,'error');
   }finally{
    setLoading(false);
   }
  };
 
- useEffect(()=>{load()},[]);
+ useEffect(()=>{
+  if(cachedSettingsData){
+   setLoading(false);
+   if(Date.now()-lastSettingsFetch>60000){
+    load(true);
+   }
+  }else{
+   load(false);
+  }
+ },[]);
 
  const updateCredentials=async()=>{
   const emailChanged = adminEmail.trim().toLowerCase() !== initialAdminEmail.toLowerCase();
@@ -553,6 +643,9 @@ export function AdminSettings(){
     policies:settings.policies
    };
    const data=normalize(await adminService.saveSettings(payload));
+   cachedSettingsData=data;
+   cachedSavedData=data;
+   lastSettingsFetch=Date.now();
    setSettings(data);
    setSaved(data);
    window.dispatchEvent(new Event('grocify:settings-updated'));
@@ -804,6 +897,9 @@ export function AdminSettings(){
     policies:settings.policies
    };
    const data=normalize(await adminService.saveSettings(payload));
+   cachedSettingsData=data;
+   cachedSavedData=data;
+   lastSettingsFetch=Date.now();
    setSettings(data);
    setSaved(data);
    window.dispatchEvent(new Event('grocify:settings-updated'));
@@ -816,8 +912,8 @@ export function AdminSettings(){
   }
  };
 
- if(loading)return <><Header/><div className="admin-card settings-loading"><LoaderCircle className="spin"/><b>Loading store settings & CMS…</b><small>Fetching configuration from the database.</small></div></>;
- if(!settings)return <><Header/><div className="admin-card settings-loading"><b>Settings could not be loaded</b><small>Check the backend connection and try again.</small><Button type="button" variant="outline" onClick={load}><RefreshCcw/> Try again</Button></div></>;
+ if(loading&&!settings)return <SettingsSkeleton/>;
+ if(!settings)return <><Header/><div className="admin-card settings-loading"><b>Settings could not be loaded</b><small>Check the backend connection and try again.</small><Button type="button" variant="outline" onClick={()=>load(false)}><RefreshCcw/> Try again</Button></div></>;
 
  const currentPolicyPage=settings.policies.customPages?.[policyKey]||defaultPolicies.customPages[policyKey]||{};
  const currentSections=Array.isArray(currentPolicyPage.sections)?currentPolicyPage.sections:[];
