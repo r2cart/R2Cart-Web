@@ -45,7 +45,8 @@ export function CartPage() {
     location,
     setLocationOpen,
     categories,
-    products
+    products,
+    storeSettings
   } = useApp();
 
   const nav = useNavigate();
@@ -166,6 +167,14 @@ export function CartPage() {
   const handleProceed = () => {
     if (minimumRemaining > 0) {
       return notify(`Add ${money(minimumRemaining)} more to reach minimum order of ${money(rules.minimumOrder)}`, 'error');
+    }
+    const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
+    const comingSoonItem = cartItems.find((p) => {
+      const slug = p.categorySlug || p.category?.slug || p.category;
+      return slug && comingSoonCats.includes(slug);
+    });
+    if (comingSoonItem) {
+      return notify(`"${comingSoonItem.name}" belongs to a Coming Soon category and cannot be ordered. Please remove it from your basket to proceed.`, 'error');
     }
     const outOfStockItem = cartItems.find((p) => p.stock < p.qty);
     if (outOfStockItem) {
@@ -936,6 +945,12 @@ export function CartPage() {
                             <AlertCircle size={12} /> Only {product.stock} left in stock
                           </span>
                         ) : null}
+
+                        {Boolean((product.categorySlug || product.category?.slug || product.category) && (storeSettings?.policies?.homeLayout?.comingSoonCategories || []).includes(product.categorySlug || product.category?.slug || product.category)) && (
+                          <span style={{ fontSize: '11px', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '2px 7px', borderRadius: '5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                            <Clock3 size={12} /> Coming Soon · Remove to checkout
+                          </span>
+                        )}
 
                         {/* Pricing */}
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '4px' }}>

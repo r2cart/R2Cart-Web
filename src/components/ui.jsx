@@ -1,4 +1,4 @@
-import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Sparkles,Star,Trash2,X,Zap} from 'lucide-react';
+import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Clock,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Sparkles,Star,Trash2,X,Zap} from 'lucide-react';
 import {Link} from 'react-router-dom'; import {useApp} from '../context/AppContext'; import {useLanguage} from '../context/LanguageContext';
 import {useState, useEffect} from 'react';
 import {createPortal} from 'react-dom';
@@ -177,9 +177,12 @@ export function ConfirmDialog({
 }
 export function EmptyState({icon='cart',title,text,action,to='/'}){const Icon=icon==='package'?PackageOpen:icon==='search'?SearchX:icon==='heart'?Heart:ShoppingBag;return <div className="empty empty-state-card"><div className="empty-state-badge"><Icon size={34} strokeWidth={2}/></div><h2 className="empty-state-title">{title}</h2>{text&&<p className="empty-state-text">{text}</p>}{action&&<Link className="empty-state-btn" to={to}><span>{action}</span><ArrowRight size={16} strokeWidth={2.4}/></Link>}</div>}
 export function QuantitySelector({id,small=false,choosePacks=small,product:propProduct}){
- const {cart,add,qty,products}=useApp();const {t,tProd}=useLanguage();const [open,setOpen]=useState(false);
+ const {cart,add,qty,products,storeSettings}=useApp();const {t,tProd}=useLanguage();const [open,setOpen]=useState(false);
  const product=propProduct||products.find(item=>item.id===id);const n=cart[id]||0;
  const options=product?packOptions(product,products):[];
+ const comingSoonCats=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];
+ const catSlug=product?.categorySlug||product?.category?.slug||product?.category;
+ const isComingSoon=Boolean(catSlug&&comingSoonCats.includes(catSlug));
  const unavailable=!product||product.stock<=0||product.status==='INACTIVE';const maximum=Math.min(99,Number(product?.stock||0));
  const canChoose=choosePacks&&options.length>1;
  const formatStock = (count) => {
@@ -187,11 +190,17 @@ export function QuantitySelector({id,small=false,choosePacks=small,product:propP
   if (count <= 5) return t('onlyLeft').replace('{count}', count);
   return `${count} ${t('inStock')}`;
  };
+ if(isComingSoon){
+  return <button type="button" disabled className={`btn-coming-soon ${small?'small':''}`} title="Coming Soon - Cannot be ordered yet" aria-label="Coming Soon" style={{padding:small?'5px 10px':'6px 12px',borderRadius:'999px',fontSize:small?'11px':'12px',fontWeight:700,letterSpacing:'0.02em',color:'#b45309',background:'#fef3c7',border:'1px solid #fcd34d',cursor:'not-allowed',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'4px'}}><Clock size={small?11:13}/> Soon</button>;
+ }
  return <>{n?<div className={`qty ${small?'small':''}`}><button type="button" onClick={()=>qty(id,n-1)} aria-label="Decrease"><Minus size={small?12:15} strokeWidth={2.5}/></button><b>{n}</b><button type="button" disabled={unavailable||n>=maximum} onClick={()=>qty(id,n+1)} aria-label="Increase"><Plus size={small?12:15} strokeWidth={2.5}/></button></div>:unavailable&&!canChoose?<button type="button" disabled className={`btn-out-of-stock ${small?'small':''}`} title={t('outOfStock')||'Out of stock'} aria-label={t('outOfStock')||'Out of stock'}>{t('outOfStock')||'Out of stock'}</button>:<Button type="button" disabled={canChoose?options.every(pack=>pack.stock<=0):unavailable} className={small?'small-add':''} variant="outline" onClick={()=>canChoose?setOpen(true):add(id)}>{canChoose&&options.every(pack=>pack.stock<=0)?(t('outOfStock')||'Unavailable'):<>{t('add', 'ADD')} <Plus size={small?12:15} strokeWidth={2.5}/></>}</Button>}<Modal open={open} onClose={()=>setOpen(false)} title={t('choosePackSizes', 'Choose pack sizes')} size="pack-choice-modal"><div className="modal-body"><p className="muted">{tProd(product?.name)} · {t('choosePackDesc', 'Add either size, or both.')}</p><div className="pack-choice-list">{options.map(pack=><div className="pack-choice-row" key={pack.id}><div className="pack-choice-copy"><b>{pack.unit}</b><div><strong>{money(pack.price)}</strong>{pack.mrp>pack.price&&<del>{money(pack.mrp)}</del>}</div><small className={pack.stock>0?(pack.stock<=5?'cart-stock-low':'muted'):'cart-stock-warning'}>{formatStock(pack.stock)}</small></div><QuantitySelector id={pack.id} choosePacks={false} product={pack}/></div>)}</div><Button type="button" className="pack-choice-done" onClick={()=>setOpen(false)}>{t('done', 'Done')}</Button></div></Modal></>;
 }
 function BaseProductCard({product,packSelector}){
- const {favorites,toggleFavorite,activeDeliveryRules,deliveryConfig}=useApp();
+ const {favorites,toggleFavorite,activeDeliveryRules,deliveryConfig,storeSettings}=useApp();
  const {t,tEta,tProd}=useLanguage();
+ const comingSoonCats=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];
+ const catSlug=product?.categorySlug||product?.category?.slug||product?.category;
+ const isComingSoon=Boolean(catSlug&&comingSoonCats.includes(catSlug));
  const eta=(activeDeliveryRules||deliveryConfig)?.estimatedDelivery;
  const off=Math.round((1-product.price/product.mrp)*100);
  const gallery=(product.images&&product.images.length>0)?product.images:(product.image?[product.image]:[]);
@@ -240,7 +249,9 @@ function BaseProductCard({product,packSelector}){
     onTouchStart={onCardTouchStart}
     onTouchEnd={onCardTouchEnd}
   >
-    {off>0&&<span className="discount">{off}% {t('off', 'OFF')}</span>}
+    {isComingSoon ? (
+      <span className="discount" style={{background:'#f59e0b',color:'#fff',fontWeight:800}}>SOON</span>
+    ) : off>0 && <span className="discount">{off}% {t('off', 'OFF')}</span>}
     <button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'currentColor':'none'}/></button>
     <Link to={`/product/${product.id}`} style={{display:'block',width:'100%',height:'100%'}}>
       <img src={gallery[imgIdx]||product.image} alt={tProd(product.name)} loading="lazy" decoding="async" onError={fallback}/>

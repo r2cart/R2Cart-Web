@@ -34,7 +34,8 @@ export function ProductPage() {
     categories,
     products,
     deliveryConfig,
-    activeDeliveryRules
+    activeDeliveryRules,
+    storeSettings
   } = useApp();
   const { t, tCat, tProd, tEta } = useLanguage();
 
@@ -92,6 +93,9 @@ export function ProductPage() {
   const isFav = favorites.includes(product.id);
   const packs = packOptions(product, products);
   const categoryObj = categories.find((c) => c.slug === product.category);
+  const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
+  const prodCatSlug = product?.categorySlug || product?.category?.slug || product?.category;
+  const isProductSoon = Boolean(prodCatSlug && comingSoonCats.includes(prodCatSlug));
 
   // Parse rich structured details (or fallback to plain description with auto-inference)
   const details = parseProductDetails(product.description, product);
@@ -859,6 +863,16 @@ export function ProductPage() {
                   </span>
                 )}
               </div>
+
+              {isProductSoon && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '10px 14px', marginTop: '14px', color: '#92400e' }}>
+                  <Clock size={18} color="#d97706" style={{ flexShrink: 0 }} />
+                  <div style={{ fontSize: '12.5px', lineHeight: 1.4 }}>
+                    <b style={{ color: '#78350f', display: 'block' }}>Coming Soon</b>
+                    <span>This product belongs to <b>{categoryObj?.name || 'this category'}</b> which is coming soon and cannot be ordered yet.</span>
+                  </div>
+                </div>
+              )}
 
               {/* Desktop Add to Cart Controls */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>

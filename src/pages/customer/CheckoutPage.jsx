@@ -674,6 +674,15 @@ export function CheckoutPage() {
       return notify('Please select a valid delivery date and time slot', 'error');
     }
 
+    const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
+    const comingSoonItem = cartItems.find((p) => {
+      const slug = p.categorySlug || p.category?.slug || p.category;
+      return slug && comingSoonCats.includes(slug);
+    });
+    if (comingSoonItem) {
+      return notify(`"${comingSoonItem.name}" belongs to a Coming Soon category and cannot be ordered. Please remove it from your basket.`, 'error');
+    }
+
     const combinedInstruction = [...selectedInstructions, customNote].filter(Boolean).join('. ');
 
     setPlacing(true);
