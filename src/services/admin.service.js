@@ -1,5 +1,6 @@
 import {api} from './httpClient';
 import {mediaUrl} from '../utils/media';
+import {env} from '../config/env';
 
 const upload = (path, file, category) => {
   const body = new FormData();
@@ -211,7 +212,8 @@ export const adminService = {
   getAnalyticsInsights: params => api.get('/admin/analytics/insights', { params }),
   getExportUrl: (reportType, params) => {
     const qs = new URLSearchParams(params).toString();
-    return `${api.defaults.baseURL || '/api/v1'}/admin/analytics/export/${reportType}?${qs}`;
+    const base = env?.apiBaseUrl || '/api/v1';
+    return `${base}/admin/analytics/export/${reportType}?${qs}`;
   },
 
   // Purchases & Stock Receipts

@@ -41,11 +41,29 @@ import {
   ChevronRight,
   Layers,
   ShoppingBag,
-  ExternalLink
+  ExternalLink,
+  Tag,
+  Sparkles,
+  Activity
 } from 'lucide-react';
 import { Button, Badge, StatusBadge, money, ConfirmDialog } from '../../components/ui';
 import { adminService } from '../../services/admin.service';
 import { hasPermission } from '../../utils/permissions';
+
+function formatDelta(deltaVal) {
+  if (deltaVal === undefined || deltaVal === null || Number.isNaN(Number(deltaVal))) {
+    return { text: '0.0%', isPositive: true, isZero: true };
+  }
+  const val = Number(deltaVal);
+  if (val === 0) {
+    return { text: '0.0%', isPositive: true, isZero: true };
+  }
+  return {
+    text: `${val > 0 ? '+' : ''}${val.toFixed(1)}%`,
+    isPositive: val > 0,
+    isZero: false
+  };
+}
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: TrendingUp },
@@ -250,6 +268,7 @@ export function AdminAnalytics() {
 
         {period.startFormatted && (
           <div className="timezone-indicator">
+            <span className="live-pulse-dot" />
             <Clock size={13} />
             <span>{period.startFormatted} – {period.endFormatted} (Asia/Kolkata)</span>
           </div>
@@ -307,53 +326,105 @@ export function AdminAnalytics() {
         <div className="tab-pane overview-pane">
           {/* Executive KPI Grid */}
           <div className="kpi-grid">
+            {/* 1. Gross Product Sales */}
             <div className="kpi-card gross-sales-card">
               <div className="kpi-top">
-                <span className="kpi-title">Gross Product Sales</span>
-                <span className={`kpi-delta ${deltas.grossSales >= 0 ? 'positive' : 'negative'}`}>
-                  {deltas.grossSales >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                  {Math.abs(deltas.grossSales)}%
-                </span>
+                <div className="kpi-header-group">
+                  <div className="kpi-icon-badge bg-indigo">
+                    <ShoppingBag size={18} />
+                  </div>
+                  <div>
+                    <span className="kpi-title">Gross Product Sales</span>
+                    <div className="kpi-subtag">Fulfilled Orders</div>
+                  </div>
+                </div>
+                {(() => {
+                  const d = formatDelta(deltas.grossSales);
+                  return (
+                    <span className={`kpi-delta ${d.isZero ? 'neutral' : d.isPositive ? 'positive' : 'negative'}`}>
+                      {!d.isZero && (d.isPositive ? <ArrowUpRight size={13} strokeWidth={2.5} /> : <ArrowDownRight size={13} strokeWidth={2.5} />)}
+                      {d.text}
+                    </span>
+                  );
+                })()}
               </div>
               <div className="kpi-value">{money(current.grossProductSales || 0)}</div>
               <div className="kpi-bottom">
-                <span>{current.completedOrderCount || 0} delivered orders</span>
+                <span><Truck size={13} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }} />{current.completedOrderCount || 0} delivered orders</span>
                 <span className="dot">•</span>
                 <span>{current.totalUnitsSold || 0} units</span>
               </div>
             </div>
 
+            {/* 2. Discounts & Promos */}
             <div className="kpi-card discounts-card">
               <div className="kpi-top">
-                <span className="kpi-title">Discounts & Promos</span>
-                <span className="kpi-subtag">Coupons + Reductions</span>
+                <div className="kpi-header-group">
+                  <div className="kpi-icon-badge bg-amber">
+                    <Tag size={18} />
+                  </div>
+                  <div>
+                    <span className="kpi-title">Discounts & Promos</span>
+                    <div className="kpi-subtag">Coupons + Reductions</div>
+                  </div>
+                </div>
+                <span className="kpi-badge-neutral">
+                  Reductions
+                </span>
               </div>
               <div className="kpi-value text-amber">{money(current.totalDiscounts || 0)}</div>
               <div className="kpi-bottom">
                 <span>Coupons: {money(current.couponDiscounts || 0)}</span>
+                <span className="dot">•</span>
+                <span>Product: {money(current.productDiscounts || 0)}</span>
               </div>
             </div>
 
+            {/* 3. Net Product Sales */}
             <div className="kpi-card net-sales-card">
               <div className="kpi-top">
-                <span className="kpi-title">Net Product Sales</span>
-                <span className={`kpi-delta ${deltas.netSales >= 0 ? 'positive' : 'negative'}`}>
-                  {deltas.netSales >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                  {Math.abs(deltas.netSales)}%
-                </span>
+                <div className="kpi-header-group">
+                  <div className="kpi-icon-badge bg-blue">
+                    <DollarSign size={18} />
+                  </div>
+                  <div>
+                    <span className="kpi-title">Net Product Sales</span>
+                    <div className="kpi-subtag">Revenue After Discounts</div>
+                  </div>
+                </div>
+                {(() => {
+                  const d = formatDelta(deltas.netSales);
+                  return (
+                    <span className={`kpi-delta ${d.isZero ? 'neutral' : d.isPositive ? 'positive' : 'negative'}`}>
+                      {!d.isZero && (d.isPositive ? <ArrowUpRight size={13} strokeWidth={2.5} /> : <ArrowDownRight size={13} strokeWidth={2.5} />)}
+                      {d.text}
+                    </span>
+                  );
+                })()}
               </div>
               <div className="kpi-value text-blue">{money(current.netProductSales || 0)}</div>
               <div className="kpi-bottom">
-                <span>AOV: {money(current.averageOrderValue || 0)}</span>
+                <span>AOV: {money(current.averageOrderValue || 0)} per order</span>
               </div>
             </div>
 
             {canViewCost && (
               <>
+                {/* 4. FIFO COGS */}
                 <div className="kpi-card cogs-card">
                   <div className="kpi-top">
-                    <span className="kpi-title">FIFO COGS (Cost of Goods)</span>
-                    <span className="badge-cogs-coverage">{current.costCoveragePercentage}% verified</span>
+                    <div className="kpi-header-group">
+                      <div className="kpi-icon-badge bg-red">
+                        <Package size={18} />
+                      </div>
+                      <div>
+                        <span className="kpi-title">FIFO COGS</span>
+                        <div className="kpi-subtag">Cost of Goods Sold</div>
+                      </div>
+                    </div>
+                    <span className="badge-cogs-coverage">
+                      {Number(current.costCoveragePercentage ?? 100).toFixed(0)}% verified
+                    </span>
                   </div>
                   <div className="kpi-value text-red">{money(current.verifiedCogs || 0)}</div>
                   <div className="kpi-bottom">
@@ -361,21 +432,43 @@ export function AdminAnalytics() {
                   </div>
                 </div>
 
+                {/* 5. Gross Profit & Margin */}
                 <div className="kpi-card gross-profit-card">
                   <div className="kpi-top">
-                    <span className="kpi-title">Gross Profit & Margin</span>
-                    <span className="margin-pill">{current.grossMarginPercentage}% margin</span>
+                    <div className="kpi-header-group">
+                      <div className="kpi-icon-badge bg-green">
+                        <TrendingUp size={18} />
+                      </div>
+                      <div>
+                        <span className="kpi-title">Gross Profit & Margin</span>
+                        <div className="kpi-subtag">Net Sales – COGS</div>
+                      </div>
+                    </div>
+                    <span className="margin-pill">
+                      {Number(current.grossMarginPercentage ?? 0).toFixed(1)}% margin
+                    </span>
                   </div>
                   <div className="kpi-value text-green">{money(current.grossProfit || 0)}</div>
                   <div className="kpi-bottom">
-                    <span>Net Sales minus COGS</span>
+                    <span>Contribution margin</span>
                   </div>
                 </div>
 
+                {/* 6. Operating Expenses */}
                 <div className="kpi-card expenses-card">
                   <div className="kpi-top">
-                    <span className="kpi-title">Operating Expenses</span>
-                    <span className="kpi-subtag">Fuel, Rent, Packaging</span>
+                    <div className="kpi-header-group">
+                      <div className="kpi-icon-badge bg-slate">
+                        <CreditCard size={18} />
+                      </div>
+                      <div>
+                        <span className="kpi-title">Operating Expenses</span>
+                        <div className="kpi-subtag">Fuel, Rent, Packaging</div>
+                      </div>
+                    </div>
+                    <span className="kpi-badge-neutral">
+                      Period OpEx
+                    </span>
                   </div>
                   <div className="kpi-value text-slate">{money(current.totalOperatingExpenses || 0)}</div>
                   <div className="kpi-bottom">
@@ -383,36 +476,69 @@ export function AdminAnalytics() {
                   </div>
                 </div>
 
+                {/* 7. Net Operating Profit */}
                 <div className="kpi-card net-profit-card highlighted">
                   <div className="kpi-top">
-                    <span className="kpi-title">Net Operating Profit</span>
-                    <span className="margin-pill dark">{current.netOperatingMarginPercentage}%</span>
+                    <div className="kpi-header-group">
+                      <div className="kpi-icon-badge bg-emerald">
+                        <Sparkles size={18} />
+                      </div>
+                      <div>
+                        <span className="kpi-title">Net Operating Profit</span>
+                        <div className="kpi-subtag">Gross Profit – OpEx</div>
+                      </div>
+                    </div>
+                    <span className="margin-pill dark">
+                      {Number(current.netOperatingMarginPercentage ?? 0).toFixed(1)}% net
+                    </span>
                   </div>
                   <div className={`kpi-value ${current.netOperatingProfit >= 0 ? 'text-emerald' : 'text-rose'}`}>
                     {money(current.netOperatingProfit || 0)}
                   </div>
                   <div className="kpi-bottom">
-                    <span>Gross Profit minus OpEx</span>
+                    <span>Bottom-line operational profit</span>
                   </div>
                 </div>
               </>
             )}
 
+            {/* 8. Inventory Valuation */}
             <div className="kpi-card valuation-card">
               <div className="kpi-top">
-                <span className="kpi-title">Inventory Valuation</span>
-                <span className="kpi-subtag">Current Assets</span>
+                <div className="kpi-header-group">
+                  <div className="kpi-icon-badge bg-purple">
+                    <Boxes size={18} />
+                  </div>
+                  <div>
+                    <span className="kpi-title">Inventory Valuation</span>
+                    <div className="kpi-subtag">Current Assets</div>
+                  </div>
+                </div>
+                <span className="kpi-badge-neutral">
+                  FIFO Assets
+                </span>
               </div>
-              <div className="kpi-value">{money(valuationData?.totalValuation || 0)}</div>
+              <div className="kpi-value text-purple">{money(valuationData?.totalValuation || 0)}</div>
               <div className="kpi-bottom">
-                <span>{valuationData?.totalSellableUnits || 0} sellable units</span>
+                <span>{valuationData?.totalSellableUnits || 0} sellable units in warehouse</span>
               </div>
             </div>
 
+            {/* 9. Net Business Cash Flow */}
             <div className="kpi-card cashflow-card">
               <div className="kpi-top">
-                <span className="kpi-title">Net Business Cash Flow</span>
-                <span className="kpi-subtag">Recorded Movements</span>
+                <div className="kpi-header-group">
+                  <div className="kpi-icon-badge bg-cyan">
+                    <Layers size={18} />
+                  </div>
+                  <div>
+                    <span className="kpi-title">Net Cash Flow</span>
+                    <div className="kpi-subtag">Recorded Movements</div>
+                  </div>
+                </div>
+                <span className="kpi-badge-neutral">
+                  Flow
+                </span>
               </div>
               <div className={`kpi-value ${(cashFlowData?.netCashFlow || 0) >= 0 ? 'text-green' : 'text-rose'}`}>
                 {money(cashFlowData?.netCashFlow || 0)}
