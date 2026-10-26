@@ -22,13 +22,15 @@ import {
   ChevronRight,
   XCircle,
   Edit2,
-  MessageSquare
+  MessageSquare,
+  Star
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { EmptyState, StatusBadge, money, Button, Modal } from '../../components/ui';
 import { addressText } from '../../utils/address';
 import { orderService } from '../../services/order.service';
 import { catalogService } from '../../services/catalog.service';
+import { customerService } from '../../services/customer.service';
 import { DeliveryChatModal } from '../../components/DeliveryChatModal';
 
 const orderItems = o => (o.items || []).filter(Boolean);
@@ -292,7 +294,6 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
     e.preventDefault();
     const cleanName = name.trim();
     const cleanMobile = mobile.replace(/\D/g, '');
-    const cleanHouse = house.trim();
     const cleanArea = area.trim();
 
     if (cleanName.length < 2) {
@@ -301,10 +302,6 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
     }
     if (!/^\d{10}$/.test(cleanMobile)) {
       setError('Please enter a valid 10-digit mobile number');
-      return;
-    }
-    if (!cleanHouse) {
-      setError('House / Flat number is required');
       return;
     }
     if (!cleanArea) {
@@ -318,13 +315,10 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
       await onUpdated({
         name: cleanName,
         mobile: cleanMobile,
-        house: cleanHouse,
         street: street.trim(),
         landmark: landmark.trim(),
         area: cleanArea,
-        city: city.trim() || 'Hathua',
-        pin: pin.trim(),
-        deliveryInstruction: deliveryInstruction.trim(),
+        city: 'Hathua',
         deliveryDate: isScheduled ? deliveryDate : undefined,
         deliverySlot: isScheduled ? deliverySlot : undefined,
         updateSavedAddress
@@ -350,7 +344,7 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
             {/* Recipient Details */}
             <div className="edit-details-row">
               <div className="edit-field">
-                <label>Recipient Name *</label>
+                <label>Full Name *</label>
                 <input
                   type="text"
                   required
@@ -360,7 +354,7 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
                 />
               </div>
               <div className="edit-field">
-                <label>Contact Mobile *</label>
+                <label>Mobile Number *</label>
                 <input
                   type="tel"
                   required
@@ -372,85 +366,51 @@ function EditOrderDetailsModal({ order, open, onClose, onUpdated }) {
               </div>
             </div>
 
-            {/* Flat / Building */}
+            {/* Street / Colony / Ward */}
             <div className="edit-field">
-              <label>Flat / House No. / Building *</label>
+              <label>Street / Colony / Ward details</label>
               <input
                 type="text"
-                required
-                value={house}
-                onChange={e => setHouse(e.target.value)}
-                placeholder="e.g. House #24, Near Kali Mandir"
+                value={street}
+                onChange={e => setStreet(e.target.value)}
+                placeholder="e.g. Ward No. 3, Main Market road"
               />
             </div>
 
-            {/* Street & Landmark */}
-            <div className="edit-details-row">
-              <div className="edit-field">
-                <label>Street / Road / Colony</label>
-                <input
-                  type="text"
-                  value={street}
-                  onChange={e => setStreet(e.target.value)}
-                  placeholder="e.g. Main Road, Ward 5"
-                />
-              </div>
-              <div className="edit-field">
-                <label>Nearby Landmark</label>
-                <input
-                  type="text"
-                  value={landmark}
-                  onChange={e => setLandmark(e.target.value)}
-                  placeholder="e.g. Behind High School"
-                />
-              </div>
-            </div>
-
-            {/* Area & Pin */}
-            <div className="edit-details-row">
-              <div className="edit-field">
-                <label>Area / Village / Locality *</label>
-                {availableLocalities && availableLocalities.length > 0 ? (
-                  <select
-                    value={area}
-                    onChange={e => setArea(e.target.value)}
-                  >
-                    <option value="">Select Village / Locality</option>
-                    {availableLocalities.map(loc => (
-                      <option key={loc} value={loc}>{loc}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    required
-                    value={area}
-                    onChange={e => setArea(e.target.value)}
-                    placeholder="Village / Area name"
-                  />
-                )}
-              </div>
-              <div className="edit-field">
-                <label>Pincode</label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={pin}
-                  onChange={e => setPin(e.target.value)}
-                  placeholder="e.g. 841436"
-                />
-              </div>
-            </div>
-
-            {/* Delivery Instructions */}
+            {/* Nearby Landmark */}
             <div className="edit-field">
-              <label>Delivery Instructions for Rider</label>
+              <label>Nearby Landmark (Mandir, School, etc.)</label>
               <input
                 type="text"
-                value={deliveryInstruction}
-                onChange={e => setDeliveryInstruction(e.target.value)}
-                placeholder="e.g. Call before arriving / Leave at door"
+                value={landmark}
+                onChange={e => setLandmark(e.target.value)}
+                placeholder="e.g. Near Shiv Mandir, High School"
               />
+            </div>
+
+            {/* Village / Area */}
+            <div className="edit-field">
+              <label>Village / Area *</label>
+              {availableLocalities && availableLocalities.length > 0 ? (
+                <select
+                  value={area}
+                  required
+                  onChange={e => setArea(e.target.value)}
+                >
+                  <option value="">Select Village / Locality</option>
+                  {availableLocalities.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={area}
+                  onChange={e => setArea(e.target.value)}
+                  placeholder="Village / Area name"
+                />
+              )}
             </div>
 
             {/* Scheduled date & slot if applicable */}
@@ -1109,6 +1069,107 @@ function OrderCardV2({ order, onReorder, onCancel, onEdit, onChat }) {
   );
 }
 
+function OrderItemRateCard({ item, notify, refreshProducts }) {
+  const productId = item.productId || item.id;
+  const storageKey = `r2_prod_rating_${productId}`;
+  const [currentScore, setCurrentScore] = useState(() => {
+    try {
+      return Number(localStorage.getItem(storageKey)) || 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [hoverScore, setHoverScore] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem(storageKey));
+    } catch {
+      return false;
+    }
+  });
+
+  const handleRate = async (val) => {
+    if (!productId || submitting) return;
+    setSubmitting(true);
+    try {
+      await customerService.rateProduct(productId, val);
+      setCurrentScore(val);
+      setSubmitted(true);
+      try {
+        localStorage.setItem(storageKey, String(val));
+      } catch {}
+      if (refreshProducts) await refreshProducts();
+      notify(`Thank you! You rated "${item.name}" ${val} ★`, 'success');
+    } catch (err) {
+      notify(err.message || 'Failed to submit rating', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: '8px',
+        padding: '8px 12px',
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '8px'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+          {submitted ? 'Your rating:' : 'Rate product:'}
+        </span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+          {[1, 2, 3, 4, 5].map((val) => {
+            const active = hoverScore ? val <= hoverScore : val <= currentScore;
+            return (
+              <button
+                key={val}
+                type="button"
+                disabled={submitting}
+                onClick={() => handleRate(val)}
+                onMouseEnter={() => setHoverScore(val)}
+                onMouseLeave={() => setHoverScore(0)}
+                aria-label={`Rate ${val} star`}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '2px',
+                  cursor: submitting ? 'wait' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'transform 0.1s ease',
+                  transform: hoverScore === val ? 'scale(1.2)' : 'none'
+                }}
+              >
+                <Star
+                  size={17}
+                  color={active ? '#f59e0b' : '#cbd5e1'}
+                  fill={active ? '#f59e0b' : 'none'}
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {submitted && (
+        <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#059669', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <Check size={13} strokeWidth={2.5} /> Saved ({currentScore}/5 ★)
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function OrderDetailPage() {
   const { id } = useParams();
   const { orderList, setOrderList, refreshProducts, user, add, notify } = useApp();
@@ -1194,23 +1255,6 @@ export function OrderDetailPage() {
 
   return (
     <div className="orders-main-container">
-      {/* Back Link */}
-      <Link
-        className="back-link"
-        to="/orders"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '7px',
-          color: '#4b5563',
-          textDecoration: 'none',
-          fontWeight: 600,
-          fontSize: '13.5px',
-          marginBottom: '16px'
-        }}
-      >
-        <ArrowLeft size={15} /> Back to My Orders
-      </Link>
 
       {/* Out for delivery support guidance notice */}
       {isOutForDelivery && (
@@ -1320,7 +1364,7 @@ export function OrderDetailPage() {
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="order-header-actions">
           <StatusBadge status={order.status} />
           {canEdit && (
             <button
@@ -1473,25 +1517,34 @@ export function OrderDetailPage() {
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {itemList.map((item, idx) => (
-                <div className="order-item-row-v2" key={item.id || idx}>
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    onError={e => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src =
-                        'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22%3E%3Crect width=%2260%22 height=%2260%22 fill=%22%23f3f4f6%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2220%22%3E🛒%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
-                  <div className="order-item-info-v2">
-                    <b>{item.name}</b>
-                    <small>
-                      {item.unit || 'Pack'} · Qty: {item.quantity || item.qty || 1} × {money(item.price || 0)}
-                    </small>
+                <div key={item.id || idx} style={{ borderBottom: idx < itemList.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: '12px', marginBottom: '8px' }}>
+                  <div className="order-item-row-v2" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      onError={e => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src =
+                          'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22%3E%3Crect width=%2260%22 height=%2260%22 fill=%22%23f3f4f6%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2220%22%3E🛒%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                    <div className="order-item-info-v2">
+                      <b>{item.name}</b>
+                      <small>
+                        {item.unit || 'Pack'} · Qty: {item.quantity || item.qty || 1} × {money(item.price || 0)}
+                      </small>
+                    </div>
+                    <div className="order-item-price-v2">
+                      {money((item.price || 0) * (item.quantity || item.qty || 1))}
+                    </div>
                   </div>
-                  <div className="order-item-price-v2">
-                    {money((item.price || 0) * (item.quantity || item.qty || 1))}
-                  </div>
+                  {isDelivered && (
+                    <OrderItemRateCard
+                      item={item}
+                      notify={notify}
+                      refreshProducts={refreshProducts}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -1789,6 +1842,7 @@ function OrderDetailTimeline({ status, order }) {
 
             {/* Circle Icon Indicator */}
             <div
+              className={isCurrent ? 'timeline-active-pulse' : ''}
               style={{
                 width: '30px',
                 height: '30px',
@@ -1819,8 +1873,8 @@ function OrderDetailTimeline({ status, order }) {
                   {s.label}
                 </b>
                 {isCurrent && (
-                  <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#10b981', background: '#ecfdf5', padding: '2px 7px', borderRadius: '6px' }}>
-                    Current Phase
+                  <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center' }}>
+                    <span className="live-pulse-dot" /> Current Phase
                   </span>
                 )}
               </div>

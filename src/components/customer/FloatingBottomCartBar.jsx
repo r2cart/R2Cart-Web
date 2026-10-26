@@ -45,6 +45,20 @@ export function FloatingBottomCartBar() {
     return null;
   }
 
+  // Hide when modal is open to avoid overlapping pack size selector or modal content
+  const [hasModalOpen, setHasModalOpen] = useState(false);
+  useEffect(() => {
+    const checkModal = () => {
+      setHasModalOpen(Boolean(document.querySelector('.modal-backdrop, .modal, .pack-choice-modal')));
+    };
+    checkModal();
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  if (hasModalOpen) return null;
+
   // Get up to 3 mini product image thumbnails for Zepto-style stacked preview
   const previewThumbs = cartItems.slice(0, 3);
 

@@ -304,7 +304,15 @@ function BaseProductCard({product,packSelector}){
     )}
   </div>
   <div className="product-copy">
-    <span className="delivery-pill"><Zap/> {tEta(eta)}</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+      <span className="delivery-pill"><Zap/> {tEta(eta)}</span>
+      {product.ratingCount > 0 && (
+        <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '10px', fontWeight: 800, color: '#047857', background: '#dcfce7', padding: '1px 5px', borderRadius: '4px' }}>
+          <Star size={10} fill="#059669" color="#059669" />
+          <span>{Number(product.rating).toFixed(1)}</span>
+        </span>
+      )}
+    </div>
     <Link to={`/product/${product.id}`} className="product-name">{tProd(product.name)}</Link>
     {packSelector||(
       <div className="product-meta-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', width: '100%', overflow: 'hidden', minHeight: '18px' }}>
