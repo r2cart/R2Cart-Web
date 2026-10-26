@@ -29,7 +29,11 @@ import {
   Printer,
   Award,
   ArrowDownRight,
-  Filter
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Button, money } from '../../components/ui';
 import { adminService } from '../../services/admin.service';
@@ -42,17 +46,42 @@ function getAdminUser() {
   }
 }
 
+// Helpers for clean IST dates and display
+function getTodayISTStr() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+}
+
+function shiftDateStr(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+function formatDayNameAndDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
 // Quick Period Presets
 const PERIOD_PRESETS = [
   { id: 'today', label: 'Today' },
   { id: 'yesterday', label: 'Yesterday' },
+  { id: 'singleDate', label: 'Particular Date 📅' },
   { id: 'last7days', label: 'Last 7 Days' },
   { id: 'last30days', label: 'Last 30 Days' },
   { id: 'custom', label: 'Custom Range' }
 ];
 
 export function AdminAnalytics() {
+  const todayIST = useMemo(() => getTodayISTStr(), []);
   const [preset, setPreset] = useState('today');
+  const [singleDate, setSingleDate] = useState(() => getTodayISTStr());
   const [customStart, setCustomStart] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
@@ -76,6 +105,7 @@ export function AdminAnalytics() {
     try {
       const params = {
         preset,
+        ...(preset === 'singleDate' && { startDate: singleDate, endDate: singleDate, date: singleDate }),
         ...(preset === 'custom' && { startDate: customStart, endDate: customEnd })
       };
       const res = await adminService.getSalesProfit(params);
@@ -90,7 +120,23 @@ export function AdminAnalytics() {
 
   useEffect(() => {
     fetchReport();
-  }, [preset]);
+  }, [preset, singleDate]);
+
+  const handlePrevDay = () => {
+    setSingleDate((prev) => shiftDateStr(prev, -1));
+  };
+
+  const handleNextDay = () => {
+    setSingleDate((prev) => {
+      const next = shiftDateStr(prev, 1);
+      if (next > todayIST) return prev;
+      return next;
+    });
+  };
+
+  const handleJumpToday = () => {
+    setSingleDate(todayIST);
+  };
 
   const handleApplyCustom = (e) => {
     e.preventDefault();
@@ -129,6 +175,99 @@ export function AdminAnalytics() {
       return b.totalProfit - a.totalProfit; // default highest profit first
     });
   }, [reportData, searchQuery, sortBy, profitFilter]);
+
+  // Export Product Sales to Excel / CSV
+  const handleExportProductSales = async () => {
+    if (!filteredProducts || filteredProducts.length === 0) {
+      alert('No product sales data available to export for this period.');
+      return;
+    }
+
+    const periodName = preset === 'singleDate' ? singleDate : (reportData?.period?.label || preset);
+
+    try {
+      const ExcelJSModule = await import('exceljs');
+      const Workbook = ExcelJSModule.default?.Workbook || ExcelJSModule.Workbook;
+      const workbook = new Workbook();
+      const worksheet = workbook.addWorksheet('Daily Product Sales');
+
+      worksheet.columns = [
+        { header: 'Product Name', key: 'name', width: 32 },
+        { header: 'Category', key: 'category', width: 20 },
+        { header: 'SKU', key: 'sku', width: 16 },
+        { header: 'Unit', key: 'unit', width: 12 },
+        { header: 'Units Sold', key: 'unitsSold', width: 14 },
+        { header: 'Cost Price (₹)', key: 'costPrice', width: 15 },
+        { header: 'Selling Price (₹)', key: 'sellingPrice', width: 16 },
+        { header: 'Profit / Unit (₹)', key: 'perPieceProfit', width: 16 },
+        { header: 'Total Sales (₹)', key: 'totalSales', width: 16 },
+        { header: 'Total Cost (₹)', key: 'totalCost', width: 16 },
+        { header: 'Total Profit (₹)', key: 'totalProfit', width: 16 },
+        { header: 'Net Margin (%)', key: 'marginPercent', width: 15 }
+      ];
+
+      // Style header row
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF059669' }
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      for (const p of filteredProducts) {
+        worksheet.addRow({
+          name: p.name,
+          category: p.category || 'General',
+          sku: p.sku || 'N/A',
+          unit: p.unit || '',
+          unitsSold: p.unitsSold,
+          costPrice: p.costPrice,
+          sellingPrice: p.sellingPrice,
+          perPieceProfit: p.perPieceProfit,
+          totalSales: p.totalSales,
+          totalCost: p.totalCost,
+          totalProfit: p.totalProfit,
+          marginPercent: `${p.marginPercent}%`
+        });
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `product_sales_${periodName.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn('ExcelJS failed or unavailable, falling back to clean CSV:', e);
+      const headers = ['Product Name', 'Category', 'SKU', 'Unit', 'Units Sold', 'Cost Price (₹)', 'Selling Price (₹)', 'Profit / Unit (₹)', 'Total Sales (₹)', 'Total Cost (₹)', 'Total Profit (₹)', 'Net Margin (%)'];
+      const rows = filteredProducts.map(p => [
+        `"${(p.name || '').replace(/"/g, '""')}"`,
+        `"${(p.category || 'General').replace(/"/g, '""')}"`,
+        `"${(p.sku || '').replace(/"/g, '""')}"`,
+        `"${(p.unit || '').replace(/"/g, '""')}"`,
+        p.unitsSold,
+        p.costPrice,
+        p.sellingPrice,
+        p.perPieceProfit,
+        p.totalSales,
+        p.totalCost,
+        p.totalProfit,
+        `"${p.marginPercent}%"`
+      ]);
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `product_sales_${periodName.replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
 
   const summary = reportData?.summary || {
     totalOrders: 0,
@@ -182,6 +321,30 @@ export function AdminAnalytics() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={handleExportProductSales}
+            disabled={loading || !filteredProducts.length}
+            style={{
+              background: '#ffffff',
+              border: '1.5px solid #a7f3d0',
+              borderRadius: '10px',
+              padding: '8px 14px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              color: '#047857',
+              cursor: loading || !filteredProducts.length ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+            title="Download product sales report as Excel spreadsheet"
+          >
+            <FileSpreadsheet size={15} color="#059669" />
+            <span>Export Excel</span>
+          </button>
+
           <button
             type="button"
             onClick={fetchReport}
@@ -292,6 +455,137 @@ export function AdminAnalytics() {
             </div>
           )}
         </div>
+
+        {/* Particular / Single Date Navigation Stepper */}
+        {preset === 'singleDate' && (
+          <div style={{
+            marginTop: '14px',
+            paddingTop: '14px',
+            borderTop: '1px dashed #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            background: '#f8fafc',
+            padding: '12px 16px',
+            borderRadius: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={16} color="#059669" /> Select Date:
+              </span>
+
+              {/* Prev Day Button */}
+              <button
+                type="button"
+                onClick={handlePrevDay}
+                disabled={loading}
+                style={{
+                  background: '#ffffff',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#334155',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="Go to Previous Day"
+              >
+                <ChevronLeft size={14} /> Previous Day
+              </button>
+
+              {/* Date Input */}
+              <input
+                type="date"
+                max={todayIST}
+                value={singleDate}
+                onChange={(e) => {
+                  if (e.target.value) setSingleDate(e.target.value);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #059669',
+                  background: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  outline: 'none',
+                  boxShadow: '0 0 0 2px rgba(5,150,105,0.1)'
+                }}
+              />
+
+              {/* Next Day Button */}
+              <button
+                type="button"
+                onClick={handleNextDay}
+                disabled={loading || singleDate >= todayIST}
+                style={{
+                  background: singleDate >= todayIST ? '#f1f5f9' : '#ffffff',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: singleDate >= todayIST ? '#94a3b8' : '#334155',
+                  cursor: singleDate >= todayIST ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="Go to Next Day"
+              >
+                Next Day <ChevronRight size={14} />
+              </button>
+
+              {/* Jump to Today Button */}
+              {singleDate !== todayIST && (
+                <button
+                  type="button"
+                  onClick={handleJumpToday}
+                  disabled={loading}
+                  style={{
+                    background: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: 800,
+                    color: '#047857',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Jump to Today
+                </button>
+              )}
+            </div>
+
+            {/* Formatted Date Banner */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '13px',
+              fontWeight: 800,
+              color: '#065f46',
+              background: '#d1fae5',
+              padding: '6px 14px',
+              borderRadius: '8px'
+            }}>
+              <span>🗓️ {formatDayNameAndDate(singleDate)}</span>
+              {singleDate === todayIST && (
+                <span style={{ background: '#059669', color: '#ffffff', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 800 }}>
+                  TODAY
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Custom Range Date Pickers */}
         {preset === 'custom' && (
@@ -828,10 +1122,10 @@ export function AdminAnalytics() {
             }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                  Product-Level Profit & Sales Breakdown
+                  {preset === 'singleDate' ? `Product Sales Breakdown (${formatDayNameAndDate(singleDate)})` : 'Product-Level Profit & Sales Breakdown'}
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
-                  Shows exactly how much profit was made from each individual product
+                  {preset === 'singleDate' ? 'Track exactly which products were sold on this day, units, revenue, cost, and profit' : 'Shows exactly how much profit was made from each individual product'}
                 </p>
               </div>
 
@@ -905,6 +1199,30 @@ export function AdminAnalytics() {
                     <option value="units">Most Units Sold</option>
                   </select>
                 </div>
+
+                {/* Quick Export in table toolbar */}
+                <button
+                  type="button"
+                  onClick={handleExportProductSales}
+                  disabled={loading || !filteredProducts.length}
+                  style={{
+                    background: '#ffffff',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#047857',
+                    cursor: loading || !filteredProducts.length ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Export this product table to Excel"
+                >
+                  <FileSpreadsheet size={13} color="#059669" />
+                  <span>Export</span>
+                </button>
               </div>
             </div>
 
@@ -927,7 +1245,7 @@ export function AdminAnalytics() {
                   {filteredProducts.length === 0 ? (
                     <tr>
                       <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                        {searchQuery ? `No products found matching "${searchQuery}".` : 'No products sold in this period.'}
+                        {searchQuery ? `No products found matching "${searchQuery}".` : (preset === 'singleDate' ? `No products were sold on ${formatDayNameAndDate(singleDate)}.` : 'No products sold in this period.')}
                       </td>
                     </tr>
                   ) : (
@@ -960,7 +1278,12 @@ export function AdminAnalytics() {
                               )}
                               <div>
                                 <b style={{ color: '#0f172a', display: 'block', fontSize: '13px' }}>{p.name}</b>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+                                  {p.category && (
+                                    <span style={{ fontSize: '10.5px', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: '4px', color: '#047857', fontWeight: 700 }}>
+                                      {p.category}
+                                    </span>
+                                  )}
                                   {p.unit && (
                                     <span style={{ fontSize: '10.5px', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', color: '#475569', fontWeight: 600 }}>
                                       {p.unit}
