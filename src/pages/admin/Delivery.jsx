@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import {AlertCircle,Building,Clock3,Edit2,Eye,Globe,LoaderCircle,MapPin,PauseCircle,PlayCircle,Plus,RefreshCcw,Save,Search,Settings,Sliders,Trash2,Truck} from 'lucide-react';
+import {AlertCircle,Building,Clock3,Edit2,Eye,Globe,LoaderCircle,MapPin,PauseCircle,PlayCircle,Plus,RefreshCcw,Save,Search,Settings,Sliders,Trash2,Truck,Download,Upload,FileSpreadsheet,CheckCircle2} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
+import {downloadDeliveryTemplate,downloadDeliveryExcel,readDeliveryFile} from '../../services/delivery-import.service';
 import { DeliveryAssignmentsView } from './DeliveryAssignments';
 import { DeliveryVerificationsView } from './DeliveryVerifications';
 import { CodSettlementsView } from './CodSettlements';
@@ -172,6 +173,91 @@ export function AdminDelivery() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [error, setError] = useState('');
+
+  // Excel Export & Bulk Import state
+  const [importModal, setImportModal] = useState(false);
+  const [importingFile, setImportingFile] = useState(null);
+  const [parsedImportRows, setParsedImportRows] = useState([]);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [clearDemoConfirm, setClearDemoConfirm] = useState(false);
+  const [clearDemoBusy, setClearDemoBusy] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true);
+    try {
+      await downloadDeliveryExcel(villagesList, areasList);
+      notify(`Exported ${villagesList.length} delivery addresses to Excel!`);
+    } catch (err) {
+      notify(err.message || 'Failed to export delivery addresses', 'error');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      await downloadDeliveryTemplate(areasList);
+      notify('Downloaded blank delivery addresses Excel template');
+    } catch (err) {
+      notify(err.message || 'Failed to download template', 'error');
+    }
+  };
+
+  const handleFileChange = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    setImportingFile(file);
+    try {
+      const { rows } = await readDeliveryFile(file);
+      setParsedImportRows(rows);
+    } catch (err) {
+      setImportError(err.message || 'Failed to read file');
+      setParsedImportRows([]);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!parsedImportRows.length) return;
+    setImportBusy(true);
+    try {
+      const res = await adminService.bulkImportVillages(parsedImportRows);
+      notify(res.message || `Successfully imported ${res.createdCount} addresses!`);
+      setImportModal(false);
+      setImportingFile(null);
+      setParsedImportRows([]);
+      await loadData(true);
+      publishUpdate();
+    } catch (err) {
+      setImportError(err.message || 'Failed to import addresses');
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const handleClearDemoSeed = async () => {
+    setClearDemoBusy(true);
+    try {
+      const res = await adminService.clearDemoVillages();
+      notify(res.message || 'Cleared demo delivery addresses');
+      setClearDemoConfirm(false);
+      await loadData(true);
+      publishUpdate();
+    } catch (err) {
+      notify(err.message || 'Failed to clear demo addresses', 'error');
+    } finally {
+      setClearDemoBusy(false);
+    }
+  };
+
+  const hasDemoVillages = villagesList.some(v => [
+    'Rasulpur', 'Hathua', 'Hathwa Gaon', 'Ratan Chak', 'Rupan Chak', 'Ekdanga',
+    'Mani Chhapar', 'Munrera', 'Sainik School Hathua', 'Doma Hata', 'Mali Tola',
+    'Chhotki Baghi', 'Badki Baghi', 'Pritam Tola', 'Khansama Tola', 'Hathua Market',
+    'Chicktoli', 'Barwa', 'Sawrezi'
+  ].includes(v.name));
 
   // Extract all localities from active Delivery Zones for autocomplete & suggestions
   const allZoneLocalities = areasList.flatMap(area => {
@@ -424,8 +510,19 @@ export function AdminDelivery() {
           <h1>Delivery Area Management</h1>
           <p>Configure village-wise delivery charges, availability schedules, paused villages, and global 5km radius rules.</p>
         </div>
-        <div className="row gap">
-          <Button variant="ghost" onClick={loadData}><RefreshCcw /> Refresh</Button>
+        <div className="row gap" style={{ flexWrap: 'wrap' }}>
+          <Button variant="ghost" onClick={() => loadData(true)}><RefreshCcw /> Refresh</Button>
+          <Button variant="outline" onClick={handleExportExcel} disabled={exportingExcel}>
+            <Download /> {exportingExcel ? 'Exporting...' : 'Export Excel'}
+          </Button>
+          <Button variant="outline" onClick={() => { setImportModal(true); setImportError(''); }}>
+            <Upload /> Import Excel / CSV
+          </Button>
+          {hasDemoVillages && (
+            <Button variant="danger" onClick={() => setClearDemoConfirm(true)} disabled={clearDemoBusy}>
+              <Trash2 /> Clear Seeded Demo
+            </Button>
+          )}
           {tab === 'villages' && (
             <Button onClick={() => setEditVillage({
               ...villageBlank,
@@ -1492,6 +1589,118 @@ export function AdminDelivery() {
               </div>
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* Clear Demo Seeded Addresses Dialog */}
+      <ConfirmDialog
+        open={clearDemoConfirm}
+        onClose={() => setClearDemoConfirm(false)}
+        onConfirm={handleClearDemoSeed}
+        title="Remove Seeded Demo Addresses?"
+        itemName="19 Demo Localities (Hathua Zone)"
+        itemType="Demo Addresses"
+        message="Are you sure you want to remove the seeded demo delivery addresses and demo zone? You can add fresh addresses manually or upload via Excel/CSV anytime."
+        warningNote="This will permanently delete the default Hathua demo villages and zone from the database."
+        confirmText={clearDemoBusy ? "Removing..." : "Remove Demo Addresses"}
+        cancelText="Cancel"
+      />
+
+      {/* Excel / CSV Import Modal */}
+      <Modal open={importModal} onClose={() => { if (!importBusy) { setImportModal(false); setImportingFile(null); setParsedImportRows([]); } }} title="Import Delivery Addresses (Excel / CSV)">
+        <div className="modal-body" style={{ minWidth: '380px', maxWidth: '640px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>
+            Upload an Excel (.xlsx, .xls) or CSV file with your delivery villages/areas. Super Admin and Admin can bulk import or update addresses with pincodes, fees, and rules.
+          </p>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <FileSpreadsheet style={{ width: 28, height: 28, color: '#16a34a', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: '13px' }}>Need a formatted template?</div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Download the sample Excel template with all headers pre-configured.</div>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+              <Download style={{ width: 14, height: 14, marginRight: 4 }} /> Template
+            </Button>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '13px', marginBottom: '6px' }}>
+              Select Excel / CSV File
+            </label>
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              disabled={importBusy}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px dashed var(--line, #cbd5e1)',
+                background: '#fafafa',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+
+          {importError && (
+            <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '13px', marginBottom: '16px' }}>
+              {importError}
+            </div>
+          )}
+
+          {parsedImportRows.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#15803d' }}>
+                  ✓ Found {parsedImportRows.length} valid address rows
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Previewing first 5</span>
+              </div>
+              <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                  <thead style={{ background: '#f8fafc', position: 'sticky', top: 0 }}>
+                    <tr>
+                      <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Village</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Pincode</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Zone</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>Fee</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>Min Order</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedImportRows.slice(0, 5).map((r, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '6px 8px', fontWeight: 500 }}>{r.name}</td>
+                        <td style={{ padding: '6px 8px', color: 'var(--muted)' }}>{r.pincode || '-'}</td>
+                        <td style={{ padding: '6px 8px', color: 'var(--muted)' }}>{r.areaName || '-'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>₹{r.deliveryFee}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>₹{r.minimumOrder}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="row end gap" style={{ marginTop: '20px' }}>
+            <Button
+              variant="ghost"
+              onClick={() => { setImportModal(false); setImportingFile(null); setParsedImportRows([]); }}
+              disabled={importBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmImport}
+              disabled={importBusy || !parsedImportRows.length}
+            >
+              {importBusy ? <LoaderCircle className="spin" /> : <Upload />}
+              {importBusy ? 'Importing...' : `Import ${parsedImportRows.length ? parsedImportRows.length + ' Addresses' : ''}`}
+            </Button>
+          </div>
         </div>
       </Modal>
     </>

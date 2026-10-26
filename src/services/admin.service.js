@@ -70,6 +70,8 @@ export const adminService = {
   updateVillageStatus: (id, status) => api.patch(`/admin/delivery/villages/${id}/status`, { status }),
   pauseVillage: (id, isPaused, reason) => api.patch(`/admin/delivery/villages/${id}/pause`, { isPaused, reason }),
   deleteVillage: id => api.delete(`/admin/delivery/villages/${id}`),
+  bulkImportVillages: villages => api.post('/admin/delivery/villages/bulk', { villages }),
+  clearDemoVillages: () => api.post('/admin/delivery/villages/clear-demo', {}),
 
   getDeliveryAreas: () => api.get('/admin/delivery/areas'),
   createDeliveryArea: value => api.post('/admin/delivery/areas', value),
