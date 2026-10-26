@@ -34,6 +34,7 @@ export const adminService = {
   deleteAllProducts: () => api.delete('/admin/products/all'),
   previewProductImport: rows => api.post('/admin/products/import/preview', { rows }),
   importProducts: rows => api.post('/admin/products/import', { rows }),
+  exportProducts: category => api.get(`/admin/products/export${category ? `?category=${encodeURIComponent(category)}` : ''}`),
   updateCouponStatus: (id, status) => api.patch(`/admin/coupons/${id}/status`, { status }),
   categories: () => api.get('/admin/categories'),
   uploadCategoryImage: file => upload('/admin/uploads/categories', file),

@@ -8,7 +8,7 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
-import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical} from 'lucide-react';
+import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -426,8 +426,8 @@ export function AdminProducts(){
       )}
 
       {canCreate && (
-        <Link className="btn btn-outline" to={`${basePath}/products/import`} style={{display:'inline-flex',alignItems:'center',gap:'6px'}}>
-          Bulk import
+        <Link className="btn btn-outline" to={`${basePath}/products/import`} style={{display:'inline-flex',alignItems:'center',gap:'6px',borderColor:'#10b981',color:'#047857',fontWeight:700}}>
+          <FileSpreadsheet size={16} /> Excel Bulk Edit & Pricing
         </Link>
       )}
 
