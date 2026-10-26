@@ -690,8 +690,10 @@ export function AdminSettings(){
 
  const getFullCategoryOrder=()=>{
   const currentCats=categoriesList.length?categoriesList:[];
-  const savedOrder=settings.policies?.homeLayout?.categoryOrder||[];
-  const fullOrder=[...savedOrder];
+  const validSlugs = new Set(currentCats.map(c => c.slug).filter(Boolean));
+  // Filter out any stale/deleted category slugs so currentOrder is 1:1 with real categories
+  const savedOrder = (settings.policies?.homeLayout?.categoryOrder || []).filter(s => validSlugs.has(s));
+  const fullOrder = [...savedOrder];
   currentCats.forEach(c=>{
    if(c.slug && !fullOrder.includes(c.slug)){
     fullOrder.push(c.slug);
@@ -700,12 +702,19 @@ export function AdminSettings(){
   return fullOrder;
  };
 
- const moveCategory=(index,direction)=>{
+ const moveCategory=(slugOrIndex,direction)=>{
   const currentOrder=getFullCategoryOrder();
-  const target=index+direction;
+  let fromIdx = -1;
+  if (typeof slugOrIndex === 'string') {
+   fromIdx = currentOrder.indexOf(slugOrIndex);
+  } else if (typeof slugOrIndex === 'number') {
+   fromIdx = slugOrIndex;
+  }
+  if(fromIdx===-1)return;
+  const target=fromIdx+direction;
   if(target<0||target>=currentOrder.length)return;
-  const temp=currentOrder[index];
-  currentOrder[index]=currentOrder[target];
+  const temp=currentOrder[fromIdx];
+  currentOrder[fromIdx]=currentOrder[target];
   currentOrder[target]=temp;
   changeHomeLayout(layout=>({...layout,categoryOrder:currentOrder}));
  };
@@ -1549,7 +1558,7 @@ export function AdminSettings(){
                <button
                 type="button"
                 disabled={globalIdx === 0}
-                onClick={() => moveCategory(globalIdx, -1)}
+                onClick={() => moveCategory(cat.slug, -1)}
                 className="cat-btn-nav"
                 title="Move Up"
                 aria-label={`Move ${cat.name} up`}
@@ -1561,7 +1570,7 @@ export function AdminSettings(){
                <button
                 type="button"
                 disabled={globalIdx === sortedCats.length - 1}
-                onClick={() => moveCategory(globalIdx, 1)}
+                onClick={() => moveCategory(cat.slug, 1)}
                 className="cat-btn-nav"
                 title="Move Down"
                 aria-label={`Move ${cat.name} down`}
