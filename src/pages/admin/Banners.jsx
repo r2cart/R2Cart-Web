@@ -22,11 +22,15 @@ const emptyBanner={
 
 const AdminTitle=({action})=><div className="admin-title"><div><h1>Banners & Hero Visuals</h1><p>Manage 3-image hero banners, 24-hour auto-rotation, placements and campaigns.</p></div>{action}</div>;
 
+let cachedBannersList = null;
+let cachedStoreSettings = null;
+let lastBannersFetch = 0;
+
 export function AdminBanners(){
  const {notify}=useApp();
- const [list,setList]=useState([]);
- const [storeSettings,setStoreSettings]=useState(null);
- const [loading,setLoading]=useState(true);
+ const [list,setList]=useState(()=>cachedBannersList||[]);
+ const [storeSettings,setStoreSettings]=useState(()=>cachedStoreSettings||null);
+ const [loading,setLoading]=useState(()=>!cachedBannersList);
  const [edit,setEdit]=useState(null);
  const [remove,setRemove]=useState(null);
  const [busy,setBusy]=useState(false);
@@ -36,25 +40,39 @@ export function AdminBanners(){
  const secFileRef=useRef(null);
  const thirdFileRef=useRef(null);
 
- const load=async()=>{
-  setLoading(true);
+ const load=async(silent=false)=>{
+  if(!silent&&!cachedBannersList)setLoading(true);
   setError('');
   try{
    const [banners,settings]=await Promise.all([
     adminService.banners(),
     adminService.settings().catch(()=>null)
    ]);
+   cachedBannersList=banners;
+   cachedStoreSettings=settings;
+   lastBannersFetch=Date.now();
    setList(banners);
    setStoreSettings(settings);
   }catch(reason){
-   setList([]);
-   setError(reason.message);
+   if(!cachedBannersList){
+    setList([]);
+    setError(reason.message);
+   }
   }finally{
    setLoading(false);
   }
  };
 
- useEffect(()=>{load()},[]);
+ useEffect(()=>{
+  if(cachedBannersList){
+   setLoading(false);
+   if(Date.now()-lastBannersFetch>60000){
+    load(true);
+   }
+  }else{
+   load(false);
+  }
+ },[]);
 
  const publish=()=>{
   window.dispatchEvent(new Event('grocify:banners-updated'));
@@ -391,7 +409,21 @@ export function AdminBanners(){
    </span>
   </div>
 
-  {loading?<div className="admin-card banner-loading"><LoaderCircle className="spin"/> Loading banners…</div>
+  {loading && !list.length ? (
+   <div className="banner-admin-grid">
+    {Array.from({ length: 3 }).map((_, i) => (
+     <div key={i} className="admin-card" style={{ padding: '20px', borderRadius: '16px' }}>
+      <div className="r2c-skeleton-box" style={{ width: '100%', height: '160px', borderRadius: '12px', marginBottom: '14px' }} />
+      <div className="r2c-skeleton-box" style={{ width: '70%', height: '20px', borderRadius: '6px', marginBottom: '8px' }} />
+      <div className="r2c-skeleton-box" style={{ width: '90%', height: '14px', borderRadius: '4px', marginBottom: '16px' }} />
+      <div style={{ display: 'flex', gap: '10px' }}>
+       <div className="r2c-skeleton-box" style={{ width: '80px', height: '34px', borderRadius: '8px' }} />
+       <div className="r2c-skeleton-box" style={{ width: '80px', height: '34px', borderRadius: '8px' }} />
+      </div>
+     </div>
+    ))}
+   </div>
+  )
   :error?<div className="admin-card bulk-error"><p role="alert">{error}</p><Button variant="outline" onClick={load}>Try again</Button></div>
   :!list.length?<div className="admin-card banner-loading">No banners yet. Add the first storefront campaign.</div>
   :<div className="banner-admin-grid">

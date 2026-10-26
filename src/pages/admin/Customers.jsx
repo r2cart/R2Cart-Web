@@ -74,15 +74,18 @@ function getAdminUser() {
   }
 }
 
+let cachedCustomersList = null;
+let lastCustomersFetch = 0;
+
 export function AdminCustomers() {
   const { notify } = useApp();
   const [params] = useSearchParams();
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState(() => cachedCustomersList || []);
   const [selected, setSelected] = useState(null);
   const [deletingCustomer, setDeletingCustomer] = useState(null);
   const [q, setQ] = useState(() => params.get('q') || '');
   const [status, setStatus] = useState('all');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedCustomersList);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -103,7 +106,7 @@ export function AdminCustomers() {
     try {
       const nextStatus = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
       await adminService.updateCustomerStatus(customer.id, nextStatus);
-      await load();
+      await load(true);
       setSelected(prev =>
         prev && prev.id === customer.id ? { ...prev, status: nextStatus } : prev
       );
@@ -115,21 +118,33 @@ export function AdminCustomers() {
     }
   };
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent && !cachedCustomersList) setLoading(true);
     setError('');
     try {
-      setCustomers(await adminService.customers());
+      const data = await adminService.customers();
+      cachedCustomersList = data;
+      lastCustomersFetch = Date.now();
+      setCustomers(data);
     } catch (err) {
-      setError(err.message);
-      notify(err.message, 'error');
+      if (!cachedCustomersList) {
+        setError(err.message);
+        notify(err.message, 'error');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
+    if (cachedCustomersList) {
+      setLoading(false);
+      if (Date.now() - lastCustomersFetch > 60000) {
+        load(true);
+      }
+    } else {
+      load(false);
+    }
   }, []);
 
   const list = useMemo(() => {
@@ -150,7 +165,7 @@ export function AdminCustomers() {
     <>
       <AdminTitle
         title="Customers"
-        text={`${customers.length} registered customers in store database`}
+        text={loading && !customers.length ? 'Loading registered store customers…' : `${customers.length} registered customers in store database`}
       />
 
       <FilterBar q={q} setQ={setQ}>
@@ -176,12 +191,31 @@ export function AdminCustomers() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px 0', color: '#64748b' }}>
-                    Loading customers…
-                  </td>
-                </tr>
+              {loading && !customers.length ? (
+                Array.from({ length: 8 }).map((_, idx) => (
+                  <tr key={`skel-cust-${idx}`}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                        <div className="r2c-skeleton-box" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div className="r2c-skeleton-box" style={{ width: '130px', height: '14px', borderRadius: '4px' }} />
+                          <div className="r2c-skeleton-box" style={{ width: '170px', height: '11px', borderRadius: '4px' }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '105px', height: '14px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '60px', height: '14px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '85px', height: '14px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '80px', height: '14px', borderRadius: '4px' }} /></td>
+                    <td><div className="r2c-skeleton-box" style={{ width: '70px', height: '22px', borderRadius: '12px' }} /></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div className="r2c-skeleton-box" style={{ width: '65px', height: '28px', borderRadius: '6px' }} />
+                        <div className="r2c-skeleton-box" style={{ width: '28px', height: '28px', borderRadius: '6px' }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : error ? (
                 <tr>
                   <td colSpan="7" style={{ padding: '24px', textAlign: 'center' }}>

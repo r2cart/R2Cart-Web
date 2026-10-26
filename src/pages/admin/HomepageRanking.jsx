@@ -7,21 +7,74 @@ import {
 import { adminService } from '../../services/admin.service';
 import { useApp } from '../../context/AppContext';
 
+let cachedRankingActive = null;
+let cachedRankingDraft = null;
+let cachedRankingProds = null;
+let cachedRankingCats = null;
+let lastRankingFetch = 0;
+
+function HomepageRankingSkeleton() {
+  return (
+    <div className="admin-main proper-settings">
+      <div className="admin-title between" style={{ flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
+        <div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <div className="r2c-skeleton-box" style={{ width: 140, height: 24, borderRadius: 20 }} />
+            <div className="r2c-skeleton-box" style={{ width: 110, height: 24, borderRadius: 20 }} />
+          </div>
+          <div className="r2c-skeleton-box" style={{ width: 340, height: 32, borderRadius: 8, marginBottom: 8 }} />
+          <div className="r2c-skeleton-box" style={{ width: 460, height: 16, borderRadius: 6 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div className="r2c-skeleton-box" style={{ width: 100, height: 38, borderRadius: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 130, height: 38, borderRadius: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 140, height: 38, borderRadius: 10 }} />
+        </div>
+      </div>
+
+      <div className="tabs admin-tabs" style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        {[180, 160, 150, 160].map((w, i) => (
+          <div key={i} className="r2c-skeleton-box" style={{ width: `${w}px`, height: 42, borderRadius: 10, flexShrink: 0 }} />
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="admin-card" style={{ padding: 22, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <div className="r2c-skeleton-box" style={{ width: 38, height: 38, borderRadius: 10 }} />
+              <div>
+                <div className="r2c-skeleton-box" style={{ width: 160, height: 18, borderRadius: 6, marginBottom: 6 }} />
+                <div className="r2c-skeleton-box" style={{ width: 220, height: 13, borderRadius: 4 }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="r2c-skeleton-box" style={{ width: '100%', height: 44, borderRadius: 10 }} />
+              <div className="r2c-skeleton-box" style={{ width: '100%', height: 44, borderRadius: 10 }} />
+              <div className="r2c-skeleton-box" style={{ width: '70%', height: 36, borderRadius: 8 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AdminRanking() {
   const { notify } = useApp();
 
   const [activeTab, setActiveTab] = useState('bestSellers'); // 'bestSellers' | 'topPicks' | 'preview' | 'history'
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedRankingActive);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
 
   // Configuration state
-  const [activeConfig, setActiveConfig] = useState(null);
-  const [draftConfig, setDraftConfig] = useState(null);
+  const [activeConfig, setActiveConfig] = useState(() => cachedRankingActive || null);
+  const [draftConfig, setDraftConfig] = useState(() => cachedRankingDraft || null);
   const [historyList, setHistoryList] = useState([]);
-  const [catalogProducts, setCatalogProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState(() => cachedRankingProds || []);
+  const [categories, setCategories] = useState(() => cachedRankingCats || []);
 
   // Modals
   const [publishModalOpen, setPublishModalOpen] = useState(false);
@@ -39,8 +92,8 @@ export function AdminRanking() {
   const [pickerModal, setPickerModal] = useState({ open: false, mode: '', targetList: '' });
 
   // Fetch initial config and catalog
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent && !cachedRankingActive) setLoading(true);
     try {
       const [cfgRes, prods, cats] = await Promise.all([
         adminService.getHomepageRankingConfig(),
@@ -49,20 +102,38 @@ export function AdminRanking() {
       ]);
 
       if (cfgRes) {
+        cachedRankingActive = cfgRes.active;
+        cachedRankingDraft = cfgRes.draft;
         setActiveConfig(cfgRes.active);
         setDraftConfig(cfgRes.draft);
       }
-      if (prods) setCatalogProducts(prods);
-      if (cats) setCategories(cats);
+      if (prods) {
+        cachedRankingProds = prods;
+        setCatalogProducts(prods);
+      }
+      if (cats) {
+        cachedRankingCats = cats;
+        setCategories(cats);
+      }
+      lastRankingFetch = Date.now();
     } catch (err) {
-      notify(err.message || 'Failed to load ranking configurations', 'error');
+      if (!cachedRankingActive) {
+        notify(err.message || 'Failed to load ranking configurations', 'error');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    if (cachedRankingActive) {
+      setLoading(false);
+      if (Date.now() - lastRankingFetch > 60000) {
+        loadData(true);
+      }
+    } else {
+      loadData(false);
+    }
   }, []);
 
   // Fetch preview when switching to preview tab or target changes
@@ -250,15 +321,8 @@ export function AdminRanking() {
 
   const getProductById = (id) => catalogProducts.find(p => p.id === id);
 
-  if (loading) {
-    return (
-      <div className="admin-main">
-        <div style={{ display: 'grid', placeItems: 'center', height: '50vh', color: 'var(--muted)' }}>
-          <RefreshCw className="spin" size={32} />
-          <p style={{ marginTop: 12 }}>Loading homepage ranking engine...</p>
-        </div>
-      </div>
-    );
+  if (loading && !draftConfig) {
+    return <HomepageRankingSkeleton />;
   }
 
   const bs = draftConfig?.bestSellers || {};

@@ -4,17 +4,22 @@ import {Button,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
 
+let cachedInventoryItems = null;
+let cachedInventoryStats = null;
+let cachedInventoryPagination = null;
+let lastInventoryFetch = 0;
+
 export function AdminInventory() {
   const { notify, refreshProducts } = useApp();
   const [activeTab, setActiveTab] = useState('stock'); // 'stock' | 'logs'
 
   // Stock overview data
-  const [items, setItems] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 1 });
+  const [items, setItems] = useState(() => cachedInventoryItems || []);
+  const [stats, setStats] = useState(() => cachedInventoryStats || null);
+  const [pagination, setPagination] = useState(() => cachedInventoryPagination || { page: 1, limit: 50, total: 0, pages: 1 });
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedInventoryItems);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,8 +40,8 @@ export function AdminInventory() {
   const [logsPagination, setLogsPagination] = useState({ page: 1, limit: 50, total: 0, pages: 1 });
   const [logTypeFilter, setLogTypeFilter] = useState('');
 
-  const loadOverview = async (page = 1) => {
-    setLoading(true);
+  const loadOverview = async (page = 1, silent = false) => {
+    if (!silent && !cachedInventoryItems) setLoading(true);
     setError('');
     try {
       const res = await adminService.inventoryOverview({
@@ -45,12 +50,18 @@ export function AdminInventory() {
         status: statusFilter !== 'ALL' ? statusFilter : '',
         search: searchQuery
       });
-      setItems(res.items || []);
-      setStats(res.stats || null);
-      setPagination(res.pagination || { page: 1, limit: 50, total: 0, pages: 1 });
+      cachedInventoryItems = res.items || [];
+      cachedInventoryStats = res.stats || null;
+      cachedInventoryPagination = res.pagination || { page: 1, limit: 50, total: 0, pages: 1 };
+      lastInventoryFetch = Date.now();
+      setItems(cachedInventoryItems);
+      setStats(cachedInventoryStats);
+      setPagination(cachedInventoryPagination);
     } catch (err) {
-      setError(err.message || 'Failed to load inventory');
-      notify(err.message, 'error');
+      if (!cachedInventoryItems) {
+        setError(err.message || 'Failed to load inventory');
+        notify(err.message, 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -75,7 +86,14 @@ export function AdminInventory() {
 
   useEffect(() => {
     if (activeTab === 'stock') {
-      loadOverview(1);
+      if (cachedInventoryItems && statusFilter === 'ALL' && !searchQuery) {
+        setLoading(false);
+        if (Date.now() - lastInventoryFetch > 60000) {
+          loadOverview(1, true);
+        }
+      } else {
+        loadOverview(1, false);
+      }
     } else {
       loadLogs(1);
     }
@@ -331,12 +349,31 @@ export function AdminInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan="7" style={{ textAlign: 'center', padding: '32px' }}>
-                        <LoaderCircle className="spin" style={{ display: 'inline', marginRight: '8px' }} /> Loading inventory items…
-                      </td>
-                    </tr>
+                  {loading && !items.length ? (
+                    Array.from({ length: 8 }).map((_, idx) => (
+                      <tr key={`inv-skel-${idx}`}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="r2c-skeleton-box" style={{ width: '40px', height: '40px', borderRadius: '8px', flexShrink: 0 }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div className="r2c-skeleton-box" style={{ width: '160px', height: '14px', borderRadius: '4px' }} />
+                              <div className="r2c-skeleton-box" style={{ width: '90px', height: '11px', borderRadius: '4px' }} />
+                            </div>
+                          </div>
+                        </td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '100px', height: '14px', borderRadius: '4px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '60px', height: '16px', borderRadius: '4px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '50px', height: '14px', borderRadius: '4px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '80px', height: '22px', borderRadius: '12px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '90px', height: '14px', borderRadius: '4px' }} /></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <div className="r2c-skeleton-box" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+                            <div className="r2c-skeleton-box" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   ) : error ? (
                     <tr>
                       <td colSpan="7" style={{ textAlign: 'center', padding: '24px' }}>
@@ -500,11 +537,16 @@ export function AdminInventory() {
                 </thead>
                 <tbody>
                   {logsLoading ? (
-                    <tr>
-                      <td colSpan="7" style={{ textAlign: 'center', padding: '32px' }}>
-                        <LoaderCircle className="spin" style={{ display: 'inline', marginRight: '8px' }} /> Loading inventory movement history…
-                      </td>
-                    </tr>
+                    Array.from({ length: 6 }).map((_, idx) => (
+                      <tr key={`log-skel-${idx}`}>
+                        <td><div className="r2c-skeleton-box" style={{ width: '110px', height: '13px', borderRadius: '4px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '150px', height: '14px', borderRadius: '4px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '70px', height: '20px', borderRadius: '10px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '60px', height: '14px', borderRadius: '4px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '140px', height: '13px', borderRadius: '4px' }} /></td>
+                        <td><div className="r2c-skeleton-box" style={{ width: '90px', height: '13px', borderRadius: '4px' }} /></td>
+                      </tr>
+                    ))
                   ) : !logs.length ? (
                     <tr>
                       <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>

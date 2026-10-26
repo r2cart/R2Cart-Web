@@ -40,6 +40,65 @@ const zoneBlank = {
 
 const money = value => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
+let cachedVillages = null;
+let cachedAreas = null;
+let cachedDeliveryConfig = null;
+let lastDeliveryFetch = 0;
+
+function DeliverySkeleton() {
+  return (
+    <div>
+      <div className="admin-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
+        <div>
+          <div className="r2c-skeleton-box" style={{ width: 320, height: 32, borderRadius: 8, marginBottom: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 480, height: 16, borderRadius: 6 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div className="r2c-skeleton-box" style={{ width: 100, height: 38, borderRadius: 10 }} />
+          <div className="r2c-skeleton-box" style={{ width: 130, height: 38, borderRadius: 10 }} />
+        </div>
+      </div>
+
+      <div className="tabs admin-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'hidden' }}>
+        {[170, 160, 190, 180, 170, 160].map((w, i) => (
+          <div key={i} className="r2c-skeleton-box" style={{ width: `${w}px`, height: 42, borderRadius: 10, flexShrink: 0 }} />
+        ))}
+      </div>
+
+      <div className="admin-card" style={{ padding: 24, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div className="r2c-skeleton-box" style={{ width: 280, height: 42, borderRadius: 10 }} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="r2c-skeleton-box" style={{ width: 120, height: 38, borderRadius: 10 }} />
+            <div className="r2c-skeleton-box" style={{ width: 120, height: 38, borderRadius: 10 }} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: '#f8fafc', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div className="r2c-skeleton-box" style={{ width: 36, height: 36, borderRadius: 8 }} />
+                <div>
+                  <div className="r2c-skeleton-box" style={{ width: 180, height: 16, borderRadius: 4, marginBottom: 6 }} />
+                  <div className="r2c-skeleton-box" style={{ width: 120, height: 12, borderRadius: 4 }} />
+                </div>
+              </div>
+              <div className="r2c-skeleton-box" style={{ width: 100, height: 16, borderRadius: 4 }} />
+              <div className="r2c-skeleton-box" style={{ width: 80, height: 16, borderRadius: 4 }} />
+              <div className="r2c-skeleton-box" style={{ width: 70, height: 26, borderRadius: 14 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div className="r2c-skeleton-box" style={{ width: 32, height: 32, borderRadius: 8 }} />
+                <div className="r2c-skeleton-box" style={{ width: 32, height: 32, borderRadius: 8 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminDelivery() {
   const { notify } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -74,10 +133,10 @@ export function AdminDelivery() {
       return nextParams;
     }, { replace: true });
   };
-  const [villagesList, setVillagesList] = useState([]);
-  const [areasList, setAreasList] = useState([]);
-  const [config, setConfig] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [villagesList, setVillagesList] = useState(() => cachedVillages || []);
+  const [areasList, setAreasList] = useState(() => cachedAreas || []);
+  const [config, setConfig] = useState(() => cachedDeliveryConfig || null);
+  const [loading, setLoading] = useState(() => !cachedVillages);
   const [busy, setBusy] = useState(false);
 
   // Village edit/remove states
@@ -132,8 +191,8 @@ export function AdminDelivery() {
     }).filter(l => Boolean(l.name));
   });
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent && !cachedVillages) setLoading(true);
     setError('');
     try {
       const [vData, aData, cData] = await Promise.all([
@@ -141,21 +200,35 @@ export function AdminDelivery() {
         adminService.getDeliveryAreas(),
         adminService.getDeliveryConfig()
       ]);
-      setVillagesList(vData || []);
-      setAreasList((aData || []).map(a => ({
+      const mappedAreas = (aData || []).map(a => ({
         ...a,
         localities: a.localities || a.pincodes || []
-      })));
+      }));
+      cachedVillages = vData || [];
+      cachedAreas = mappedAreas;
+      cachedDeliveryConfig = cData;
+      lastDeliveryFetch = Date.now();
+      setVillagesList(cachedVillages);
+      setAreasList(cachedAreas);
       setConfig(cData);
     } catch (err) {
-      setError(err.message || 'Failed to load delivery configuration');
+      if (!cachedVillages) {
+        setError(err.message || 'Failed to load delivery configuration');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    if (cachedVillages) {
+      setLoading(false);
+      if (Date.now() - lastDeliveryFetch > 60000) {
+        loadData(true);
+      }
+    } else {
+      loadData(false);
+    }
   }, []);
 
   const publishUpdate = () => {
@@ -340,12 +413,8 @@ export function AdminDelivery() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="admin-card delivery-loading">
-        <LoaderCircle className="spin" /> Loading delivery area configuration…
-      </div>
-    );
+  if (loading && !villagesList.length && !config) {
+    return <DeliverySkeleton />;
   }
 
   return (
