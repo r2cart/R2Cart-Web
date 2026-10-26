@@ -9,6 +9,7 @@ export function FloatingBottomCartBar() {
   const navigate = useNavigate();
 
   const [bouncing, setBouncing] = useState(false);
+  const [hasModalOpen, setHasModalOpen] = useState(false);
   const prevCountRef = useRef(0);
 
   const count = cartItems.reduce((sum, item) => sum + item.qty, 0);
@@ -27,6 +28,17 @@ export function FloatingBottomCartBar() {
     prevCountRef.current = count;
   }, [count]);
 
+  // Hide when modal is open to avoid overlapping pack size selector or modal content
+  useEffect(() => {
+    const checkModal = () => {
+      setHasModalOpen(Boolean(document.querySelector('.modal-backdrop, .modal, .pack-choice-modal')));
+    };
+    checkModal();
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   // Don't render if cart is empty
   if (count <= 0) return null;
 
@@ -44,18 +56,6 @@ export function FloatingBottomCartBar() {
   if (hiddenRoutes.includes(path) || path.startsWith('/admin') || path.startsWith('/super-admin') || path.startsWith('/delivery')) {
     return null;
   }
-
-  // Hide when modal is open to avoid overlapping pack size selector or modal content
-  const [hasModalOpen, setHasModalOpen] = useState(false);
-  useEffect(() => {
-    const checkModal = () => {
-      setHasModalOpen(Boolean(document.querySelector('.modal-backdrop, .modal, .pack-choice-modal')));
-    };
-    checkModal();
-    const observer = new MutationObserver(checkModal);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
 
   if (hasModalOpen) return null;
 
