@@ -4625,6 +4625,49 @@ footer{background:#173a27;color:#fff;padding-top:55px}.footer-grid{display:grid;
   }
 }
 
+/* ── Address form: Save button sticky at bottom of modal ── */
+/* Form fields scroll, but Save/Cancel stays pinned at modal bottom */
+.address-form {
+  display: flex;
+  flex-direction: column;
+}
+.address-form > .row {
+  position: sticky;
+  bottom: 0;
+  margin-top: 16px;
+  margin-left: -22px;
+  margin-right: -22px;
+  margin-bottom: -22px;
+  padding: 14px 22px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  width: calc(100% + 44px);
+  box-sizing: border-box;
+  z-index: 3;
+}
+
+/* ── Product card qty widget: never overflow card bounds ── */
+.product-foot > .qty.small,
+.product-foot > .small-add {
+  flex-shrink: 0;
+  flex-grow: 0;
+}
+@media (max-width: 360px) {
+  .product-foot > .qty.small,
+  .product-foot > .small-add {
+    width: 64px !important;
+    min-width: 64px !important;
+    max-width: 64px !important;
+    flex: 0 0 64px !important;
+  }
+  .qty.small button {
+    width: 19px !important;
+    min-width: 19px !important;
+    flex: 0 0 19px !important;
+  }
+}
+
+
 
 
 

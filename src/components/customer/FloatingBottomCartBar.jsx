@@ -28,14 +28,18 @@ export function FloatingBottomCartBar() {
     prevCountRef.current = count;
   }, [count]);
 
-  // Hide when modal is open to avoid overlapping pack size selector or modal content
+  // Hide when any modal/dialog/drawer is open to avoid overlapping UI
   useEffect(() => {
     const checkModal = () => {
-      setHasModalOpen(Boolean(document.querySelector('.modal-backdrop, .modal, .pack-choice-modal')));
+      const hasBackdrop = Boolean(document.querySelector('.modal-backdrop'));
+      const hasDialog = Boolean(document.querySelector('dialog[open]'));
+      // Also detect body scroll-lock that modal portals set
+      const bodyLocked = document.body.style.overflow === 'hidden';
+      setHasModalOpen(hasBackdrop || hasDialog || bodyLocked);
     };
     checkModal();
     const observer = new MutationObserver(checkModal);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
     return () => observer.disconnect();
   }, []);
 
