@@ -375,7 +375,7 @@ export function getPolicyContent(s){
 
   about:{
    eyebrow:`ABOUT ${s.storeName.toUpperCase()}`,
-   title:'Fresh Daily Essentials, Delivered Fast.',
+   title:'Daily Needs, Delivered Fresh.',
    intro:`${s.storeName} was founded with a clear purpose: to bridge the gap between quality farm produce and Indian households with dependable 15–30 minute doorstep delivery, fair pricing, and uncompromising freshness.`,
    metaTags:['Hyper-Local Delivery','Farm Fresh Quality','Zero Food Waste Initiative'],
    sections:[

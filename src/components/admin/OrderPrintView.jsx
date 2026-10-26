@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Printer, FileText, Receipt, X, Check, Download, AlertCircle } from 'lucide-react';
 import { Button, money } from '../ui';
 import { BRAND } from '../../config/brand';
+import './order-print.css';
 
 function numberToWords(num) {
   const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -30,8 +31,8 @@ function numberToWords(num) {
   return words.trim() + ' Rupees Only';
 }
 
-export function OrderPrintModal({ open, onClose, order, storeSettings }) {
-  const [printMode, setPrintMode] = useState('thermal'); // 'thermal' | 'a4'
+export function OrderPrintModal({ open, onClose, order, storeSettings, initialMode = 'a4' }) {
+  const [printMode, setPrintMode] = useState(initialMode);
 
   if (!open || !order) return null;
 
@@ -39,12 +40,10 @@ export function OrderPrintModal({ open, onClose, order, storeSettings }) {
     window.print();
   };
 
-  const legalEntity = storeSettings?.policies?.legalName || 'R2Cart Retail Private Limited';
+  const legalEntity = storeSettings?.policies?.legalName || storeSettings?.storeName || 'R2Cart Retail Private Limited';
   const storePhone = storeSettings?.contactNumber || storeSettings?.policies?.supportPhone || '+91 80000 10001';
   const storeEmail = storeSettings?.email || storeSettings?.policies?.supportEmail || 'support@r2cart.in';
   const storeAddress = storeSettings?.address || storeSettings?.policies?.officeAddress || 'Bailey Road, Patna, Bihar — 800001';
-  const gstin = storeSettings?.policies?.gstin || '10AAAAA0000A1Z5';
-  const fssai = storeSettings?.policies?.fssai || '10424000000123';
 
   const orderDate = new Date(order.date || order.createdAt || Date.now()).toLocaleString('en-IN', {
     day: '2-digit',
@@ -286,17 +285,17 @@ export function OrderPrintModal({ open, onClose, order, storeSettings }) {
                   <div className="a4-brand-col">
                     <h1 className="a4-brand-title">{BRAND.name}</h1>
                     <div className="a4-company-name">{legalEntity}</div>
+                    <div style={{ fontSize: '11.5px', color: '#059669', fontWeight: 800, margin: '2px 0 4px', letterSpacing: '0.3px' }}>
+                      {BRAND.tagline}
+                    </div>
                     <div className="a4-store-address">{storeAddress}</div>
                     <div className="a4-store-meta">
                       <span>Email: {storeEmail}</span> · <span>Phone: {storePhone}</span>
                     </div>
-                    <div className="a4-tax-ids">
-                      <b>GSTIN:</b> {gstin} | <b>FSSAI Lic No:</b> {fssai}
-                    </div>
                   </div>
 
                   <div className="a4-invoice-meta-col">
-                    <div className="a4-doc-type">TAX INVOICE / CASH BILL</div>
+                    <div className="a4-doc-type">RETAIL INVOICE / CASH BILL</div>
                     <div className="a4-meta-grid">
                       <div className="a4-meta-cell">
                         <span className="lbl">Invoice No:</span>
@@ -312,15 +311,17 @@ export function OrderPrintModal({ open, onClose, order, storeSettings }) {
                       </div>
                       <div className="a4-meta-cell">
                         <span className="lbl">Delivery Mode:</span>
-                        <b className="val">{isScheduled ? `Scheduled (${order.deliverySlot})` : 'Express (Instant)'}</b>
+                        <b className="val">{isScheduled ? `Scheduled (${order.deliverySlot})` : 'Express Instant Delivery'}</b>
                       </div>
                       <div className="a4-meta-cell">
-                        <span className="lbl">Place of Supply:</span>
-                        <b className="val">Bihar (Code: 10)</b>
+                        <span className="lbl">Payment Method:</span>
+                        <b className="val">{order.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : (order.paymentMethod || 'Online')}</b>
                       </div>
                       <div className="a4-meta-cell">
-                        <span className="lbl">Reverse Charge:</span>
-                        <b className="val">No</b>
+                        <span className="lbl">Payment Status:</span>
+                        <b className="val" style={{ color: order.paymentStatus === 'PAID' ? '#059669' : '#d97706' }}>
+                          {order.paymentStatus || (order.paymentMethod === 'COD' ? 'Cash to Collect' : 'PAID')}
+                        </b>
                       </div>
                     </div>
                   </div>
@@ -412,9 +413,9 @@ export function OrderPrintModal({ open, onClose, order, storeSettings }) {
                     <div className="a4-terms-box">
                       <b>Terms & Conditions:</b>
                       <ol>
-                        <li>All perishable goods must be inspected at the time of doorstep handover.</li>
-                        <li>Returns and refunds are processed per R2Cart standard return policy.</li>
-                        <li>This is a system generated tax invoice issued by {legalEntity}.</li>
+                        <li>All perishable & grocery items should be verified at the time of doorstep handover.</li>
+                        <li>Returns and refunds are processed per R2Cart standard customer policy.</li>
+                        <li>This is an official computer-generated retail invoice issued by {BRAND.name} ({legalEntity}).</li>
                       </ol>
                     </div>
                   </div>
@@ -445,21 +446,21 @@ export function OrderPrintModal({ open, onClose, order, storeSettings }) {
                         <span>Grand Total (INR):</span>
                         <b>₹{Number(order.total || order.grandTotal || 0).toFixed(2)}</b>
                       </div>
-                      <div className="a4-tax-note">
-                        (Inclusive of all applicable Goods & Services Tax)
+                      <div className="a4-tax-note" style={{ color: '#059669', fontWeight: 700 }}>
+                        (All prices in INR · Net Final Payable)
                       </div>
                     </div>
 
                     <div className="a4-signatory-box">
                       <div className="a4-sign-line" />
                       <b>Authorized Signatory</b>
-                      <span>For {legalEntity}</span>
+                      <span>For {BRAND.name} ({legalEntity})</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="a4-invoice-footer">
-                  <span>Registered Office: {storeAddress} · GSTIN: {gstin}</span>
+                  <span>{BRAND.name} · {legalEntity} · {storeAddress} · Support: {storeEmail}</span>
                   <span>Page 1 of 1 · Generated on {printTimestamp}</span>
                 </div>
               </div>

@@ -32,6 +32,7 @@ import { orderService } from '../../services/order.service';
 import { catalogService } from '../../services/catalog.service';
 import { customerService } from '../../services/customer.service';
 import { DeliveryChatModal } from '../../components/DeliveryChatModal';
+import { OrderPrintModal } from '../../components/admin/OrderPrintView';
 
 const orderItems = o => (o.items || []).filter(Boolean);
 const orderLabel = o => o.orderNumber || o.id;
@@ -1172,11 +1173,12 @@ function OrderItemRateCard({ item, notify, refreshProducts }) {
 
 export function OrderDetailPage() {
   const { id } = useParams();
-  const { orderList, setOrderList, refreshProducts, user, add, notify } = useApp();
+  const { orderList, setOrderList, refreshProducts, user, add, notify, storeSettings } = useApp();
   const [copied, setCopied] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [freshOrder, setFreshOrder] = useState(null);
 
   useEffect(() => {
@@ -1410,17 +1412,28 @@ export function OrderDetailPage() {
               <span>Cancel Order</span>
             </button>
           )}
-          {isDelivered && (
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={() => window.print()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', fontSize: '12.5px', borderRadius: '10px' }}
-            >
-              <Printer size={14} />
-              <span>Print Receipt</span>
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => setInvoiceModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              height: '36px',
+              padding: '0 14px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              borderRadius: '10px',
+              color: '#047857',
+              borderColor: '#a7f3d0',
+              background: '#ecfdf5',
+              cursor: 'pointer'
+            }}
+          >
+            <Printer size={14} color="#059669" />
+            <span>Download Invoice / Bill</span>
+          </button>
         </div>
       </div>
 
@@ -1689,6 +1702,39 @@ export function OrderDetailPage() {
               <RotateCcw size={15} /> Re-order all items
             </Button>
 
+            <button
+              type="button"
+              onClick={() => setInvoiceModalOpen(true)}
+              style={{
+                width: '100%',
+                height: '42px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px',
+                borderRadius: '10px',
+                color: '#047857',
+                background: '#ecfdf5',
+                border: '1.5px solid #a7f3d0',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 3px rgba(16,185,129,0.1)'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#d1fae5';
+                e.currentTarget.style.borderColor = '#6ee7b7';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#ecfdf5';
+                e.currentTarget.style.borderColor = '#a7f3d0';
+              }}
+            >
+              <Printer size={15} color="#059669" />
+              <span>Download Invoice / Bill</span>
+            </button>
+
             {canEdit && (
               <button
                 type="button"
@@ -1772,6 +1818,14 @@ export function OrderDetailPage() {
         isOpen={chatModalOpen}
         onClose={() => setChatModalOpen(false)}
         role="CUSTOMER"
+      />
+
+      <OrderPrintModal
+        open={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        order={order}
+        storeSettings={storeSettings}
+        initialMode="a4"
       />
     </div>
   );

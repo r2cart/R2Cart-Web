@@ -210,28 +210,39 @@ export function Footer(){
             <Logo/>
             <p>{BRAND.tagline}</p>
             <p style={{fontSize:'12px',color:'var(--muted)',marginTop:'6px'}}>{legalEntity} · {legalAddress}</p>
-            <div className="social" style={{ display: 'flex', alignItems: 'center', marginTop: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px' }}>
               <button
                 type="button"
-                className="footer-share-pill"
                 onClick={handleShareClick}
                 title="Share Website / वेबसाइट शेयर करें"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                  color: '#10b981',
-                  padding: '7px 16px',
-                  borderRadius: '20px',
-                  fontSize: '12px',
+                  gap: '8px',
+                  background: 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(5,150,105,0.25) 100%)',
+                  border: '1.5px solid #10b981',
+                  color: '#34d399',
+                  padding: '8px 18px',
+                  borderRadius: '24px',
+                  fontSize: '12.5px',
                   fontWeight: 700,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  width: 'auto',
+                  height: 'auto',
+                  boxShadow: '0 2px 8px rgba(16,185,129,0.15)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#10b981';
+                  e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(5,150,105,0.25) 100%)';
+                  e.currentTarget.style.color = '#34d399';
                 }}
               >
-                <Share2 size={14}/>
-                <span>Share / शेयर करें</span>
+                <Share2 size={15} style={{ flexShrink: 0 }} />
+                <span>Share Website / शेयर करें</span>
               </button>
             </div>
           </div>
