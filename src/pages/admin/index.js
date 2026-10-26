@@ -18,3 +18,4 @@ export {AdminSecurity} from './Security';
 export {AdminSupport} from './Support';
 export {AdminSettings} from './Settings';
 export {AdminRanking} from './HomepageRanking';
+export {AdminAnalytics} from './Analytics';

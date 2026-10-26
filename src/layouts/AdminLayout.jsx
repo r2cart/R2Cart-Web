@@ -20,6 +20,7 @@ import {
   ShoppingBasket,
   Sparkles,
   Tags,
+  TrendingUp,
   Truck,
   Users,
   X
@@ -34,6 +35,7 @@ import { useLanguage } from '../context/LanguageContext';
 
 const NAV_LINKS = [
   { path: '/dashboard', label: 'Dashboard', key: 'dashboard', icon: LayoutDashboard, perm: ['reports.view_basic', 'reports.view_financial'] },
+  { path: '/analytics', label: 'Business Analytics', key: 'businessAnalytics', icon: TrendingUp, perm: ['analytics.view', 'reports.view_financial'] },
   { path: '/products', label: 'Products', key: 'productsManage', icon: ShoppingBasket, perm: 'products.view' },
   { path: '/categories', label: 'Categories', key: 'categoriesManage', icon: Tags, perm: ['categories.manage', 'products.view'] },
   { path: '/orders', label: 'Orders', key: 'ordersManage', icon: Package, perm: 'orders.view' },

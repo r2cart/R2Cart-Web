@@ -198,5 +198,39 @@ export const adminService = {
   publishHomepageRanking: payload => api.post('/admin/homepage-ranking/publish', payload),
   getHomepageRankingHistory: () => api.get('/admin/homepage-ranking/history'),
   rollbackHomepageRanking: payload => api.post('/admin/homepage-ranking/rollback', payload),
-  refreshHomepageRankingCache: () => api.post('/admin/homepage-ranking/refresh-cache')
+  refreshHomepageRankingCache: () => api.post('/admin/homepage-ranking/refresh-cache'),
+
+  // Business Analytics & Profit Management
+  getAnalyticsOverview: params => api.get('/admin/analytics/overview', { params }),
+  getSalesTrend: params => api.get('/admin/analytics/sales-trend', { params }),
+  getProductPerformance: params => api.get('/admin/analytics/product-performance', { params }),
+  getInventoryValuation: () => api.get('/admin/analytics/inventory-valuation'),
+  reconcileOpeningStock: payload => api.post('/admin/analytics/reconcile-opening-stock', payload),
+  recordWastage: payload => api.post('/admin/analytics/record-wastage', payload),
+  getCashFlow: params => api.get('/admin/analytics/cash-flow', { params }),
+  getAnalyticsInsights: params => api.get('/admin/analytics/insights', { params }),
+  getExportUrl: (reportType, params) => {
+    const qs = new URLSearchParams(params).toString();
+    return `${api.defaults.baseURL || '/api/v1'}/admin/analytics/export/${reportType}?${qs}`;
+  },
+
+  // Purchases & Stock Receipts
+  getPurchases: params => api.get('/admin/purchases', { params }),
+  getPurchase: id => api.get(`/admin/purchases/${id}`),
+  createPurchase: payload => api.post('/admin/purchases', payload),
+  finalizePurchase: id => api.post(`/admin/purchases/${id}/finalize`),
+  cancelPurchase: (id, reason) => api.post(`/admin/purchases/${id}/cancel`, { reason }),
+
+  // Suppliers & Payables
+  getSuppliers: params => api.get('/admin/suppliers', { params }),
+  getSupplier: id => api.get(`/admin/suppliers/${id}`),
+  createSupplier: payload => api.post('/admin/suppliers', payload),
+  updateSupplier: (id, payload) => api.patch(`/admin/suppliers/${id}`, payload),
+  recordSupplierPayment: (id, payload) => api.post(`/admin/suppliers/${id}/payments`, payload),
+
+  // Operating Expenses
+  getExpenses: params => api.get('/admin/expenses', { params }),
+  createExpense: payload => api.post('/admin/expenses', payload),
+  updateExpense: (id, payload) => api.patch(`/admin/expenses/${id}`, payload),
+  deleteExpense: id => api.delete(`/admin/expenses/${id}`)
 };
