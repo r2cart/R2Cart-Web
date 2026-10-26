@@ -6,6 +6,7 @@ import {orderService} from '../services/order.service';
 import {catalogService} from '../services/catalog.service';
 import {addressView} from '../utils/address';
 import {mediaUrl} from '../utils/media';
+import {humanErrorMessage} from '../components/ui';
 import grocifyLogo from '../assets/r2cart-mark.svg';
 
 const Ctx=createContext(null);
@@ -93,7 +94,7 @@ export function AppProvider({children}){
     }
     return orderService.list();
   }).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{
-    if((error?.status===401||error?.status===403)&&error?.message?.toLowerCase().includes('invalid')){
+    if(error?.status===403&&String(error?.message||'').toLowerCase().includes('deactivated')){
       localStorage.removeItem('grocify-access-token');
       localStorage.removeItem('grocify-refresh-token');
       clearCustomerView();
@@ -102,7 +103,8 @@ export function AppProvider({children}){
  },[user?.id]);
  const notify=(message,type='success')=>{
   if(!message)return;
-  const lower=String(message).toLowerCase();
+  const clean=humanErrorMessage(message);
+  const lower=String(clean).toLowerCase();
   if(
    lower.includes('access token')||
    lower.includes('token is refreshed')||
@@ -115,7 +117,7 @@ export function AppProvider({children}){
   ){
    return;
   }
-  setToast({message,type});
+  setToast({message:clean,type});
   setTimeout(()=>setToast(null),2600);
  };
  const refreshOrders=async()=>{if(!online())return;try{setOrderList(await orderService.list())}catch(error){if(error.status!==401)notify(error.message,'error')}};

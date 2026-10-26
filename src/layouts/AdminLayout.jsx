@@ -138,14 +138,27 @@ export default function AdminLayout({ children }) {
       })
       .catch(err => {
         if (!mounted) return;
-        // If 401 or 403, immediately clear session
-        if (err.status === 401 || err.status === 403) {
-          authService.adminLogout().finally(() => {
-            window.location.replace(loginUrl);
-          });
-        } else {
+        // If server is restarting during push deployment (5xx, 0, network timeout), do NOT log out!
+        if (!err.status || err.status >= 500 || err.status === 408 || err.name === 'AbortError') {
           setAuthRefreshing(false);
+          return;
         }
+        // If account explicitly deactivated by Super Admin
+        if (err.status === 403 && String(err.message || '').toLowerCase().includes('deactivated')) {
+          authService.adminLogout().finally(() => {
+            window.location.replace(`${loginUrl}?error=deactivated`);
+          });
+          return;
+        }
+        // If temporary 401 but refresh token exists, do NOT nuke the session
+        const refToken = localStorage.getItem('grocify-admin-refresh-token');
+        if (refToken) {
+          setAuthRefreshing(false);
+          return;
+        }
+        authService.adminLogout().finally(() => {
+          window.location.replace(loginUrl);
+        });
       });
 
     return () => {

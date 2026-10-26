@@ -26,6 +26,29 @@ export function Modal({open,onClose,title,children,size=''}){
     document.body
   )
 }
+
+export function humanErrorMessage(err) {
+  if (!err) return 'Something went wrong. Please try again.';
+  const raw = typeof err === 'string' ? err : String(err.message || '');
+  if (
+    raw.includes('prisma.') ||
+    raw.includes('invocation') ||
+    raw.includes('Transaction API') ||
+    raw.includes('timeout')
+  ) {
+    return 'The database operation took longer than expected. Please try again.';
+  }
+  if (
+    raw.includes('SyntaxError') ||
+    raw.includes('TypeError') ||
+    raw.includes('JSON.parse') ||
+    raw.includes('Failed to fetch')
+  ) {
+    return 'Reconnecting to R2Cart server. Please try again in a moment.';
+  }
+  return raw;
+}
+
 export function ConfirmDialog({
   open,
   onClose,
@@ -128,7 +151,7 @@ export function ConfirmDialog({
                 const result = await onConfirm();
                 if (result !== false) onClose();
               } catch (reason) {
-                setError(reason.message || 'Operation failed. Please try again.');
+                setError(humanErrorMessage(reason));
               } finally {
                 setBusy(false);
               }
