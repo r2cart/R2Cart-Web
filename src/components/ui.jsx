@@ -1,4 +1,4 @@
-import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Sparkles,Trash2,X,Zap} from 'lucide-react';
+import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Sparkles,Star,Trash2,X,Zap} from 'lucide-react';
 import {Link} from 'react-router-dom'; import {useApp} from '../context/AppContext'; import {useLanguage} from '../context/LanguageContext';
 import {useState, useEffect} from 'react';
 import {createPortal} from 'react-dom';
