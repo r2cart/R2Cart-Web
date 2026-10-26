@@ -669,7 +669,8 @@ export function CheckoutPage() {
         paymentMethod: 'COD',
         deliveryType,
         deliveryDate: deliveryType === 'SCHEDULED' ? (selectedDate?.id || selectedDate?.label) : null,
-        deliverySlot: deliveryType === 'SCHEDULED' ? (selectedSlot?.label || selectedSlot?.time) : null
+        deliverySlot: deliveryType === 'SCHEDULED' ? (selectedSlot?.label || selectedSlot?.time) : null,
+        items: cartItems.map((p) => ({ productId: p.id, quantity: p.qty }))
       });
 
       sessionStorage.setItem('last-order', JSON.stringify(order));
@@ -702,10 +703,21 @@ export function CheckoutPage() {
     }
   };
 
-  const slotsToRender = dynamicSlots.length > 0 ? dynamicSlots : TIME_SLOTS.map((s) => ({
-    ...s,
-    isAvailable: isSlotAvailable(s, selectedDate?.isToday, sameDayCutoffMinutes)
-  }));
+  const slotsToRender = useMemo(() => {
+    const raw = dynamicSlots.length > 0 ? dynamicSlots : TIME_SLOTS.map((s) => ({
+      ...s,
+      isAvailable: isSlotAvailable(s, selectedDate?.isToday, sameDayCutoffMinutes)
+    }));
+    // Deduplicate slots by time window so each slot appears only once
+    const seen = new Set();
+    return raw.filter((s) => {
+      const timeKey = s.startTime && s.endTime ? `${s.startTime}-${s.endTime}` : (s.time || s.label || '');
+      const cleanKey = timeKey.toLowerCase().replace(/\s+/g, '');
+      if (seen.has(cleanKey)) return false;
+      seen.add(cleanKey);
+      return true;
+    });
+  }, [dynamicSlots, selectedDate?.isToday, sameDayCutoffMinutes]);
 
   const scrollToBill = () => {
     const el = document.getElementById('checkout-bill-summary');
@@ -1277,48 +1289,57 @@ export function CheckoutPage() {
                     <Clock size={14} color="#059669" /> Select Time Slot:
                   </div>
 
-                  {/* Slots Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
+                  {/* Clean, Compact Slots Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                     {slotsToRender.map((s) => {
                       const available = Boolean(s.isAvailable);
                       const isCur = (selectedSlot?.id === s.id || selectedSlot?.label === s.label) && available;
                       const timeStr = s.startTime && s.endTime
                         ? `${formatSlotTime(s.startTime)} – ${formatSlotTime(s.endTime)}`
                         : (s.time || '');
-                      const slotTitle = (s.label || '').replace(/\s*\([^)]*\)/g, '').trim() || s.name || 'Time Slot';
+                      const slotTitle = (s.label || '').replace(/\s*\([^)]*\)/g, '').trim() || s.name || 'Slot';
 
                       return (
                         <button
-                          key={s.id}
+                          key={s.id || `${s.startTime}-${s.endTime}`}
                           type="button"
                           disabled={!available}
                           className={`slot-chip-v2 ${isCur ? 'active' : ''} ${!available ? 'disabled' : ''}`}
                           onClick={() => available && setSelectedSlot(s)}
                           style={{
-                            padding: '12px 14px',
-                            minHeight: '74px',
-                            alignItems: 'flex-start'
+                            padding: '9px 12px',
+                            minHeight: 'auto',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'stretch',
+                            textAlign: 'left',
+                            cursor: available ? 'pointer' : 'not-allowed',
+                            transition: 'all 0.15s ease',
+                            background: isCur ? '#ecfdf5' : available ? '#ffffff' : '#f8fafc',
+                            border: isCur ? '1.5px solid #059669' : '1px solid #e2e8f0',
+                            boxShadow: isCur ? '0 2px 8px -2px rgba(5,150,105,0.2)' : 'none'
                           }}
                         >
-                          <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '3px' }}>
-                              <b style={{ fontSize: '13px', color: isCur ? '#059669' : '#0f172a', fontWeight: 800 }}>{slotTitle}</b>
-                              {available && isCur && (
-                                <Check size={14} color="#059669" strokeWidth={3} style={{ flexShrink: 0 }} />
-                              )}
-                              {!available && (
-                                <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#fee2e2', color: '#b91c1c', flexShrink: 0 }}>
-                                  {s.isFull ? 'Full' : 'Closed'}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>{timeStr}</div>
-                            {available && s.remainingOrders !== undefined && (
-                              <div style={{ fontSize: '10px', color: '#059669', marginTop: '4px', fontWeight: 700 }}>
-                                {s.remainingOrders} slots left
-                              </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', marginBottom: '2px' }}>
+                            <b style={{ fontSize: '12px', color: isCur ? '#059669' : '#0f172a', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {slotTitle}
+                            </b>
+                            {available && isCur && (
+                              <Check size={13} color="#059669" strokeWidth={3} style={{ flexShrink: 0 }} />
+                            )}
+                            {!available && (
+                              <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: '#fee2e2', color: '#b91c1c', flexShrink: 0 }}>
+                                {s.isFull ? 'Full' : 'Closed'}
+                              </span>
                             )}
                           </div>
+                          <div style={{ fontSize: '10.5px', color: isCur ? '#047857' : '#64748b', fontWeight: 600 }}>{timeStr}</div>
+                          {available && s.remainingOrders !== undefined && (
+                            <div style={{ fontSize: '9.5px', color: isCur ? '#059669' : '#059669', marginTop: '3px', fontWeight: 700 }}>
+                              {s.remainingOrders} left
+                            </div>
+                          )}
                         </button>
                       );
                     })}
