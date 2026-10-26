@@ -4778,6 +4778,12 @@ body:has(.modal-backdrop) .mobile-checkout-sticky-footer {
   }
 }
 
+@media (max-width: 820px) {
+  .analytics-charts-skeleton-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 
 
 

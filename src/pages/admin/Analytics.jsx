@@ -321,8 +321,12 @@ export function AdminAnalytics() {
         </div>
       )}
 
-      {/* Tab 1: Overview */}
-      {activeTab === 'overview' && (
+      {loading ? (
+        <AnalyticsSkeleton activeTab={activeTab} />
+      ) : (
+        <>
+          {/* Tab 1: Overview */}
+          {activeTab === 'overview' && (
         <div className="tab-pane overview-pane">
           {/* Executive KPI Grid */}
           <div className="kpi-grid">
@@ -1340,6 +1344,8 @@ export function AdminAnalytics() {
           </div>
         </div>
       )}
+        </>
+      )}
 
       {/* Modal 1: New Purchase Draft */}
       {showPurchaseModal && (
@@ -2175,6 +2181,103 @@ function RecordWastageModal({ products, onClose, onRecorded }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsSkeleton({ activeTab = 'overview' }) {
+  const kpis = [
+    { accent: '#6366f1' },
+    { accent: '#f59e0b' },
+    { accent: '#2563eb' },
+    { accent: '#ef4444' },
+    { accent: '#10b981' },
+    { accent: '#64748b' },
+    { accent: '#059669' },
+    { accent: '#8b5cf6' }
+  ];
+
+  return (
+    <div className="tab-pane analytics-skeleton-pane" aria-label="Loading analytics data">
+      {/* 1. Executive KPI Cards Skeleton (matches exactly the 8 KPI cards in Overview) */}
+      <div className="kpi-grid">
+        {kpis.map((item, idx) => (
+          <div key={idx} className="kpi-card" style={{ position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: item.accent }} />
+            <div className="kpi-top">
+              <div className="kpi-header-group">
+                <div className="r2c-skeleton-box" style={{ width: '38px', height: '38px', borderRadius: '12px', flexShrink: 0 }} />
+                <div>
+                  <div className="r2c-skeleton-box" style={{ width: idx % 2 === 0 ? '120px' : '100px', height: '14px', borderRadius: '4px', marginBottom: '6px' }} />
+                  <div className="r2c-skeleton-box" style={{ width: '70px', height: '10px', borderRadius: '4px' }} />
+                </div>
+              </div>
+              <div className="r2c-skeleton-box" style={{ width: '56px', height: '22px', borderRadius: '20px' }} />
+            </div>
+            <div className="r2c-skeleton-box" style={{ width: idx % 3 === 0 ? '110px' : idx % 3 === 1 ? '85px' : '95px', height: '32px', borderRadius: '8px', margin: '14px 0 12px' }} />
+            <div className="kpi-bottom" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="r2c-skeleton-box" style={{ width: '130px', height: '11px', borderRadius: '4px' }} />
+              <div className="r2c-skeleton-box" style={{ width: '45px', height: '11px', borderRadius: '4px' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 2. Charts Section Skeleton */}
+      <div className="analytics-charts-skeleton-grid" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        {/* Main Chart Card */}
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <div className="r2c-skeleton-box" style={{ width: '180px', height: '16px', borderRadius: '4px', marginBottom: '6px' }} />
+              <div className="r2c-skeleton-box" style={{ width: '240px', height: '11px', borderRadius: '4px' }} />
+            </div>
+            <div className="r2c-skeleton-box" style={{ width: '90px', height: '28px', borderRadius: '8px' }} />
+          </div>
+          <div className="r2c-skeleton-box" style={{ width: '100%', height: '260px', borderRadius: '12px' }} />
+        </div>
+
+        {/* Side Breakdown Chart Card */}
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '22px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: '20px' }}>
+            <div className="r2c-skeleton-box" style={{ width: '150px', height: '16px', borderRadius: '4px', marginBottom: '6px' }} />
+            <div className="r2c-skeleton-box" style={{ width: '190px', height: '11px', borderRadius: '4px' }} />
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+            <div className="r2c-skeleton-box" style={{ width: '140px', height: '140px', borderRadius: '50%' }} />
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="r2c-skeleton-box" style={{ width: '100%', height: '12px', borderRadius: '4px' }} />
+              <div className="r2c-skeleton-box" style={{ width: '75%', height: '12px', borderRadius: '4px' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Bottom Table / List Skeleton */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div>
+            <div className="r2c-skeleton-box" style={{ width: '160px', height: '16px', borderRadius: '4px', marginBottom: '6px' }} />
+            <div className="r2c-skeleton-box" style={{ width: '210px', height: '11px', borderRadius: '4px' }} />
+          </div>
+          <div className="r2c-skeleton-box" style={{ width: '120px', height: '32px', borderRadius: '8px' }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="r2c-skeleton-box" style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0 }} />
+                <div>
+                  <div className="r2c-skeleton-box" style={{ width: i % 2 === 0 ? '160px' : '130px', height: '13px', borderRadius: '4px', marginBottom: '4px' }} />
+                  <div className="r2c-skeleton-box" style={{ width: '90px', height: '10px', borderRadius: '4px' }} />
+                </div>
+              </div>
+              <div className="r2c-skeleton-box" style={{ width: '70px', height: '14px', borderRadius: '4px' }} />
+              <div className="r2c-skeleton-box" style={{ width: '85px', height: '22px', borderRadius: '6px' }} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
