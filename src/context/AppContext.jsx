@@ -7,7 +7,7 @@ import {catalogService} from '../services/catalog.service';
 import {addressView} from '../utils/address';
 import {mediaUrl} from '../utils/media';
 import {humanErrorMessage} from '../components/ui';
-import grocifyLogo from '../assets/r2cart-mark.svg';
+import r2cartLogo from '../assets/r2cart-mark.svg';
 
 const Ctx=createContext(null);
 const DEFAULT_LOCATION='Select delivery address';
@@ -17,7 +17,7 @@ function clearLegacyDemoSession(){
  try{
   const stored=storage.get('user',null);
   if(isInvalidCustomer(stored)){
-   localStorage.removeItem('grocify-access-token');
+   localStorage.removeItem('r2cart-access-token');
    storage.remove('user');
    storage.remove('location');
    storage.remove('active_address_id');
@@ -28,7 +28,7 @@ clearLegacyDemoSession();
 export function AppProvider({children}){
  const [cart,setCart]=useState(()=>storage.get('cart',{}));
  const [favorites,setFavorites]=useState(()=>storage.get('favorites',[]));
- const [user,setUserState]=useState(()=>{if(!onlineSession()){storage.remove('user');return null}const stored=storage.get('user',null);if(isInvalidCustomer(stored)){localStorage.removeItem('grocify-access-token');storage.remove('user');return null}return stored});
+ const [user,setUserState]=useState(()=>{if(!onlineSession()){storage.remove('user');return null}const stored=storage.get('user',null);if(isInvalidCustomer(stored)){localStorage.removeItem('r2cart-access-token');storage.remove('user');return null}return stored});
  const [location,setLocation]=useState(DEFAULT_LOCATION);
  const [addressList,setAddressList]=useState([]);
  const [addressesLoaded,setAddressesLoaded]=useState(false);
@@ -62,12 +62,12 @@ export function AppProvider({children}){
   return()=>clearTimeout(timer);
  },[user?.id]);
 
- function onlineSession(){return Boolean(localStorage.getItem('grocify-access-token'))}
+ function onlineSession(){return Boolean(localStorage.getItem('r2cart-access-token'))}
  const online=onlineSession;
  const setUser=value=>{setUserState(value);if(value)storage.set('user',value);else storage.remove('user')};
  const clearCustomerView=()=>{setUserState(null);setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION);storage.remove('user');storage.remove('location');storage.remove('active_address_id')};
  const logout=async()=>{try{await authService.logout()}finally{clearCustomerView()}};
- useEffect(()=>{if(!isInvalidCustomer(user))return;authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView()},[user]);
+ useEffect(()=>{if(!isInvalidCustomer(user))return;authService.logout().catch(()=>{});localStorage.removeItem('r2cart-access-token');clearCustomerView()},[user]);
  useEffect(()=>{storage.remove('location');if(!user?.id){setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION)}},[user?.id]);
  useEffect(()=>{if(user?.id&&location!==DEFAULT_LOCATION)storage.set(`location-${user.id}`,location)},[location,user?.id]);
  useEffect(()=>{
@@ -75,7 +75,7 @@ export function AppProvider({children}){
   const localCart=storage.get('cart',{});
   const syncPromises=Object.entries(localCart).filter(([,q])=>q>0).map(([id,q])=>customerService.setCartItem(id,q).catch(()=>{}));
   Promise.all(syncPromises).then(()=>Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()])).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{
-    if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('grocify-access-token');clearCustomerView();return null}
+    if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('r2cart-access-token');clearCustomerView();return null}
     const addresses=remoteAddresses.map(addressView);
     setUser(profile);
     setCart(remoteCart.cart);
@@ -95,8 +95,8 @@ export function AppProvider({children}){
     return orderService.list();
   }).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{
     if(error?.status===403&&String(error?.message||'').toLowerCase().includes('deactivated')){
-      localStorage.removeItem('grocify-access-token');
-      localStorage.removeItem('grocify-refresh-token');
+      localStorage.removeItem('r2cart-access-token');
+      localStorage.removeItem('r2cart-refresh-token');
       clearCustomerView();
     }
   });
@@ -121,11 +121,11 @@ export function AppProvider({children}){
   setTimeout(()=>setToast(null),2600);
  };
  const refreshOrders=async()=>{if(!online())return;try{setOrderList(await orderService.list())}catch(error){if(error.status!==401)notify(error.message,'error')}};
- useEffect(()=>{if(!user?.id)return;window.addEventListener('grocify:orders-updated',refreshOrders);return()=>{window.removeEventListener('grocify:orders-updated',refreshOrders)}},[user?.id]);
+ useEffect(()=>{if(!user?.id)return;window.addEventListener('r2cart:orders-updated',refreshOrders);return()=>{window.removeEventListener('r2cart:orders-updated',refreshOrders)}},[user?.id]);
  const refreshCategories=async(retryCount=0)=>{
   try{
    const rows=await catalogService.listCategories();
-   const mapped=rows.map(category=>({...category,image:mediaUrl(category.image)||grocifyLogo}));
+   const mapped=rows.map(category=>({...category,image:mediaUrl(category.image)||r2cartLogo}));
    setCategories(mapped);
    storage.set('cached_categories',mapped);
    catalogResult('categories');
@@ -142,7 +142,7 @@ export function AppProvider({children}){
  const refreshProducts=async(retryCount=0)=>{
   try{
    const rows=await catalogService.listProducts();
-   const mapped=rows.map(product=>({...product,image:mediaUrl(product.image)||grocifyLogo,images:(product.images||[]).map(mediaUrl)}));
+   const mapped=rows.map(product=>({...product,image:mediaUrl(product.image)||r2cartLogo,images:(product.images||[]).map(mediaUrl)}));
    setProducts(mapped);
    storage.set('cached_products',mapped);
    catalogResult('products');
@@ -224,7 +224,7 @@ export function AppProvider({children}){
     return [];
   }
  };
- useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('grocify:categories-updated',refresh);window.addEventListener('grocify:products-updated',refresh);window.addEventListener('grocify:banners-updated',refresh);window.addEventListener('grocify:delivery-updated',refresh);window.addEventListener('grocify:settings-updated',refresh);return()=>{window.removeEventListener('grocify:categories-updated',refresh);window.removeEventListener('grocify:products-updated',refresh);window.removeEventListener('grocify:banners-updated',refresh);window.removeEventListener('grocify:delivery-updated',refresh);window.removeEventListener('grocify:settings-updated',refresh)}},[]);
+ useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('r2cart:categories-updated',refresh);window.addEventListener('r2cart:products-updated',refresh);window.addEventListener('r2cart:banners-updated',refresh);window.addEventListener('r2cart:delivery-updated',refresh);window.addEventListener('r2cart:settings-updated',refresh);return()=>{window.removeEventListener('r2cart:categories-updated',refresh);window.removeEventListener('r2cart:products-updated',refresh);window.removeEventListener('r2cart:banners-updated',refresh);window.removeEventListener('r2cart:delivery-updated',refresh);window.removeEventListener('r2cart:settings-updated',refresh)}},[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
  const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);const comingSoon=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];const catSlug=product?.categorySlug||product?.category?.slug||product?.category;if(quantity>0&&catSlug&&comingSoon.includes(catSlug)){notify('Products from this category are coming soon and cannot be ordered yet','error');return false}if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
  const add=id=>{const quantity=(cart[id]||0)+1;if(!canSetQuantity(id,quantity))return;setCart(current=>({...current,[id]:quantity}));syncCart(id,quantity);notify('Added to your basket')};

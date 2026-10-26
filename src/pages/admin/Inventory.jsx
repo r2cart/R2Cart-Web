@@ -127,7 +127,7 @@ export function AdminInventory() {
       setAdjustmentReason('');
       await loadOverview(pagination.page);
       await refreshProducts();
-      window.dispatchEvent(new Event('grocify:products-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
     } catch (err) {
       notify(err.message, 'error');
     } finally {
@@ -178,7 +178,7 @@ export function AdminInventory() {
 
   // Export CSV
   const handleExportCSV = () => {
-    const token = localStorage.getItem('grocify-admin-access-token');
+    const token = localStorage.getItem('r2cart-admin-access-token');
     const url = `/api/v1/admin/inventory/export`;
     // Trigger download with auth header
     fetch(url, {

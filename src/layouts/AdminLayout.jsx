@@ -55,7 +55,7 @@ const NAV_LINKS = [
 
 function getStoredUser() {
   try {
-    const raw = localStorage.getItem('grocify-admin-user');
+    const raw = localStorage.getItem('r2cart-admin-user');
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -108,7 +108,7 @@ export default function AdminLayout({ children }) {
   // Always refresh permissions and active status from authenticated backend source
   useEffect(() => {
     let mounted = true;
-    const token = localStorage.getItem('grocify-admin-access-token');
+    const token = localStorage.getItem('r2cart-admin-access-token');
     if (!token) {
       window.location.replace(loginUrl);
       return;
@@ -135,7 +135,7 @@ export default function AdminLayout({ children }) {
         }
 
         setUser(freshUser);
-        localStorage.setItem('grocify-admin-user', JSON.stringify(freshUser));
+        localStorage.setItem('r2cart-admin-user', JSON.stringify(freshUser));
         setAuthRefreshing(false);
       })
       .catch(err => {
@@ -153,7 +153,7 @@ export default function AdminLayout({ children }) {
           return;
         }
         // If temporary 401 but refresh token exists, do NOT nuke the session
-        const refToken = localStorage.getItem('grocify-admin-refresh-token');
+        const refToken = localStorage.getItem('r2cart-admin-refresh-token');
         if (refToken) {
           setAuthRefreshing(false);
           return;

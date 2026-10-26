@@ -162,8 +162,8 @@ export function DeliveryDashboard() {
   };
 
   useEffect(() => {
-    const deliveryToken = localStorage.getItem('grocify-delivery-access-token') || localStorage.getItem('grocify-access-token');
-    const raw = localStorage.getItem('grocify-delivery-user') || localStorage.getItem('grocify-user');
+    const deliveryToken = localStorage.getItem('r2cart-delivery-access-token') || localStorage.getItem('r2cart-access-token');
+    const raw = localStorage.getItem('r2cart-delivery-user') || localStorage.getItem('r2cart-user');
     let u = null;
     try { u = raw ? JSON.parse(raw) : null; } catch {}
     if (!deliveryToken || !u || u.role === 'CUSTOMER') {

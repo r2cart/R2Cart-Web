@@ -188,13 +188,13 @@ export function CheckoutPage() {
   // Delivery instructions state
   const [selectedInstructions, setSelectedInstructions] = useState(() => {
     try {
-      const saved = sessionStorage.getItem('grocify-delivery-instruction-presets');
+      const saved = sessionStorage.getItem('r2cart-delivery-instruction-presets');
       return saved ? JSON.parse(saved) : ['Call on arrival'];
     } catch {
       return ['Call on arrival'];
     }
   });
-  const [customNote, setCustomNote] = useState(() => sessionStorage.getItem('grocify-custom-note') || '');
+  const [customNote, setCustomNote] = useState(() => sessionStorage.getItem('r2cart-custom-note') || '');
 
   // Coupons state
   const [coupons, setCoupons] = useState([]);
@@ -202,8 +202,8 @@ export function CheckoutPage() {
   const [applying, setApplying] = useState('');
   const [couponInput, setCouponInput] = useState('');
   const [coupon, setCoupon] = useState(() => {
-    const code = sessionStorage.getItem('grocify-coupon');
-    const discount = Number(sessionStorage.getItem('grocify-coupon-discount') || 0);
+    const code = sessionStorage.getItem('r2cart-coupon');
+    const discount = Number(sessionStorage.getItem('r2cart-coupon-discount') || 0);
     return code ? { code, discount } : null;
   });
 
@@ -224,13 +224,13 @@ export function CheckoutPage() {
         .catch(() => {});
     };
     fetchTodaySlots();
-    window.addEventListener('grocify:slots-updated', fetchTodaySlots);
-    window.addEventListener('grocify:settings-updated', fetchTodaySlots);
+    window.addEventListener('r2cart:slots-updated', fetchTodaySlots);
+    window.addEventListener('r2cart:settings-updated', fetchTodaySlots);
     window.addEventListener('focus', fetchTodaySlots);
     return () => {
       active = false;
-      window.removeEventListener('grocify:slots-updated', fetchTodaySlots);
-      window.removeEventListener('grocify:settings-updated', fetchTodaySlots);
+      window.removeEventListener('r2cart:slots-updated', fetchTodaySlots);
+      window.removeEventListener('r2cart:settings-updated', fetchTodaySlots);
       window.removeEventListener('focus', fetchTodaySlots);
     };
   }, [todayId]);
@@ -292,8 +292,8 @@ export function CheckoutPage() {
 
   // Require login on checkout
   useEffect(() => {
-    if (!user && !localStorage.getItem('grocify-access-token')) {
-      sessionStorage.setItem('grocify-auth-redirect', '/checkout');
+    if (!user && !localStorage.getItem('r2cart-access-token')) {
+      sessionStorage.setItem('r2cart-auth-redirect', '/checkout');
       openAuthModal('order');
       nav('/cart', { replace: true });
     }
@@ -331,17 +331,17 @@ export function CheckoutPage() {
       if (selectedDate?.id) loadDeliverySlots(selectedDate.id);
     };
     const handleStorage = (e) => {
-      if (e.key === 'grocify-slots-updated' && selectedDate?.id) {
+      if (e.key === 'r2cart-slots-updated' && selectedDate?.id) {
         loadDeliverySlots(selectedDate.id);
       }
     };
-    window.addEventListener('grocify:slots-updated', handleRefresh);
-    window.addEventListener('grocify:settings-updated', handleRefresh);
+    window.addEventListener('r2cart:slots-updated', handleRefresh);
+    window.addEventListener('r2cart:settings-updated', handleRefresh);
     window.addEventListener('storage', handleStorage);
     window.addEventListener('focus', handleRefresh);
     return () => {
-      window.removeEventListener('grocify:slots-updated', handleRefresh);
-      window.removeEventListener('grocify:settings-updated', handleRefresh);
+      window.removeEventListener('r2cart:slots-updated', handleRefresh);
+      window.removeEventListener('r2cart:settings-updated', handleRefresh);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('focus', handleRefresh);
     };
@@ -604,8 +604,8 @@ export function CheckoutPage() {
       const next = { code: result.code, discount: Number(result.discount) };
       setCoupon(next);
       setCouponInput('');
-      sessionStorage.setItem('grocify-coupon', next.code);
-      sessionStorage.setItem('grocify-coupon-discount', String(next.discount));
+      sessionStorage.setItem('r2cart-coupon', next.code);
+      sessionStorage.setItem('r2cart-coupon-discount', String(next.discount));
       notify(`Coupon ${next.code} applied! You save ${money(next.discount)}`);
     } catch (error) {
       notify(error.message || 'Invalid coupon code', 'error');
@@ -617,8 +617,8 @@ export function CheckoutPage() {
   const removeCoupon = () => {
     setCoupon(null);
     setCouponInput('');
-    sessionStorage.removeItem('grocify-coupon');
-    sessionStorage.removeItem('grocify-coupon-discount');
+    sessionStorage.removeItem('r2cart-coupon');
+    sessionStorage.removeItem('r2cart-coupon-discount');
     notify('Coupon removed');
   };
 
@@ -699,13 +699,13 @@ export function CheckoutPage() {
       });
 
       sessionStorage.setItem('last-order', JSON.stringify(order));
-      sessionStorage.removeItem('grocify-coupon');
-      sessionStorage.removeItem('grocify-coupon-discount');
+      sessionStorage.removeItem('r2cart-coupon');
+      sessionStorage.removeItem('r2cart-coupon-discount');
       setOrderList((current) => [order, ...current]);
       setCart({});
       await refreshProducts();
-      window.dispatchEvent(new Event('grocify:products-updated'));
-      window.dispatchEvent(new Event('grocify:orders-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
+      window.dispatchEvent(new Event('r2cart:orders-updated'));
       notify('Order placed successfully! 🎉');
       nav('/order-success');
     } catch (error) {

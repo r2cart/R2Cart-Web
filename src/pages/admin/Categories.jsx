@@ -73,7 +73,7 @@ export function AdminCategories(){
     });
     adminCategoriesCache=null;
     await refreshCategories();
-    window.dispatchEvent(new Event('grocify:categories-updated'));
+    window.dispatchEvent(new Event('r2cart:categories-updated'));
     notify(`Image for "${cat.name}" updated successfully`,'success');
    }
   }catch(err){
@@ -158,7 +158,7 @@ export function AdminCategories(){
 
    setEdit(null);
    await refreshCategories();
-   window.dispatchEvent(new Event('grocify:categories-updated'));
+   window.dispatchEvent(new Event('r2cart:categories-updated'));
    notify(edit?.id?`Category "${category.name}" saved (order updated)`:`Category "${category.name}" added successfully`,'success');
   }catch(err){
    notify(err.message || 'Failed to save category','error');
@@ -177,7 +177,7 @@ export function AdminCategories(){
    adminCategoriesCache=null;
    setRemove(null);
    await refreshCategories();
-   window.dispatchEvent(new Event('grocify:categories-updated'));
+   window.dispatchEvent(new Event('r2cart:categories-updated'));
    notify(`Category "${category.name}" deleted successfully`,'success');
   }catch(err){
    notify(err.message || 'Failed to delete category','error');

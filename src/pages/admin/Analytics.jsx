@@ -40,7 +40,7 @@ import { adminService } from '../../services/admin.service';
 
 function getAdminUser() {
   try {
-    return JSON.parse(localStorage.getItem('grocify-admin-user')) || null;
+    return JSON.parse(localStorage.getItem('r2cart-admin-user')) || null;
   } catch {
     return null;
   }

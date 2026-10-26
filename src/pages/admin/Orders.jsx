@@ -1,6 +1,6 @@
 function getAdminUser() {
   try {
-    return JSON.parse(localStorage.getItem('grocify-admin-user')) || null;
+    return JSON.parse(localStorage.getItem('r2cart-admin-user')) || null;
   } catch {
     return null;
   }
@@ -463,8 +463,8 @@ export function AdminOrderDetails() {
       setOrder(value);
       setStatus(value.status);
       await refreshProducts();
-      window.dispatchEvent(new Event('grocify:orders-updated'));
-      window.dispatchEvent(new Event('grocify:products-updated'));
+      window.dispatchEvent(new Event('r2cart:orders-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
       notify(`Order updated to ${targetStatus}`);
     } catch (reason) {
       notify(reason.message, 'error');
@@ -479,8 +479,8 @@ export function AdminOrderDetails() {
       setOrder(updated);
       setStatus(updated.status);
       await refreshProducts();
-      window.dispatchEvent(new Event('grocify:orders-updated'));
-      window.dispatchEvent(new Event('grocify:products-updated'));
+      window.dispatchEvent(new Event('r2cart:orders-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
       notify('Order items and total updated successfully');
     } catch (err) {
       notify(err.message || 'Failed to update order item', 'error');

@@ -30,7 +30,7 @@ export function AuthPromptModal(){
    notify(`Welcome back, ${user.name||'Shopper'}!`);
    closeAuthModal();
    if(isOrder){
-    sessionStorage.removeItem('grocify-auth-redirect');
+    sessionStorage.removeItem('r2cart-auth-redirect');
     nav('/checkout');
    }else{
     setTimeout(()=>{
@@ -49,7 +49,7 @@ export function AuthPromptModal(){
  };
 
  const handleGoToSignup=()=>{
-  if(isOrder)sessionStorage.setItem('grocify-auth-redirect','/checkout');
+  if(isOrder)sessionStorage.setItem('r2cart-auth-redirect','/checkout');
   closeAuthModal();
   nav(isOrder?'/signup?redirect=/checkout':'/signup');
  };

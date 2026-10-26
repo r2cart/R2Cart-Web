@@ -458,11 +458,11 @@ export function AdminSettings(){
     updatedParts.push('Login Email (ID)');
 
     try {
-     const storedUser = localStorage.getItem('grocify-admin-user');
+     const storedUser = localStorage.getItem('r2cart-admin-user');
      if (storedUser) {
       const parsed = JSON.parse(storedUser);
       parsed.email = savedEmail;
-      localStorage.setItem('grocify-admin-user', JSON.stringify(parsed));
+      localStorage.setItem('r2cart-admin-user', JSON.stringify(parsed));
      }
     } catch {}
    }
@@ -648,8 +648,8 @@ export function AdminSettings(){
    lastSettingsFetch=Date.now();
    setSettings(data);
    setSaved(data);
-   window.dispatchEvent(new Event('grocify:settings-updated'));
-   window.dispatchEvent(new Event('grocify:delivery-updated'));
+   window.dispatchEvent(new Event('r2cart:settings-updated'));
+   window.dispatchEvent(new Event('r2cart:delivery-updated'));
    const navObj=policyNav.find(p=>p.type===pKey);
    notify(`Saved and published ${navObj?.label || pKey} live!`);
   }catch(error){
@@ -902,8 +902,8 @@ export function AdminSettings(){
    lastSettingsFetch=Date.now();
    setSettings(data);
    setSaved(data);
-   window.dispatchEvent(new Event('grocify:settings-updated'));
-   window.dispatchEvent(new Event('grocify:delivery-updated'));
+   window.dispatchEvent(new Event('r2cart:settings-updated'));
+   window.dispatchEvent(new Event('r2cart:delivery-updated'));
    notify('Store settings, storefront layout and policy CMS saved');
   }catch(error){
    notify(error.message,'error');

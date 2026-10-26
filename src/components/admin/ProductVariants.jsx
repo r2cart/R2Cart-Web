@@ -51,7 +51,7 @@ export default function ProductVariants({ productId }) {
       setShowAddForm(false);
       await load();
       await refreshProducts();
-      window.dispatchEvent(new Event('grocify:products-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
       notify('New pack size saved successfully');
     } catch (reason) {
       notify(reason.message, 'error');

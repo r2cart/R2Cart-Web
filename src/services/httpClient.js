@@ -13,21 +13,21 @@ const isAdminPath=path=>path.startsWith('/admin')||path.startsWith('/super-admin
 
 const tokenKey=path=>{
  if(isDeliveryPath(path)){
-  return localStorage.getItem('grocify-delivery-access-token')?'grocify-delivery-access-token':(localStorage.getItem('grocify-admin-access-token')?'grocify-admin-access-token':'grocify-access-token');
+  return localStorage.getItem('r2cart-delivery-access-token')?'r2cart-delivery-access-token':(localStorage.getItem('r2cart-admin-access-token')?'r2cart-admin-access-token':'r2cart-access-token');
  }
- return isAdminPath(path)?'grocify-admin-access-token':'grocify-access-token';
+ return isAdminPath(path)?'r2cart-admin-access-token':'r2cart-access-token';
 };
 const refreshKey=path=>{
  if(isDeliveryPath(path)){
-  return localStorage.getItem('grocify-delivery-refresh-token')?'grocify-delivery-refresh-token':(localStorage.getItem('grocify-admin-refresh-token')?'grocify-admin-refresh-token':'grocify-refresh-token');
+  return localStorage.getItem('r2cart-delivery-refresh-token')?'r2cart-delivery-refresh-token':(localStorage.getItem('r2cart-admin-refresh-token')?'r2cart-admin-refresh-token':'r2cart-refresh-token');
  }
- return isAdminPath(path)?'grocify-admin-refresh-token':'grocify-refresh-token';
+ return isAdminPath(path)?'r2cart-admin-refresh-token':'r2cart-refresh-token';
 };
 const userKey=path=>{
  if(isDeliveryPath(path)){
-  return localStorage.getItem('grocify-delivery-user')?'grocify-delivery-user':(localStorage.getItem('grocify-admin-user')?'grocify-admin-user':'grocify-user');
+  return localStorage.getItem('r2cart-delivery-user')?'r2cart-delivery-user':(localStorage.getItem('r2cart-admin-user')?'r2cart-admin-user':'r2cart-user');
  }
- return isAdminPath(path)?'grocify-admin-user':'grocify-user';
+ return isAdminPath(path)?'r2cart-admin-user':'r2cart-user';
 };
 
 const headersFor=(path,options)=>{
@@ -45,9 +45,9 @@ async function parse(response){
 }
 
 async function refreshSession(isAdmin){
- const activeRefKey=isAdmin?'grocify-admin-refresh-token':'grocify-refresh-token';
- const activeAccKey=isAdmin?'grocify-admin-access-token':'grocify-access-token';
- const activeUsrKey=isAdmin?'grocify-admin-user':'grocify-user';
+ const activeRefKey=isAdmin?'r2cart-admin-refresh-token':'r2cart-refresh-token';
+ const activeAccKey=isAdmin?'r2cart-admin-access-token':'r2cart-access-token';
+ const activeUsrKey=isAdmin?'r2cart-admin-user':'r2cart-user';
  const storedRefToken=localStorage.getItem(activeRefKey);
 
  const doRefresh=async()=>{

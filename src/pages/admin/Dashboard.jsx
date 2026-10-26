@@ -31,7 +31,7 @@ import { hasPermission } from '../../utils/permissions';
 
 function getAdminUser() {
   try {
-    return JSON.parse(localStorage.getItem('grocify-admin-user')) || null;
+    return JSON.parse(localStorage.getItem('r2cart-admin-user')) || null;
   } catch {
     return null;
   }
@@ -101,14 +101,14 @@ export function Dashboard() {
     refresh();
     const timer = setInterval(refresh, 60000);
     
-    window.addEventListener('grocify:orders-updated', refresh);
-    window.addEventListener('grocify:products-updated', refresh);
+    window.addEventListener('r2cart:orders-updated', refresh);
+    window.addEventListener('r2cart:products-updated', refresh);
     return () => {
       active = false;
       clearInterval(timer);
       
-      window.removeEventListener('grocify:orders-updated', refresh);
-      window.removeEventListener('grocify:products-updated', refresh);
+      window.removeEventListener('r2cart:orders-updated', refresh);
+      window.removeEventListener('r2cart:products-updated', refresh);
     };
   }, []);
 

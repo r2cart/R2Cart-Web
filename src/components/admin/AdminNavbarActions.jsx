@@ -63,7 +63,7 @@ export default function AdminNavbarActions(){
   load();
   const timer=setInterval(load,12000);
   
-  window.addEventListener('grocify:settings-updated',load);
+  window.addEventListener('r2cart:settings-updated',load);
 
   // Background push notification event from service worker
   const onSwPush=event=>{
@@ -90,7 +90,7 @@ export default function AdminNavbarActions(){
   return()=>{
    clearInterval(timer);
    
-   window.removeEventListener('grocify:settings-updated',load);
+   window.removeEventListener('r2cart:settings-updated',load);
    if('serviceWorker' in navigator)navigator.serviceWorker.removeEventListener('message',onSwPush);
    document.removeEventListener('pointerdown',close);
   };

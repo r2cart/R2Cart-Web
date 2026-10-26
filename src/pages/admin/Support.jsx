@@ -79,7 +79,7 @@ export function AdminSupport() {
         status,
         message: response.trim() || undefined
       });
-      window.dispatchEvent(new Event('grocify:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
       setSelected(null);
       await load();
       notify('Response saved and ticket updated');

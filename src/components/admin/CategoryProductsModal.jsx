@@ -21,7 +21,7 @@ import { ProductDetailModal } from '../../pages/admin/Products';
 
 function getAdminUser() {
   try {
-    return JSON.parse(localStorage.getItem('grocify-admin-user')) || null;
+    return JSON.parse(localStorage.getItem('r2cart-admin-user')) || null;
   } catch {
     return null;
   }
@@ -75,7 +75,7 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
       await adminService.updateProductStatus(product.id, nextStatus);
       setProducts(curr => curr.map(p => p.id === product.id ? { ...p, status: nextStatus } : p));
       notify(`"${product.name}" is now ${nextStatus === 'ACTIVE' ? 'Active' : 'Inactive'}`, 'success');
-      window.dispatchEvent(new Event('grocify:products-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
     } catch (err) {
       notify(err.message || 'Failed to update product status', 'error');
     } finally {

@@ -1,6 +1,6 @@
 function getAdminUser() {
   try {
-    return JSON.parse(localStorage.getItem('grocify-admin-user')) || null;
+    return JSON.parse(localStorage.getItem('r2cart-admin-user')) || null;
   } catch {
     return null;
   }
@@ -162,11 +162,11 @@ export function AdminProducts(){
      adminCategoryCache.clear();
      setRefresh(v=>v+1);
    };
-   window.addEventListener('grocify:orders-updated',onSync);
-   window.addEventListener('grocify:products-updated',onSync);
+   window.addEventListener('r2cart:orders-updated',onSync);
+   window.addEventListener('r2cart:products-updated',onSync);
    return()=>{
-     window.removeEventListener('grocify:orders-updated',onSync);
-     window.removeEventListener('grocify:products-updated',onSync);
+     window.removeEventListener('r2cart:orders-updated',onSync);
+     window.removeEventListener('r2cart:products-updated',onSync);
    };
  },[]);
 
@@ -178,7 +178,7 @@ export function AdminProducts(){
   try{
     await adminService.updateProductStatus(product.id,next);
     notify(`"${product.name}" is now ${next==='ACTIVE'?'visible in store':'hidden from store'}`,'success');
-    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-action',id:product.id}}));
+    window.dispatchEvent(new CustomEvent('r2cart:products-updated',{detail:{source:'admin-local-action',id:product.id}}));
   }catch(reason){
     notify(reason.message||'Failed to update status','error');
     setList(prev=>prev.map(p=>p.id===product.id?{...p,status:prevStatus}:p));
@@ -194,7 +194,7 @@ export function AdminProducts(){
   try{
     await adminService.updateProductStock(product.id,newStock);
     notify(newStock<=0?`"${product.name}" marked as Sold Out (Unavailable)`:`"${product.name}" marked In Stock (${newStock} units)`,'success');
-    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-action',id:product.id}}));
+    window.dispatchEvent(new CustomEvent('r2cart:products-updated',{detail:{source:'admin-local-action',id:product.id}}));
   }catch(reason){
     notify(reason.message||'Failed to update stock','error');
     setList(prev=>prev.map(p=>p.id===product.id?{...p,stock:prevStock}:p));
@@ -228,7 +228,7 @@ export function AdminProducts(){
   try{
     await adminService.deleteProduct(toRemoveId);
     notify(`"${removedName}" deleted successfully`,'success');
-    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-delete',id:toRemoveId}}));
+    window.dispatchEvent(new CustomEvent('r2cart:products-updated',{detail:{source:'admin-local-delete',id:toRemoveId}}));
   }catch(reason){
     notify(reason.message||'Failed to delete product','error');
     setList(prevList);
@@ -253,7 +253,7 @@ export function AdminProducts(){
   try{
     const res=await adminService.deleteAllProducts();
     notify(res?.message||'All products deleted successfully','success');
-    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-delete'}}));
+    window.dispatchEvent(new CustomEvent('r2cart:products-updated',{detail:{source:'admin-local-delete'}}));
   }catch(reason){
     notify(reason.message||'Failed to delete all products','error');
     setList(prevList);
@@ -298,7 +298,7 @@ export function AdminProducts(){
   try{
     const res=await adminService.deleteProductsByCategory(targetSlug);
     notify(res?.message||`All products in "${targetName}" deleted successfully`,'success');
-    window.dispatchEvent(new CustomEvent('grocify:products-updated',{detail:{source:'admin-local-delete'}}));
+    window.dispatchEvent(new CustomEvent('r2cart:products-updated',{detail:{source:'admin-local-delete'}}));
   }catch(err){
     notify(err.message||'Failed to delete category products','error');
     setList(prevList);
@@ -1385,7 +1385,7 @@ export function ProductForm(){
       adminCategoryCache.clear();
 
       refreshProducts().catch(() => {});
-      window.dispatchEvent(new CustomEvent('grocify:products-updated', { detail: { source: 'admin-local-action', product: savedProduct } }));
+      window.dispatchEvent(new CustomEvent('r2cart:products-updated', { detail: { source: 'admin-local-action', product: savedProduct } }));
       notify(id ? 'Product and all pack sizes updated' : 'Product and all pack sizes published');
       nav(`${basePath}/products`);
    } catch (error) {

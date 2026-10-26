@@ -333,8 +333,8 @@ export function AdminDelivery() {
   }, []);
 
   const publishUpdate = () => {
-    window.dispatchEvent(new Event('grocify:delivery-updated'));
-    window.dispatchEvent(new Event('grocify:settings-updated'));
+    window.dispatchEvent(new Event('r2cart:delivery-updated'));
+    window.dispatchEvent(new Event('r2cart:settings-updated'));
   };
 
   // Village Handlers

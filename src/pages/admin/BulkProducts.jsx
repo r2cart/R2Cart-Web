@@ -168,7 +168,7 @@ export default function BulkProducts(){
    setRows([]);
    setPreview([]);
    await refreshProducts();
-   window.dispatchEvent(new Event('grocify:products-updated'));
+   window.dispatchEvent(new Event('r2cart:products-updated'));
    notify(`Bulk update completed: ${result.updated||0} updated, ${result.created||0} created!`);
   }catch(reason){
    setError(reason.message);

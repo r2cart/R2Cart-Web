@@ -352,7 +352,7 @@ export function getPolicyContent(s){
      title:'2. Essential Cookies (Strictly Necessary)',
      text:`These cookies and storage keys are fundamental to the operation of ${s.storeName} and cannot be disabled without breaking website functionality:`,
      bullets:[
-      'Authentication Token (grocify-access-token): Securely stores your encrypted login session so you stay signed in.',
+      'Authentication Token (r2cart-access-token): Securely stores your encrypted login session so you stay signed in.',
       'Shopping Basket Cache: Remembers products added to your cart even if you refresh or switch pages.',
       'Service Locality Preference: Stores your chosen delivery address locality so product pricing and live stock correspond to your area.',
       'Security & CSRF Tokens: Protect against automated cross-site forgery attacks.'

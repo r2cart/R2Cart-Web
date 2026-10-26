@@ -426,7 +426,7 @@ export function AccountPage() {
         onConfirm={async () => {
           const { logout } = await import('../../services/auth.service').then(m => ({ logout: m.authService.logout }));
           try { await logout(); } catch {}
-          localStorage.removeItem('grocify-access-token');
+          localStorage.removeItem('r2cart-access-token');
           window.location.assign('/');
         }}
       />

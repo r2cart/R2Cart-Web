@@ -10,7 +10,7 @@ export function AdminCoupons(){
  const [list,setList]=useState([]),[edit,setEdit]=useState(null),[remove,setRemove]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const load=async()=>{setLoading(true);setError('');try{setList(await adminService.coupons())}catch(reason){setList([]);setError(reason.message)}finally{setLoading(false)}};
  useEffect(()=>{load()},[]);
- const publish=()=>window.dispatchEvent(new Event('grocify:coupons-updated'));
+ const publish=()=>window.dispatchEvent(new Event('r2cart:coupons-updated'));
  const save=async value=>{setBusy(true);try{if(edit.id)await adminService.updateCoupon(edit.id,value);else await adminService.createCoupon(value);setEdit(null);await load();publish();notify(`Coupon "${value.code}" saved successfully`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy(false)}};
  const destroy=async()=>{setBusy(true);try{await adminService.deleteCoupon(remove.id);setList(items=>items.filter(item=>item.id!==remove.id));publish();notify(`Coupon "${remove.code}" deleted successfully`,'success')}catch(reason){notify(reason.message,'error');return false}finally{setBusy(false)}};
  const toggle=async coupon=>{setBusy(true);try{await adminService.updateCouponStatus(coupon.id,coupon.status==='ACTIVE'?'INACTIVE':'ACTIVE');await load();publish();notify(`Coupon "${coupon.code}" is now ${coupon.status==='ACTIVE'?'inactive':'active'}`,'success')}catch(reason){notify(reason.message,'error')}finally{setBusy(false)}};

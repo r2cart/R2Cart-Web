@@ -66,7 +66,7 @@ export function EmergencyPauseManager({ storeSettings, onUpdated, notify }) {
         setIsPaused(overridePausedState);
       }
       if (onUpdated) onUpdated(res);
-      window.dispatchEvent(new Event('grocify:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
       notify(activePaused ? '🚨 Store orders PAUSED. Customers cannot place new orders.' : '🟢 Store orders RESUMED successfully.');
     } catch (err) {
       notify(err.message || 'Failed to update store pause status', 'error');

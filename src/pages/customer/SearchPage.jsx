@@ -86,12 +86,12 @@ export function SearchPage() {
       try {
         let history = user
           ? await customerService.searchHistory()
-          : JSON.parse(localStorage.getItem('grocify-search-history') || '[]');
+          : JSON.parse(localStorage.getItem('r2cart-search-history') || '[]');
         const query = initialQuery.trim();
         if (query.length >= 2) {
           if (user) await customerService.saveSearch(query).catch(() => {});
           history = [query, ...history.filter((item) => item.toLowerCase() !== query.toLowerCase())].slice(0, 8);
-          if (!user) localStorage.setItem('grocify-search-history', JSON.stringify(history));
+          if (!user) localStorage.setItem('r2cart-search-history', JSON.stringify(history));
         }
         if (active) setRecent(history);
       } catch (error) {
@@ -133,7 +133,7 @@ export function SearchPage() {
         if (trimmed.length >= 2) {
           setRecent((items) => {
             const next = [trimmed, ...items.filter((item) => item.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
-            if (!user) localStorage.setItem('grocify-search-history', JSON.stringify(next));
+            if (!user) localStorage.setItem('r2cart-search-history', JSON.stringify(next));
             return next;
           });
           if (user) customerService.saveSearch(trimmed).catch(() => {});
@@ -178,7 +178,7 @@ export function SearchPage() {
     try {
       const next = recent.filter((item) => item !== val);
       if (user) await customerService.removeSearch(val);
-      else localStorage.setItem('grocify-search-history', JSON.stringify(next));
+      else localStorage.setItem('r2cart-search-history', JSON.stringify(next));
       setRecent(next);
     } catch {}
   };
@@ -186,7 +186,7 @@ export function SearchPage() {
   const clearRecent = async () => {
     try {
       if (user) await customerService.clearSearchHistory();
-      else localStorage.removeItem('grocify-search-history');
+      else localStorage.removeItem('r2cart-search-history');
       setRecent([]);
       if (notify) notify('Search history cleared');
     } catch {}

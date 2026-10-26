@@ -1,61 +1,61 @@
 import {api} from './httpClient';
 
 const save=session=>{
- localStorage.setItem('grocify-access-token',session.accessToken);
- if(session.refreshToken)localStorage.setItem('grocify-refresh-token',session.refreshToken);
- localStorage.setItem('grocify-user',JSON.stringify(session.user));
+ localStorage.setItem('r2cart-access-token',session.accessToken);
+ if(session.refreshToken)localStorage.setItem('r2cart-refresh-token',session.refreshToken);
+ localStorage.setItem('r2cart-user',JSON.stringify(session.user));
 
  const isDelivery = session.user?.role === 'DELIVERY_PERSON' || session.user?.staffRole === 'DELIVERY_PERSON';
  const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(session.user?.role) || ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(session.user?.staffRole);
 
  if (isDelivery) {
-  localStorage.setItem('grocify-delivery-access-token', session.accessToken);
-  if (session.refreshToken) localStorage.setItem('grocify-delivery-refresh-token', session.refreshToken);
-  localStorage.setItem('grocify-delivery-user', JSON.stringify(session.user));
-  localStorage.setItem('grocify-delivery', 'true');
+  localStorage.setItem('r2cart-delivery-access-token', session.accessToken);
+  if (session.refreshToken) localStorage.setItem('r2cart-delivery-refresh-token', session.refreshToken);
+  localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
+  localStorage.setItem('r2cart-delivery', 'true');
  }
 
  if (isAdmin) {
-  localStorage.setItem('grocify-admin-access-token', session.accessToken);
-  if (session.refreshToken) localStorage.setItem('grocify-admin-refresh-token', session.refreshToken);
-  localStorage.setItem('grocify-admin-user', JSON.stringify(session.user));
-  localStorage.setItem('grocify-admin', 'true');
+  localStorage.setItem('r2cart-admin-access-token', session.accessToken);
+  if (session.refreshToken) localStorage.setItem('r2cart-admin-refresh-token', session.refreshToken);
+  localStorage.setItem('r2cart-admin-user', JSON.stringify(session.user));
+  localStorage.setItem('r2cart-admin', 'true');
  }
 
  return session.user;
 };
 
 const saveAdmin=session=>{
- localStorage.setItem('grocify-admin-access-token',session.accessToken);
- if(session.refreshToken)localStorage.setItem('grocify-admin-refresh-token',session.refreshToken);
- localStorage.setItem('grocify-admin-user',JSON.stringify(session.user));
- localStorage.setItem('grocify-admin','true');
+ localStorage.setItem('r2cart-admin-access-token',session.accessToken);
+ if(session.refreshToken)localStorage.setItem('r2cart-admin-refresh-token',session.refreshToken);
+ localStorage.setItem('r2cart-admin-user',JSON.stringify(session.user));
+ localStorage.setItem('r2cart-admin','true');
 
  // Also save generic user session
- localStorage.setItem('grocify-access-token',session.accessToken);
- if(session.refreshToken)localStorage.setItem('grocify-refresh-token',session.refreshToken);
- localStorage.setItem('grocify-user',JSON.stringify(session.user));
+ localStorage.setItem('r2cart-access-token',session.accessToken);
+ if(session.refreshToken)localStorage.setItem('r2cart-refresh-token',session.refreshToken);
+ localStorage.setItem('r2cart-user',JSON.stringify(session.user));
 
  if (session.user?.role === 'DELIVERY_PERSON' || session.user?.staffRole === 'DELIVERY_PERSON') {
-  localStorage.setItem('grocify-delivery-access-token', session.accessToken);
-  if (session.refreshToken) localStorage.setItem('grocify-delivery-refresh-token', session.refreshToken);
-  localStorage.setItem('grocify-delivery-user', JSON.stringify(session.user));
-  localStorage.setItem('grocify-delivery', 'true');
+  localStorage.setItem('r2cart-delivery-access-token', session.accessToken);
+  if (session.refreshToken) localStorage.setItem('r2cart-delivery-refresh-token', session.refreshToken);
+  localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
+  localStorage.setItem('r2cart-delivery', 'true');
  }
 
  return session.user;
 };
 
 const saveDelivery=session=>{
- localStorage.setItem('grocify-delivery-access-token',session.accessToken);
- if(session.refreshToken)localStorage.setItem('grocify-delivery-refresh-token',session.refreshToken);
- localStorage.setItem('grocify-delivery-user',JSON.stringify(session.user));
- localStorage.setItem('grocify-delivery','true');
+ localStorage.setItem('r2cart-delivery-access-token',session.accessToken);
+ if(session.refreshToken)localStorage.setItem('r2cart-delivery-refresh-token',session.refreshToken);
+ localStorage.setItem('r2cart-delivery-user',JSON.stringify(session.user));
+ localStorage.setItem('r2cart-delivery','true');
 
  // Also save generic user session
- localStorage.setItem('grocify-access-token',session.accessToken);
- if(session.refreshToken)localStorage.setItem('grocify-refresh-token',session.refreshToken);
- localStorage.setItem('grocify-user',JSON.stringify(session.user));
+ localStorage.setItem('r2cart-access-token',session.accessToken);
+ if(session.refreshToken)localStorage.setItem('r2cart-refresh-token',session.refreshToken);
+ localStorage.setItem('r2cart-user',JSON.stringify(session.user));
 
  return session.user;
 };
@@ -81,34 +81,34 @@ export const authService={
  me:()=>api.get('/auth/me'),
  async logout(){
   try{
-   const refreshToken=localStorage.getItem('grocify-refresh-token');
+   const refreshToken=localStorage.getItem('r2cart-refresh-token');
    await api.post('/auth/logout',{refreshToken}).catch(()=>{});
   }finally{
-   localStorage.removeItem('grocify-access-token');
-   localStorage.removeItem('grocify-refresh-token');
-   localStorage.removeItem('grocify-user');
+   localStorage.removeItem('r2cart-access-token');
+   localStorage.removeItem('r2cart-refresh-token');
+   localStorage.removeItem('r2cart-user');
   }
  },
  async adminLogout(){
   try{
-   const refreshToken=localStorage.getItem('grocify-admin-refresh-token');
+   const refreshToken=localStorage.getItem('r2cart-admin-refresh-token');
    await api.post('/auth/logout',{refreshToken}).catch(()=>{});
   }finally{
-   localStorage.removeItem('grocify-admin-access-token');
-   localStorage.removeItem('grocify-admin-refresh-token');
-   localStorage.removeItem('grocify-admin-user');
-   localStorage.removeItem('grocify-admin');
+   localStorage.removeItem('r2cart-admin-access-token');
+   localStorage.removeItem('r2cart-admin-refresh-token');
+   localStorage.removeItem('r2cart-admin-user');
+   localStorage.removeItem('r2cart-admin');
   }
  },
  async deliveryLogout(){
   try{
-   const refreshToken=localStorage.getItem('grocify-delivery-refresh-token');
+   const refreshToken=localStorage.getItem('r2cart-delivery-refresh-token');
    await api.post('/auth/logout',{refreshToken}).catch(()=>{});
   }finally{
-   localStorage.removeItem('grocify-delivery-access-token');
-   localStorage.removeItem('grocify-delivery-refresh-token');
-   localStorage.removeItem('grocify-delivery-user');
-   localStorage.removeItem('grocify-delivery');
+   localStorage.removeItem('r2cart-delivery-access-token');
+   localStorage.removeItem('r2cart-delivery-refresh-token');
+   localStorage.removeItem('r2cart-delivery-user');
+   localStorage.removeItem('r2cart-delivery');
   }
  }
 };

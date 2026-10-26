@@ -67,7 +67,7 @@ const addressLine = address =>
 
 function getAdminUser() {
   try {
-    const raw = localStorage.getItem('grocify-admin-user');
+    const raw = localStorage.getItem('r2cart-admin-user');
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

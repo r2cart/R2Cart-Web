@@ -126,7 +126,7 @@ export function AdminEmergency() {
       notify('🚨 Emergency restrictions activated. Customer announcements published.');
       setActivateModal(false);
       await loadAll();
-      window.dispatchEvent(new Event('grocify:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
     } catch (err) {
       notify(err.message || 'Failed to activate emergency restrictions', 'error');
     } finally {
@@ -141,7 +141,7 @@ export function AdminEmergency() {
       notify('🟢 Emergency restrictions lifted. Normal store operations resumed.');
       setConfirmDeactivate(false);
       await loadAll();
-      window.dispatchEvent(new Event('grocify:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
     } catch (err) {
       notify(err.message || 'Failed to deactivate emergency restrictions', 'error');
     } finally {

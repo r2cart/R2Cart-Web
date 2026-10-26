@@ -53,10 +53,10 @@ export function CartPage() {
   const rules = activeDeliveryRules || deliveryConfig;
 
   // Coupon state
-  const [coupon, setCoupon] = useState(() => sessionStorage.getItem('grocify-coupon') || '');
+  const [coupon, setCoupon] = useState(() => sessionStorage.getItem('r2cart-coupon') || '');
   const [applied, setApplied] = useState(() => {
-    const code = sessionStorage.getItem('grocify-coupon');
-    const discount = Number(sessionStorage.getItem('grocify-coupon-discount') || 0);
+    const code = sessionStorage.getItem('r2cart-coupon');
+    const discount = Number(sessionStorage.getItem('r2cart-coupon-discount') || 0);
     return code ? { code, discount } : null;
   });
   const [applying, setApplying] = useState(false);
@@ -65,14 +65,14 @@ export function CartPage() {
   // Delivery instructions state
   const [selectedInstructions, setSelectedInstructions] = useState(() => {
     try {
-      const saved = sessionStorage.getItem('grocify-delivery-instruction-presets');
+      const saved = sessionStorage.getItem('r2cart-delivery-instruction-presets');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
-  const [customNote, setCustomNote] = useState(() => sessionStorage.getItem('grocify-custom-note') || '');
-  const [showNoteInput, setShowNoteInput] = useState(() => Boolean(sessionStorage.getItem('grocify-custom-note')));
+  const [customNote, setCustomNote] = useState(() => sessionStorage.getItem('r2cart-custom-note') || '');
+  const [showNoteInput, setShowNoteInput] = useState(() => Boolean(sessionStorage.getItem('r2cart-custom-note')));
 
   const [hasModalOpen, setHasModalOpen] = useState(false);
 
@@ -107,10 +107,10 @@ export function CartPage() {
 
   // Sync instruction changes to session
   useEffect(() => {
-    sessionStorage.setItem('grocify-delivery-instruction-presets', JSON.stringify(selectedInstructions));
-    sessionStorage.setItem('grocify-custom-note', customNote);
+    sessionStorage.setItem('r2cart-delivery-instruction-presets', JSON.stringify(selectedInstructions));
+    sessionStorage.setItem('r2cart-custom-note', customNote);
     const combined = [...selectedInstructions, customNote].filter(Boolean).join('. ');
-    sessionStorage.setItem('grocify-delivery-instruction', combined || 'Call before delivery');
+    sessionStorage.setItem('r2cart-delivery-instruction', combined || 'Call before delivery');
   }, [selectedInstructions, customNote]);
 
   const toggleInstruction = (label) => {
@@ -143,13 +143,13 @@ export function CartPage() {
       const value = { code: result.code, discount: Number(result.discount) };
       setApplied(value);
       setCoupon(result.code);
-      sessionStorage.setItem('grocify-coupon', result.code);
-      sessionStorage.setItem('grocify-coupon-discount', String(result.discount));
+      sessionStorage.setItem('r2cart-coupon', result.code);
+      sessionStorage.setItem('r2cart-coupon-discount', String(result.discount));
       notify(`Coupon applied! You save ${money(result.discount)}`);
     } catch (error) {
       setApplied(null);
-      sessionStorage.removeItem('grocify-coupon');
-      sessionStorage.removeItem('grocify-coupon-discount');
+      sessionStorage.removeItem('r2cart-coupon');
+      sessionStorage.removeItem('r2cart-coupon-discount');
       notify(error.message || 'Invalid or expired coupon', 'error');
     } finally {
       setApplying(false);
@@ -159,8 +159,8 @@ export function CartPage() {
   const removeCoupon = () => {
     setApplied(null);
     setCoupon('');
-    sessionStorage.removeItem('grocify-coupon');
-    sessionStorage.removeItem('grocify-coupon-discount');
+    sessionStorage.removeItem('r2cart-coupon');
+    sessionStorage.removeItem('r2cart-coupon-discount');
     notify('Coupon removed');
   };
 
@@ -185,8 +185,8 @@ export function CartPage() {
         'error'
       );
     }
-    if (!user && !localStorage.getItem('grocify-access-token')) {
-      sessionStorage.setItem('grocify-auth-redirect', '/checkout');
+    if (!user && !localStorage.getItem('r2cart-access-token')) {
+      sessionStorage.setItem('r2cart-auth-redirect', '/checkout');
       openAuthModal('order');
       return;
     }

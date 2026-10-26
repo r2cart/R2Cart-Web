@@ -75,8 +75,8 @@ export function AdminBanners(){
  },[]);
 
  const publish=()=>{
-  window.dispatchEvent(new Event('grocify:banners-updated'));
-  window.dispatchEvent(new Event('grocify:settings-updated'));
+  window.dispatchEvent(new Event('r2cart:banners-updated'));
+  window.dispatchEvent(new Event('r2cart:settings-updated'));
  };
 
  const uploadVisual=async (event, fieldName)=>{

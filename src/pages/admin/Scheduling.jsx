@@ -326,7 +326,7 @@ export function AdminScheduling() {
       });
       notify('Store operating hours & rules saved successfully');
       await loadData();
-      window.dispatchEvent(new Event('grocify:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
     } catch (err) {
       notify(err.message, 'error');
     } finally {
@@ -436,10 +436,10 @@ export function AdminScheduling() {
       await loadData();
 
       // Dispatch cross-tab & storage events so checkout immediately reflects slot changes
-      window.dispatchEvent(new Event('grocify:slots-updated'));
-      window.dispatchEvent(new Event('grocify:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:slots-updated'));
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
       try {
-        localStorage.setItem('grocify-slots-updated', String(Date.now()));
+        localStorage.setItem('r2cart-slots-updated', String(Date.now()));
       } catch (_) {}
     } catch (err) {
       notify(err.message, 'error');
@@ -454,9 +454,9 @@ export function AdminScheduling() {
       await adminService.updateDeliverySlotStatus(slot.id, nextStatus);
       setSlotsList(curr => curr.map(s => (s.id === slot.id ? { ...s, status: nextStatus } : s)));
       notify(`Slot ${nextStatus === 'ACTIVE' ? 'activated' : 'disabled'}`);
-      window.dispatchEvent(new Event('grocify:slots-updated'));
+      window.dispatchEvent(new Event('r2cart:slots-updated'));
       try {
-        localStorage.setItem('grocify-slots-updated', String(Date.now()));
+        localStorage.setItem('r2cart-slots-updated', String(Date.now()));
       } catch (_) {}
     } catch (err) {
       notify(err.message, 'error');
@@ -470,9 +470,9 @@ export function AdminScheduling() {
       setSlotsList(curr => curr.filter(s => s.id !== removeSlot.id));
       setRemoveSlot(null);
       notify('Delivery slot removed');
-      window.dispatchEvent(new Event('grocify:slots-updated'));
+      window.dispatchEvent(new Event('r2cart:slots-updated'));
       try {
-        localStorage.setItem('grocify-slots-updated', String(Date.now()));
+        localStorage.setItem('r2cart-slots-updated', String(Date.now()));
       } catch (_) {}
     } catch (err) {
       notify(err.message, 'error');

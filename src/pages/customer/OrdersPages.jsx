@@ -617,8 +617,8 @@ export function OrdersPage() {
     await orderService.cancel(orderId, reason);
     setOrderList(current => current.map(o => (o.id === orderId || o.orderNumber === orderId ? { ...o, status: 'Cancelled' } : o)));
     await refreshProducts();
-    window.dispatchEvent(new Event('grocify:orders-updated'));
-    window.dispatchEvent(new Event('grocify:products-updated'));
+    window.dispatchEvent(new Event('r2cart:orders-updated'));
+    window.dispatchEvent(new Event('r2cart:products-updated'));
     notify('Order cancelled successfully. Deducted stock has been restored.', 'success');
   };
 
@@ -627,7 +627,7 @@ export function OrdersPage() {
     const res = await orderService.updateDetails(editTarget.id || editTarget.orderNumber, payload);
     const updated = res?.data || res?.order || res;
     setOrderList(current => current.map(o => (o.id === editTarget.id || o.orderNumber === editTarget.orderNumber ? { ...o, ...updated } : o)));
-    window.dispatchEvent(new Event('grocify:orders-updated'));
+    window.dispatchEvent(new Event('r2cart:orders-updated'));
     notify('Order details updated successfully.', 'success');
   };
 
@@ -1231,8 +1231,8 @@ export function OrderDetailPage() {
     await orderService.cancel(orderId, reason);
     setOrderList(current => current.map(o => (o.id === orderId || o.orderNumber === orderId ? { ...o, status: 'Cancelled' } : o)));
     await refreshProducts();
-    window.dispatchEvent(new Event('grocify:orders-updated'));
-    window.dispatchEvent(new Event('grocify:products-updated'));
+    window.dispatchEvent(new Event('r2cart:orders-updated'));
+    window.dispatchEvent(new Event('r2cart:products-updated'));
     notify('Order cancelled successfully. Deducted stock has been restored.', 'success');
   };
 
@@ -1240,7 +1240,7 @@ export function OrderDetailPage() {
     const res = await orderService.updateDetails(order.id || order.orderNumber, payload);
     const updated = res?.data || res?.order || res;
     setOrderList(current => current.map(o => (o.id === order.id || o.orderNumber === order.orderNumber ? { ...o, ...updated } : o)));
-    window.dispatchEvent(new Event('grocify:orders-updated'));
+    window.dispatchEvent(new Event('r2cart:orders-updated'));
     notify('Order details updated successfully.', 'success');
   };
 
