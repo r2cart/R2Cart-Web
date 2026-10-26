@@ -252,12 +252,27 @@ export function AdminDelivery() {
     }
   };
 
-  const hasDemoVillages = villagesList.some(v => [
+  const demoVillageNames = [
     'Rasulpur', 'Hathua', 'Hathwa Gaon', 'Ratan Chak', 'Rupan Chak', 'Ekdanga',
     'Mani Chhapar', 'Munrera', 'Sainik School Hathua', 'Doma Hata', 'Mali Tola',
     'Chhotki Baghi', 'Badki Baghi', 'Pritam Tola', 'Khansama Tola', 'Hathua Market',
     'Chicktoli', 'Barwa', 'Sawrezi'
-  ].includes(v.name));
+  ];
+
+  const demoVillagesFound = villagesList.filter(v =>
+    demoVillageNames.includes(v.name) || v.name?.toLowerCase().includes('hathua')
+  );
+
+  const demoAreasFound = areasList.filter(a =>
+    a.name?.toLowerCase().includes('hathua') ||
+    (Array.isArray(a.localities) && a.localities.some(loc => {
+      const locName = typeof loc === 'string' ? loc : loc?.name;
+      return demoVillageNames.includes(locName);
+    }))
+  );
+
+  const hasDemoData = demoVillagesFound.length > 0 || demoAreasFound.length > 0;
+  const demoItemsTotal = demoVillagesFound.length + demoAreasFound.length;
 
   // Extract all localities from active Delivery Zones for autocomplete & suggestions
   const allZoneLocalities = areasList.flatMap(area => {
@@ -505,45 +520,88 @@ export function AdminDelivery() {
 
   return (
     <>
-      <div className="admin-title">
-        <div>
-          <h1>Delivery Area Management</h1>
-          <p>Configure village-wise delivery charges, availability schedules, paused villages, and global 5km radius rules.</p>
+      {/* Premium Delivery Header */}
+      <div className="delivery-page-header">
+        <div className="delivery-header-top">
+          <div className="delivery-header-brand">
+            <div className="delivery-header-badge-row">
+              <h1>Delivery Area Management</h1>
+              <span className="delivery-active-pill">
+                <Truck size={13} /> Real-Time Service Routing
+              </span>
+            </div>
+            <p>Configure village-wise delivery charges, availability schedules, paused villages, and global radius rules.</p>
+          </div>
+
+          <div className="delivery-header-cta">
+            {tab === 'villages' && (
+              <Button onClick={() => setEditVillage({
+                ...villageBlank,
+                deliveryFee: config?.deliveryFee || '30',
+                minimumOrder: config?.minimumOrder || '150',
+                freeDeliveryThreshold: config?.freeDeliveryThreshold || '500',
+                radiusKm: config?.globalDeliveryRadius || '5.0'
+              })}>
+                <Plus size={16} /> Add Village
+              </Button>
+            )}
+            {tab === 'areas' && (
+              <Button onClick={() => setEditArea({
+                ...zoneBlank,
+                deliveryFee: config?.deliveryFee || '30',
+                minimumOrder: config?.minimumOrder || '150',
+                freeDeliveryThreshold: config?.freeDeliveryThreshold || '500'
+              })}>
+                <Plus size={16} /> Add Delivery Zone
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="row gap" style={{ flexWrap: 'wrap' }}>
-          <Button variant="ghost" onClick={() => loadData(true)}><RefreshCcw /> Refresh</Button>
-          <Button variant="outline" onClick={handleExportExcel} disabled={exportingExcel}>
-            <Download /> {exportingExcel ? 'Exporting...' : 'Export Excel'}
-          </Button>
-          <Button variant="outline" onClick={() => { setImportModal(true); setImportError(''); }}>
-            <Upload /> Import Excel / CSV
-          </Button>
-          {hasDemoVillages && (
-            <Button variant="danger" onClick={() => setClearDemoConfirm(true)} disabled={clearDemoBusy}>
-              <Trash2 /> Clear Seeded Demo
-            </Button>
-          )}
-          {tab === 'villages' && (
-            <Button onClick={() => setEditVillage({
-              ...villageBlank,
-              deliveryFee: config?.deliveryFee || '30',
-              minimumOrder: config?.minimumOrder || '150',
-              freeDeliveryThreshold: config?.freeDeliveryThreshold || '500',
-              radiusKm: config?.globalDeliveryRadius || '5.0'
-            })}>
-              <Plus /> Add Village
-            </Button>
-          )}
-          {tab === 'areas' && (
-            <Button onClick={() => setEditArea({
-              ...zoneBlank,
-              deliveryFee: config?.deliveryFee || '30',
-              minimumOrder: config?.minimumOrder || '150',
-              freeDeliveryThreshold: config?.freeDeliveryThreshold || '500'
-            })}>
-              <Plus /> Add Delivery Zone
-            </Button>
-          )}
+
+        {/* Action Toolbar Row */}
+        <div className="delivery-header-toolbar">
+          <div className="delivery-tools-group">
+            <button
+              type="button"
+              className="delivery-tool-btn"
+              onClick={() => loadData(true)}
+              title="Refresh live delivery data"
+            >
+              <RefreshCcw size={14} />
+              <span>Refresh</span>
+            </button>
+            <button
+              type="button"
+              className="delivery-tool-btn"
+              onClick={handleExportExcel}
+              disabled={exportingExcel}
+              title="Export all delivery localities to Excel (.xlsx)"
+            >
+              <Download size={14} />
+              <span>{exportingExcel ? 'Exporting...' : 'Export Excel'}</span>
+            </button>
+            <button
+              type="button"
+              className="delivery-tool-btn"
+              onClick={() => { setImportModal(true); setImportError(''); }}
+              title="Bulk import localities or zones via Excel / CSV"
+            >
+              <Upload size={14} />
+              <span>Import Excel / CSV</span>
+            </button>
+            {hasDemoData && (
+              <button
+                type="button"
+                className="delivery-tool-btn tool-btn-danger"
+                onClick={() => setClearDemoConfirm(true)}
+                disabled={clearDemoBusy}
+                title="Remove default demo Hathua seeded data from database"
+              >
+                <Trash2 size={14} />
+                <span>Clear Seeded Demo ({demoItemsTotal} {demoItemsTotal === 1 ? 'item' : 'items'})</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
