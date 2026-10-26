@@ -73,6 +73,22 @@ export function CartPage() {
   const [customNote, setCustomNote] = useState(() => sessionStorage.getItem('grocify-custom-note') || '');
   const [showNoteInput, setShowNoteInput] = useState(() => Boolean(sessionStorage.getItem('grocify-custom-note')));
 
+  const [hasModalOpen, setHasModalOpen] = useState(false);
+
+  // Hide sticky checkout bar when any modal/backdrop is active
+  useEffect(() => {
+    const checkModal = () => {
+      const hasBackdrop = Boolean(document.querySelector('.modal-backdrop'));
+      const hasDialog = Boolean(document.querySelector('dialog[open]'));
+      const bodyLocked = document.body.style.overflow === 'hidden' || document.body.classList.contains('modal-open');
+      setHasModalOpen(hasBackdrop || hasDialog || bodyLocked);
+    };
+    checkModal();
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    return () => observer.disconnect();
+  }, []);
+
   // Load available coupons if logged in
   useEffect(() => {
     let mounted = true;
@@ -671,6 +687,12 @@ export function CartPage() {
             align-items: center;
             justify-content: space-between;
             gap: 12px;
+          }
+          body.modal-open .mobile-sticky-checkout-bar,
+          body:has(.modal-backdrop) .mobile-sticky-checkout-bar {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
           }
         }
       `}</style>
@@ -1290,76 +1312,78 @@ export function CartPage() {
       </div>
 
       {/* Mobile Sticky Bottom Action Bar (Zepto / Blinkit Production Style) */}
-      <div className="mobile-sticky-checkout-bar">
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }} onClick={scrollToBill} role="button" tabIndex={0}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
-              {money(total)}
-            </span>
-            {totalSavings > 0 && (
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 800,
-                  background: '#ecfdf5',
-                  color: '#059669',
-                  padding: '1px 6px',
-                  borderRadius: '6px'
-                }}
-              >
-                Saved {money(totalSavings)}
+      {!hasModalOpen && (
+        <div className="mobile-sticky-checkout-bar">
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }} onClick={scrollToBill} role="button" tabIndex={0}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+              <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
+                {money(total)}
               </span>
-            )}
+              {totalSavings > 0 && (
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    background: '#ecfdf5',
+                    color: '#059669',
+                    padding: '1px 6px',
+                    borderRadius: '6px'
+                  }}
+                >
+                  Saved {money(totalSavings)}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); scrollToBill(); }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#059669',
+                textAlign: 'left',
+                cursor: 'pointer'
+              }}
+            >
+              View Bill Details ▲
+            </button>
           </div>
+
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); scrollToBill(); }}
+            disabled={minimumRemaining > 0}
+            onClick={handleProceed}
             style={{
-              background: 'none',
+              height: '44px',
+              padding: '0 20px',
+              borderRadius: '12px',
+              background: minimumRemaining > 0 ? '#cbd5e1' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              color: '#ffffff',
               border: 'none',
-              padding: 0,
-              fontSize: '11px',
-              fontWeight: 700,
-              color: '#059669',
-              textAlign: 'left',
-              cursor: 'pointer'
+              fontSize: '14px',
+              fontWeight: 800,
+              cursor: minimumRemaining > 0 ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: minimumRemaining > 0 ? 'none' : '0 4px 14px rgba(5, 150, 105, 0.35)',
+              flexShrink: 0
             }}
           >
-            View Bill Details ▲
+            {minimumRemaining > 0 ? (
+              `Add ${money(minimumRemaining)}`
+            ) : (
+              <>
+                <span>Proceed to Pay</span>
+                <ChevronRight size={16} strokeWidth={3} />
+              </>
+            )}
           </button>
         </div>
-
-        <button
-          type="button"
-          disabled={minimumRemaining > 0}
-          onClick={handleProceed}
-          style={{
-            height: '44px',
-            padding: '0 20px',
-            borderRadius: '12px',
-            background: minimumRemaining > 0 ? '#cbd5e1' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-            color: '#ffffff',
-            border: 'none',
-            fontSize: '14px',
-            fontWeight: 800,
-            cursor: minimumRemaining > 0 ? 'not-allowed' : 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: minimumRemaining > 0 ? 'none' : '0 4px 14px rgba(5, 150, 105, 0.35)',
-            flexShrink: 0
-          }}
-        >
-          {minimumRemaining > 0 ? (
-            `Add ${money(minimumRemaining)}`
-          ) : (
-            <>
-              <span>Proceed to Pay</span>
-              <ChevronRight size={16} strokeWidth={3} />
-            </>
-          )}
-        </button>
-      </div>
+      )}
     </>
   );
 }

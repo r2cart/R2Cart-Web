@@ -9,9 +9,13 @@ export function Badge({children,tone='green'}){return <span className={`badge ba
 export function Modal({open,onClose,title,children,size=''}){
   useEffect(() => {
     if (!open) return;
+    document.body.classList.add('modal-open');
     const onKey = e => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      document.body.classList.remove('modal-open');
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open, onClose]);
 
   if(!open)return null;
@@ -304,10 +308,10 @@ function BaseProductCard({product,packSelector}){
     )}
   </div>
   <div className="product-copy">
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-      <span className="delivery-pill"><Zap/> {tEta(eta)}</span>
+    <div className="product-badge-row">
+      <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
       {product.ratingCount > 0 && (
-        <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '10px', fontWeight: 800, color: '#047857', background: '#dcfce7', padding: '1px 5px', borderRadius: '4px' }}>
+        <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`}>
           <Star size={10} fill="#059669" color="#059669" />
           <span>{Number(product.rating).toFixed(1)}</span>
         </span>
