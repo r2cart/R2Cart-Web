@@ -274,6 +274,22 @@ export function CheckoutPage() {
     return TIME_SLOTS.find((s) => isSlotAvailable(s, isToday, sameDayCutoffMinutes)) || TIME_SLOTS[0];
   });
 
+  const slotsToRender = useMemo(() => {
+    const raw = dynamicSlots.length > 0 ? dynamicSlots : TIME_SLOTS.map((s) => ({
+      ...s,
+      isAvailable: isSlotAvailable(s, selectedDate?.isToday, sameDayCutoffMinutes)
+    }));
+    // Deduplicate slots by time window so each slot appears only once
+    const seen = new Set();
+    return raw.filter((s) => {
+      const timeKey = s.startTime && s.endTime ? `${s.startTime}-${s.endTime}` : (s.time || s.label || '');
+      const cleanKey = timeKey.toLowerCase().replace(/\s+/g, '');
+      if (seen.has(cleanKey)) return false;
+      seen.add(cleanKey);
+      return true;
+    });
+  }, [dynamicSlots, selectedDate?.isToday, sameDayCutoffMinutes]);
+
   // Require login on checkout
   useEffect(() => {
     if (!user && !localStorage.getItem('grocify-access-token')) {
@@ -702,22 +718,6 @@ export function CheckoutPage() {
       notify(error.message || 'Failed to save address', 'error');
     }
   };
-
-  const slotsToRender = useMemo(() => {
-    const raw = dynamicSlots.length > 0 ? dynamicSlots : TIME_SLOTS.map((s) => ({
-      ...s,
-      isAvailable: isSlotAvailable(s, selectedDate?.isToday, sameDayCutoffMinutes)
-    }));
-    // Deduplicate slots by time window so each slot appears only once
-    const seen = new Set();
-    return raw.filter((s) => {
-      const timeKey = s.startTime && s.endTime ? `${s.startTime}-${s.endTime}` : (s.time || s.label || '');
-      const cleanKey = timeKey.toLowerCase().replace(/\s+/g, '');
-      if (seen.has(cleanKey)) return false;
-      seen.add(cleanKey);
-      return true;
-    });
-  }, [dynamicSlots, selectedDate?.isToday, sameDayCutoffMinutes]);
 
   const scrollToBill = () => {
     const el = document.getElementById('checkout-bill-summary');
