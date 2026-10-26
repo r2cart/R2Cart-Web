@@ -23,8 +23,9 @@ import ProductSpecificationsEditor from '../../components/admin/ProductSpecifica
 import { parseProductDetails, formatProductDetails } from '../../utils/productDetails';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
-const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
-const payload=product=>({name:product.name,category:product.category,unit:product.unit,mrp:Number(product.mrp),price:Number(product.price),stock:Number(product.stock),...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),description:product.description,image:product.image||'',status:product.status==='Active'?'ACTIVE':product.status,featured:Boolean(product.featured),bestSeller:Boolean(product.bestSeller)});
+const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
+const payload=product=>({name:product.name,category:product.category,unit:product.unit,mrp:Number(product.mrp),price:Number(product.price),costPrice:product.costPrice!==''&&product.costPrice!==undefined&&product.costPrice!==null?Number(product.costPrice):0,stock:Number(product.stock),...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),description:product.description,image:product.image||'',status:product.status==='Active'?'ACTIVE':product.status,featured:Boolean(product.featured),bestSeller:Boolean(product.bestSeller)});
+
 
 let adminProductsCache = null;
 const adminCategoryCache = new Map();
@@ -1006,6 +1007,9 @@ export function ProductForm(){
  const [draggedIndex, setDraggedIndex] = useState(null);
  const [dragOverIndex, setDragOverIndex] = useState(null);
  const [details, setDetails] = useState(() => parseProductDetails(routeProduct?.description || ''));
+ const [showBoxCalc, setShowBoxCalc] = useState(false);
+ const [boxTotalCost, setBoxTotalCost] = useState('');
+ const [boxPieces, setBoxPieces] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -1060,6 +1064,7 @@ export function ProductForm(){
                 unit: v.unit || '',
                 mrp: v.mrp !== undefined && v.mrp !== null ? String(v.mrp) : '',
                 price: v.price !== undefined && v.price !== null ? String(v.price) : '',
+                costPrice: v.costPrice !== undefined && v.costPrice !== null ? String(v.costPrice) : '',
                 stock: v.stock !== undefined && v.stock !== null ? String(v.stock) : '',
                 status: v.status || 'ACTIVE'
               }))
@@ -1820,7 +1825,116 @@ export function ProductForm(){
    />
 
    <section className="admin-card">
-    <h3>Pricing & inventory</h3>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+      <div>
+        <h3 style={{ margin: 0 }}>Pricing & Inventory</h3>
+        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+          Enter MRP, selling price, and real purchase/cost price to track your live retail profit.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setShowBoxCalc(prev => !prev)}
+        style={{
+          background: showBoxCalc ? '#ecfdf5' : '#f8fafc',
+          border: '1.5px solid ' + (showBoxCalc ? '#10b981' : '#cbd5e1'),
+          color: showBoxCalc ? '#047857' : '#334155',
+          borderRadius: '8px',
+          padding: '6px 12px',
+          fontSize: '12px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+        title="Wholesale box ya carton se per piece rate calculate karein"
+      >
+        <span>📦 Box / Carton Calculator</span>
+      </button>
+    </div>
+
+    {/* Box Rate Calculator Popup/Card */}
+    {showBoxCalc && (
+      <div style={{
+        background: '#f0fdf4',
+        border: '1.5px solid #86efac',
+        borderRadius: '12px',
+        padding: '14px 16px',
+        marginBottom: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <b style={{ fontSize: '13px', color: '#166534' }}>
+            📦 Wholesale Box / Carton Calculator (उदा. ₹500 me 56 piece)
+          </b>
+          <button
+            type="button"
+            onClick={() => setShowBoxCalc(false)}
+            style={{ background: 'none', border: 'none', color: '#166534', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}
+          >
+            ✕ Close
+          </button>
+        </div>
+        <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: '#15803d' }}>
+          Agar aapne pura box ya carton kharida hai, to box ka total rate aur usme kitne piece hain yahan dalein. Hum per piece kharid rate calculate kar denge:
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#166534', display: 'block', marginBottom: '4px' }}>
+              Box Ka Kul Rate (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="उदा. 500"
+              value={boxTotalCost}
+              onChange={e => setBoxTotalCost(e.target.value)}
+              style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '13px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#166534', display: 'block', marginBottom: '4px' }}>
+              Box Me Total Pieces
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              placeholder="उदा. 56"
+              value={boxPieces}
+              onChange={e => setBoxPieces(e.target.value)}
+              style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '13px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#166534', display: 'block', marginBottom: '4px' }}>
+              Calculated Rate / Piece
+            </label>
+            <div style={{ padding: '7px 10px', background: '#ffffff', borderRadius: '8px', border: '1px solid #86efac', fontWeight: 800, color: '#047857', fontSize: '14px' }}>
+              {Number(boxTotalCost) > 0 && Number(boxPieces) > 0
+                ? `₹${(Number(boxTotalCost) / Number(boxPieces)).toFixed(2)} / pc`
+                : '₹0.00 / pc'}
+            </div>
+          </div>
+          <div>
+            <Button
+              type="button"
+              disabled={!(Number(boxTotalCost) > 0 && Number(boxPieces) > 0)}
+              onClick={() => {
+                const perPiece = (Number(boxTotalCost) / Number(boxPieces)).toFixed(2);
+                set('costPrice', perPiece);
+                notify(`✅ Kharid Rate set to ₹${perPiece} / piece!`);
+              }}
+              style={{ width: '100%', padding: '7px 12px', fontSize: '12px', fontWeight: 700 }}
+            >
+              ✓ Apply as Kharid Rate
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="form-grid">
       <div>
         <label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'6px'}}>
@@ -1832,13 +1946,91 @@ export function ProductForm(){
           placeholder="e.g. 500 g or 1 kg"
         />
       </div>
-      {field('mrp','MRP','number')}
-      {field('price','Selling price','number')}
-      {field('stock','Stock','number')}
+      {field('mrp','MRP (₹) *','number')}
+      {field('price','Selling Price (Bikri Rate ₹) *','number')}
+      <label>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Kharid Rate / Cost (₹)</span>
+          <span style={{ fontSize: '10.5px', color: '#059669', fontWeight: 700 }}>Munafa Track</span>
+        </div>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="e.g. 8.93 (Wholesale rate)"
+          value={form.costPrice ?? ''}
+          onChange={e => set('costPrice', e.target.value)}
+        />
+      </label>
+      {field('stock','Stock *','number')}
       <label>Status<select value={form.status} onChange={event=>set('status',event.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
       <label className="check-line"><input type="checkbox" checked={form.featured} onChange={event=>set('featured',event.target.checked)}/> Featured product</label>
       <label className="check-line"><input type="checkbox" checked={form.bestSeller} onChange={event=>set('bestSeller',event.target.checked)}/> Best seller</label>
     </div>
+
+    {/* Live Profit Preview Widget */}
+    {(Number(form.price) > 0 || Number(form.costPrice) > 0 || Number(form.mrp) > 0) && (
+      <div style={{
+        marginTop: '16px',
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>MRP Rate</small>
+            <b style={{ color: '#0f172a', fontSize: '13px' }}>₹{Number(form.mrp || 0).toFixed(2)}</b>
+          </div>
+          <div style={{ color: '#cbd5e1' }}>→</div>
+          <div>
+            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Bikri (Selling)</small>
+            <b style={{ color: '#059669', fontSize: '13px' }}>₹{Number(form.price || 0).toFixed(2)}</b>
+          </div>
+          <div style={{ color: '#cbd5e1' }}>→</div>
+          <div>
+            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Kharid (Cost)</small>
+            <b style={{ color: '#475569', fontSize: '13px' }}>₹{Number(form.costPrice || 0).toFixed(2)}</b>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {Number(form.price) > 0 && Number(form.costPrice) > 0 && (
+            <div style={{
+              background: Number(form.price) >= Number(form.costPrice) ? '#ecfdf5' : '#fef2f2',
+              border: '1px solid ' + (Number(form.price) >= Number(form.costPrice) ? '#a7f3d0' : '#fecaca'),
+              color: Number(form.price) >= Number(form.costPrice) ? '#047857' : '#b91c1c',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 800 }}>
+                {Number(form.price) >= Number(form.costPrice) ? '✨ Asli Munafa / Piece:' : '⚠️ Loss / Piece:'}
+              </span>
+              <b style={{ fontSize: '14px' }}>
+                ₹{(Number(form.price) - Number(form.costPrice)).toFixed(2)}
+              </b>
+              <span style={{ fontSize: '11px', fontWeight: 700, opacity: 0.85 }}>
+                ({((Number(form.price) - Number(form.costPrice)) / Number(form.price) * 100).toFixed(1)}% Margin)
+              </span>
+            </div>
+          )}
+
+          {Number(form.mrp) > Number(form.price) && Number(form.price) > 0 && (
+            <span style={{ fontSize: '11.5px', color: '#059669', background: '#e6fffa', border: '1px solid #b2f5ea', padding: '5px 10px', borderRadius: '8px', fontWeight: 700 }}>
+              Grahak Ki Bachat: ₹{(Number(form.mrp) - Number(form.price)).toFixed(2)} ({Math.round(((Number(form.mrp) - Number(form.price)) / Number(form.mrp)) * 100)}% OFF)
+            </span>
+          )}
+        </div>
+      </div>
+    )}
    </section>
 
    <NewProductPacks basePack={form} packs={packs} onChange={setPacks} disabled={saving} />

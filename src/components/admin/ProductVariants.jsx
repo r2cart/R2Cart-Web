@@ -6,7 +6,7 @@ import { adminService } from '../../services/admin.service';
 import { useApp } from '../../context/AppContext';
 import UnitSelector from './UnitSelector';
 
-const emptyForm = { unit: '', mrp: '', price: '', stock: '' };
+const emptyForm = { unit: '', mrp: '', price: '', costPrice: '', stock: '' };
 
 export default function ProductVariants({ productId }) {
   const { notify, refreshProducts } = useApp();
@@ -44,6 +44,7 @@ export default function ProductVariants({ productId }) {
         ...form,
         mrp,
         price,
+        costPrice: form.costPrice ? Number(form.costPrice) : 0,
         stock: Number(form.stock)
       });
       setForm(emptyForm);
@@ -240,6 +241,21 @@ export default function ProductVariants({ productId }) {
                 value={form.price}
                 onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: hasError ? '1.5px solid #ef4444' : '1.5px solid #e2e8f0', fontSize: '13px', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                Kharid Rate / Cost (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 100"
+                value={form.costPrice}
+                onChange={(e) => setForm((prev) => ({ ...prev, costPrice: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '13px', boxSizing: 'border-box' }}
               />
             </div>
 

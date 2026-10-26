@@ -202,6 +202,7 @@ export const adminService = {
   refreshHomepageRankingCache: () => api.post('/admin/homepage-ranking/refresh-cache'),
 
   // Business Analytics & Profit Management
+  getSalesProfit: params => api.get('/admin/analytics/sales-profit', { params }),
   getAnalyticsOverview: params => api.get('/admin/analytics/overview', { params }),
   getSalesTrend: params => api.get('/admin/analytics/sales-trend', { params }),
   getProductPerformance: params => api.get('/admin/analytics/product-performance', { params }),

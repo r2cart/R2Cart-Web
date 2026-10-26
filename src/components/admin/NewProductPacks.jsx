@@ -12,7 +12,7 @@ export default function NewProductPacks({ packs, onChange, disabled, basePack = 
   };
 
   const addPack = () => {
-    onChange([...packs, { unit: '', mrp: '', price: '', stock: '' }]);
+    onChange([...packs, { unit: '', mrp: '', price: '', costPrice: '', stock: '' }]);
   };
 
   return (
@@ -231,6 +231,30 @@ export default function NewProductPacks({ packs, onChange, disabled, basePack = 
                     />
                   </div>
 
+                  {/* Kharid Rate / Cost */}
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Kharid Rate / Cost (₹)
+                    </label>
+                    <input
+                      type="number"
+                      disabled={disabled}
+                      min="0"
+                      step="0.01"
+                      value={pack.costPrice || ''}
+                      placeholder="e.g. 80"
+                      onChange={(e) => update(index, 'costPrice', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1.5px solid #e2e8f0',
+                        fontSize: '13.5px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
                   {/* Stock */}
                   <div>
                     <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
@@ -258,19 +282,35 @@ export default function NewProductPacks({ packs, onChange, disabled, basePack = 
                 </div>
 
                 {/* Savings or Error Bar */}
-                {hasError ? (
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
-                    <AlertTriangle size={15} />
-                    <span>Selling price (₹{priceNum}) cannot exceed MRP (₹{mrpNum})!</span>
-                  </div>
-                ) : savings > 0 ? (
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: '#047857', fontSize: '12px', fontWeight: 700 }}>
-                    <CheckCircle size={14} color="#059669" />
-                    <span>
-                      Customer saves {money(savings)} ({discountPct}% OFF) on this pack!
-                    </span>
-                  </div>
-                ) : null}
+                <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+                  {hasError ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
+                      <AlertTriangle size={15} />
+                      <span>Selling price (₹{priceNum}) cannot exceed MRP (₹{mrpNum})!</span>
+                    </div>
+                  ) : savings > 0 ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#047857', fontSize: '12px', fontWeight: 700 }}>
+                      <CheckCircle size={14} color="#059669" />
+                      <span>
+                        Customer saves {money(savings)} ({discountPct}% OFF) on this pack!
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {priceNum > 0 && Number(pack.costPrice) > 0 && (
+                    <div style={{
+                      background: priceNum >= Number(pack.costPrice) ? '#ecfdf5' : '#fef2f2',
+                      border: '1px solid ' + (priceNum >= Number(pack.costPrice) ? '#a7f3d0' : '#fecaca'),
+                      color: priceNum >= Number(pack.costPrice) ? '#047857' : '#b91c1c',
+                      borderRadius: '6px',
+                      padding: '3px 8px',
+                      fontSize: '11.5px',
+                      fontWeight: 700
+                    }}>
+                      Munafa: ₹{(priceNum - Number(pack.costPrice)).toFixed(2)} / pc ({(((priceNum - Number(pack.costPrice)) / priceNum) * 100).toFixed(1)}% Margin)
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
