@@ -1848,9 +1848,9 @@ export function ProductForm(){
           alignItems: 'center',
           gap: '6px'
         }}
-        title="Wholesale box ya carton se per piece rate calculate karein"
+        title="Calculate unit cost from wholesale carton or box rate"
       >
-        <span>📦 Box / Carton Calculator</span>
+        <span>📦 Box / Wholesale Calculator</span>
       </button>
     </div>
 
@@ -1865,7 +1865,7 @@ export function ProductForm(){
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <b style={{ fontSize: '13px', color: '#166534' }}>
-            📦 Wholesale Box / Carton Calculator (उदा. ₹500 me 56 piece)
+            📦 Wholesale Box / Carton Calculator (e.g. ₹500 for 56 pieces)
           </b>
           <button
             type="button"
@@ -1876,18 +1876,18 @@ export function ProductForm(){
           </button>
         </div>
         <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: '#15803d' }}>
-          Agar aapne pura box ya carton kharida hai, to box ka total rate aur usme kitne piece hain yahan dalein. Hum per piece kharid rate calculate kar denge:
+          If you purchased a wholesale box or carton, enter the total box price and total piece count to calculate the unit cost price:
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
           <div>
             <label style={{ fontSize: '11px', fontWeight: 700, color: '#166534', display: 'block', marginBottom: '4px' }}>
-              Box Ka Kul Rate (₹)
+              Total Box Cost (₹)
             </label>
             <input
               type="number"
               min="0"
               step="0.01"
-              placeholder="उदा. 500"
+              placeholder="e.g. 500"
               value={boxTotalCost}
               onChange={e => setBoxTotalCost(e.target.value)}
               style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '13px', boxSizing: 'border-box' }}
@@ -1895,13 +1895,13 @@ export function ProductForm(){
           </div>
           <div>
             <label style={{ fontSize: '11px', fontWeight: 700, color: '#166534', display: 'block', marginBottom: '4px' }}>
-              Box Me Total Pieces
+              Pieces per Box
             </label>
             <input
               type="number"
               min="1"
               step="1"
-              placeholder="उदा. 56"
+              placeholder="e.g. 56"
               value={boxPieces}
               onChange={e => setBoxPieces(e.target.value)}
               style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '13px', boxSizing: 'border-box' }}
@@ -1909,7 +1909,7 @@ export function ProductForm(){
           </div>
           <div>
             <label style={{ fontSize: '11px', fontWeight: 700, color: '#166534', display: 'block', marginBottom: '4px' }}>
-              Calculated Rate / Piece
+              Calculated Cost / Unit
             </label>
             <div style={{ padding: '7px 10px', background: '#ffffff', borderRadius: '8px', border: '1px solid #86efac', fontWeight: 800, color: '#047857', fontSize: '14px' }}>
               {Number(boxTotalCost) > 0 && Number(boxPieces) > 0
@@ -1924,11 +1924,11 @@ export function ProductForm(){
               onClick={() => {
                 const perPiece = (Number(boxTotalCost) / Number(boxPieces)).toFixed(2);
                 set('costPrice', perPiece);
-                notify(`✅ Kharid Rate set to ₹${perPiece} / piece!`);
+                notify(`✅ Cost price set to ₹${perPiece} / unit!`);
               }}
               style={{ width: '100%', padding: '7px 12px', fontSize: '12px', fontWeight: 700 }}
             >
-              ✓ Apply as Kharid Rate
+              Apply Cost Price
             </Button>
           </div>
         </div>
@@ -1947,17 +1947,17 @@ export function ProductForm(){
         />
       </div>
       {field('mrp','MRP (₹) *','number')}
-      {field('price','Selling Price (Bikri Rate ₹) *','number')}
+      {field('price','Selling Price (₹) *','number')}
       <label>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span>Kharid Rate / Cost (₹)</span>
-          <span style={{ fontSize: '10.5px', color: '#059669', fontWeight: 700 }}>Munafa Track</span>
+          <span>Cost Price (₹)</span>
+          <span style={{ fontSize: '10.5px', color: '#059669', fontWeight: 700 }}>Profit Tracking</span>
         </div>
         <input
           type="number"
           min="0"
           step="0.01"
-          placeholder="e.g. 8.93 (Wholesale rate)"
+          placeholder="e.g. 8.93 (Wholesale cost)"
           value={form.costPrice ?? ''}
           onChange={e => set('costPrice', e.target.value)}
         />
@@ -1984,17 +1984,17 @@ export function ProductForm(){
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <div>
-            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>MRP Rate</small>
+            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>MRP</small>
             <b style={{ color: '#0f172a', fontSize: '13px' }}>₹{Number(form.mrp || 0).toFixed(2)}</b>
           </div>
           <div style={{ color: '#cbd5e1' }}>→</div>
           <div>
-            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Bikri (Selling)</small>
+            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Selling Price</small>
             <b style={{ color: '#059669', fontSize: '13px' }}>₹{Number(form.price || 0).toFixed(2)}</b>
           </div>
           <div style={{ color: '#cbd5e1' }}>→</div>
           <div>
-            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Kharid (Cost)</small>
+            <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Cost Price</small>
             <b style={{ color: '#475569', fontSize: '13px' }}>₹{Number(form.costPrice || 0).toFixed(2)}</b>
           </div>
         </div>
@@ -2012,7 +2012,7 @@ export function ProductForm(){
               gap: '8px'
             }}>
               <span style={{ fontSize: '12px', fontWeight: 800 }}>
-                {Number(form.price) >= Number(form.costPrice) ? '✨ Asli Munafa / Piece:' : '⚠️ Loss / Piece:'}
+                {Number(form.price) >= Number(form.costPrice) ? 'Profit / Unit:' : 'Loss / Unit:'}
               </span>
               <b style={{ fontSize: '14px' }}>
                 ₹{(Number(form.price) - Number(form.costPrice)).toFixed(2)}
@@ -2025,7 +2025,7 @@ export function ProductForm(){
 
           {Number(form.mrp) > Number(form.price) && Number(form.price) > 0 && (
             <span style={{ fontSize: '11.5px', color: '#059669', background: '#e6fffa', border: '1px solid #b2f5ea', padding: '5px 10px', borderRadius: '8px', fontWeight: 700 }}>
-              Grahak Ki Bachat: ₹{(Number(form.mrp) - Number(form.price)).toFixed(2)} ({Math.round(((Number(form.mrp) - Number(form.price)) / Number(form.mrp)) * 100)}% OFF)
+              Customer Discount: ₹{(Number(form.mrp) - Number(form.price)).toFixed(2)} ({Math.round(((Number(form.mrp) - Number(form.price)) / Number(form.mrp)) * 100)}% OFF)
             </span>
           )}
         </div>

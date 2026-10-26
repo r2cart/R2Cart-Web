@@ -246,7 +246,7 @@ export default function ProductVariants({ productId }) {
 
             <div>
               <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                Kharid Rate / Cost (₹)
+                Cost Price (₹)
               </label>
               <input
                 type="number"

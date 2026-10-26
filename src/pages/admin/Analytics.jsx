@@ -26,7 +26,10 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
-  Printer
+  Printer,
+  Award,
+  ArrowDownRight,
+  Filter
 } from 'lucide-react';
 import { Button, money } from '../../components/ui';
 import { adminService } from '../../services/admin.service';
@@ -41,11 +44,11 @@ function getAdminUser() {
 
 // Quick Period Presets
 const PERIOD_PRESETS = [
-  { id: 'today', label: '⚡ Aaj (Today)' },
-  { id: 'yesterday', label: '📅 Kal (Yesterday)' },
-  { id: 'last7days', label: '📊 Pichhle 7 Din' },
-  { id: 'last30days', label: '📆 Pichhle 30 Din' },
-  { id: 'custom', label: '🗓️ Custom Range' }
+  { id: 'today', label: 'Today' },
+  { id: 'yesterday', label: 'Yesterday' },
+  { id: 'last7days', label: 'Last 7 Days' },
+  { id: 'last30days', label: 'Last 30 Days' },
+  { id: 'custom', label: 'Custom Range' }
 ];
 
 export function AdminAnalytics() {
@@ -62,7 +65,8 @@ export function AdminAnalytics() {
   const [reportData, setReportData] = useState(null);
   const [chartType, setChartType] = useState('bar'); // 'bar' | 'area'
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('profit'); // 'profit' | 'sales' | 'units'
+  const [sortBy, setSortBy] = useState('profit'); // 'profit' | 'sales' | 'units' | 'margin'
+  const [profitFilter, setProfitFilter] = useState('all'); // 'all' | 'profitable' | 'loss' | 'unset'
 
   const currentUser = getAdminUser();
 
@@ -78,7 +82,7 @@ export function AdminAnalytics() {
       setReportData(res);
     } catch (err) {
       console.error('Failed to load sales & profit analytics:', err);
-      setError(err?.response?.data?.message || err?.message || 'Analytics load karne me dikkat aayi. Kripya dubara try karein.');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load analytics data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -110,12 +114,21 @@ export function AdminAnalytics() {
       );
     }
 
+    if (profitFilter === 'profitable') {
+      list = list.filter(p => p.totalProfit > 0);
+    } else if (profitFilter === 'loss') {
+      list = list.filter(p => p.totalProfit < 0);
+    } else if (profitFilter === 'unset') {
+      list = list.filter(p => p.costPrice <= 0);
+    }
+
     return [...list].sort((a, b) => {
       if (sortBy === 'sales') return b.totalSales - a.totalSales;
       if (sortBy === 'units') return b.unitsSold - a.unitsSold;
-      return b.totalProfit - a.totalProfit; // default profit
+      if (sortBy === 'margin') return b.marginPercent - a.marginPercent;
+      return b.totalProfit - a.totalProfit; // default highest profit first
     });
-  }, [reportData, searchQuery, sortBy]);
+  }, [reportData, searchQuery, sortBy, profitFilter]);
 
   const summary = reportData?.summary || {
     totalOrders: 0,
@@ -125,6 +138,15 @@ export function AdminAnalytics() {
     netProfit: 0,
     marginPercent: 0
   };
+
+  // Top 4 Profit-Making Products
+  const topProfitProducts = useMemo(() => {
+    if (!reportData?.products) return [];
+    return [...reportData.products]
+      .filter(p => p.totalProfit > 0)
+      .sort((a, b) => b.totalProfit - a.totalProfit)
+      .slice(0, 4);
+  }, [reportData]);
 
   return (
     <div className="analytics-page" style={{ padding: '24px 28px', maxWidth: '1440px', margin: '0 auto' }}>
@@ -138,9 +160,9 @@ export function AdminAnalytics() {
         marginBottom: '24px'
       }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              Business Analytics & Munafa
+              Sales & Profit Analytics
             </h1>
             <span style={{
               background: '#ecfdf5',
@@ -151,11 +173,11 @@ export function AdminAnalytics() {
               fontSize: '11px',
               fontWeight: 800
             }}>
-              ✨ Retail Profit System
+              Direct Retail Margin
             </span>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: '13.5px', color: '#64748b' }}>
-            Aapki live bikri (sales), kharid rate (cost), aur har product ka asli munafa (net profit)
+            Real-time sales revenue, purchase cost of goods, and exact profit earned per product
           </p>
         </div>
 
@@ -266,7 +288,7 @@ export function AdminAnalytics() {
               fontWeight: 700,
               border: '1px solid #a7f3d0'
             }}>
-              🗓️ {reportData.period.label} ({reportData.period.startFormatted} - {reportData.period.endFormatted})
+              📅 {reportData.period.label} ({reportData.period.startFormatted} - {reportData.period.endFormatted})
             </div>
           )}
         </div>
@@ -286,7 +308,7 @@ export function AdminAnalytics() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>From:</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Start Date:</span>
               <input
                 type="date"
                 required
@@ -303,7 +325,7 @@ export function AdminAnalytics() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>To:</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>End Date:</span>
               <input
                 type="date"
                 required
@@ -320,7 +342,7 @@ export function AdminAnalytics() {
             </div>
 
             <Button type="submit" disabled={loading} style={{ padding: '6px 14px', fontSize: '12px' }}>
-              Apply Range
+              Apply Date Range
             </Button>
           </form>
         )}
@@ -374,7 +396,7 @@ export function AdminAnalytics() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#64748b' }}>
-                  Kul Orders (Delivered)
+                  Total Orders (Delivered)
                 </span>
                 <div style={{
                   width: '36px',
@@ -393,12 +415,12 @@ export function AdminAnalytics() {
                 <span style={{ fontSize: '15px', fontWeight: 600, color: '#64748b' }}>Orders</span>
               </div>
               <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>📦 Total units sold:</span>
-                <b style={{ color: '#0f172a' }}>{summary.totalUnits} items</b>
+                <span>Total Items Sold:</span>
+                <b style={{ color: '#0f172a' }}>{summary.totalUnits} units</b>
               </div>
             </div>
 
-            {/* Card 2: Total Bikri (Sales) */}
+            {/* Card 2: Total Sales */}
             <div style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -410,7 +432,7 @@ export function AdminAnalytics() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#64748b' }}>
-                  Kul Bikri (Total Sales)
+                  Total Sales Revenue
                 </span>
                 <div style={{
                   width: '36px',
@@ -428,11 +450,11 @@ export function AdminAnalytics() {
                 ₹{summary.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>💰 Delivered order item sales</span>
+                <span>Total customer billing for delivered orders</span>
               </div>
             </div>
 
-            {/* Card 3: Total Kharid (Cost Price) */}
+            {/* Card 3: Total Cost */}
             <div style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -444,7 +466,7 @@ export function AdminAnalytics() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#64748b' }}>
-                  Kul Kharid (Total Cost)
+                  Total Cost of Goods
                 </span>
                 <div style={{
                   width: '36px',
@@ -462,11 +484,11 @@ export function AdminAnalytics() {
                 ₹{summary.totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>📦 Bika hua maal ka kharid rate</span>
+                <span>Actual purchase cost of items sold</span>
               </div>
             </div>
 
-            {/* Card 4: Asli Munafa (Net Profit) */}
+            {/* Card 4: Net Profit */}
             <div style={{
               background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
               borderRadius: '16px',
@@ -478,7 +500,7 @@ export function AdminAnalytics() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <span style={{ fontSize: '13px', fontWeight: 800, color: '#166534' }}>
-                  ✨ Asli Munafa (Net Profit)
+                  Net Profit Earned
                 </span>
                 <div style={{
                   width: '36px',
@@ -509,14 +531,141 @@ export function AdminAnalytics() {
                   fontSize: '11px',
                   fontWeight: 800
                 }}>
-                  {summary.marginPercent}% Munafa Margin
+                  {summary.marginPercent}% Net Margin
                 </span>
-                <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 600 }}>
-                  (Bikri - Kharid)
+                <span style={{ fontSize: '11.5px', color: '#15803d', fontWeight: 600 }}>
+                  (Sales Revenue − Cost Price)
                 </span>
               </div>
             </div>
           </div>
+
+          {/* HIGHLIGHT: Top Profit-Generating Products Leaderboard */}
+          {topProfitProducts.length > 0 && (
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              border: '1.5px solid #e2e8f0',
+              padding: '20px 22px',
+              marginBottom: '24px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Award size={18} color="#059669" />
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                      Top Profit-Generating Products
+                    </h3>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                    Products that generated the highest total net profit in the selected period
+                  </p>
+                </div>
+                <span style={{ fontSize: '12px', color: '#059669', fontWeight: 700, background: '#ecfdf5', padding: '4px 10px', borderRadius: '8px' }}>
+                  Top {topProfitProducts.length} Profit Leaders
+                </span>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                gap: '14px'
+              }}>
+                {topProfitProducts.map((p, idx) => {
+                  const profitContribution = summary.netProfit > 0
+                    ? ((p.totalProfit / summary.netProfit) * 100).toFixed(1)
+                    : 0;
+
+                  return (
+                    <div
+                      key={p.id || idx}
+                      style={{
+                        background: '#f8fafc',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '14px',
+                        padding: '14px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        position: 'relative',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {p.image ? (
+                          <img
+                            src={p.image}
+                            alt=""
+                            style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                          />
+                        ) : (
+                          <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#e2e8f0', display: 'grid', placeItems: 'center', color: '#64748b', flexShrink: 0 }}>
+                            <Package size={20} />
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <b style={{ color: '#0f172a', fontSize: '13.5px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.name}>
+                            {p.name}
+                          </b>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                            {p.unit && <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 600 }}>{p.unit}</span>}
+                            <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 700 }}>{p.unitsSold} units sold</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        background: '#ffffff',
+                        border: '1px solid #dcfce7',
+                        borderRadius: '10px',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <div>
+                          <small style={{ color: '#64748b', fontSize: '10.5px', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>
+                            Total Profit Earned
+                          </small>
+                          <div style={{ fontSize: '17px', fontWeight: 900, color: '#047857' }}>
+                            +₹{p.totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            background: '#dcfce7',
+                            color: '#15803d',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            display: 'inline-block'
+                          }}>
+                            {p.marginPercent}% Margin
+                          </span>
+                          <small style={{ display: 'block', color: '#64748b', fontSize: '10.5px', marginTop: '2px' }}>
+                            +₹{p.perPieceProfit.toFixed(2)} / unit
+                          </small>
+                        </div>
+                      </div>
+
+                      {summary.netProfit > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#64748b' }}>
+                          <div style={{ flex: 1, background: '#e2e8f0', height: '5px', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.min(100, Math.max(0, profitContribution))}%`, background: '#10b981', height: '100%', borderRadius: '4px' }} />
+                          </div>
+                          <span style={{ fontWeight: 700, color: '#047857' }}>{profitContribution}% of store profit</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Performance Chart (Daily Trend) */}
           <div style={{
@@ -537,10 +686,10 @@ export function AdminAnalytics() {
             }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                  📊 Daily Bikri, Kharid & Munafa Trend
+                  Daily Revenue, Cost & Profit Trends
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
-                  Tareekh ke hisab se kitni bikri hui, kitni kharid lagi aur kitna munafa bana
+                  Day-by-day comparison of gross sales revenue, cost of goods, and net profit
                 </p>
               </div>
 
@@ -601,7 +750,7 @@ export function AdminAnalytics() {
                       <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(val) => `₹${val}`} />
                       <Tooltip
                         formatter={(val, name) => [`₹${Number(val).toFixed(2)}`, name]}
-                        labelFormatter={(label) => `Tareekh: ${label}`}
+                        labelFormatter={(label) => `Date: ${label}`}
                         contentStyle={{
                           borderRadius: '10px',
                           border: '1px solid #e2e8f0',
@@ -610,9 +759,9 @@ export function AdminAnalytics() {
                         }}
                       />
                       <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                      <Bar dataKey="sales" name="Kul Bikri (₹)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cost" name="Kul Kharid (₹)" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="profit" name="Asli Munafa (₹)" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="sales" name="Sales Revenue (₹)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cost" name="Cost of Goods (₹)" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="profit" name="Net Profit (₹)" fill="#10b981" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   ) : (
                     <AreaChart data={reportData.dailySeries} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -631,7 +780,7 @@ export function AdminAnalytics() {
                       <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(val) => `₹${val}`} />
                       <Tooltip
                         formatter={(val, name) => [`₹${Number(val).toFixed(2)}`, name]}
-                        labelFormatter={(label) => `Tareekh: ${label}`}
+                        labelFormatter={(label) => `Date: ${label}`}
                         contentStyle={{
                           borderRadius: '10px',
                           border: '1px solid #e2e8f0',
@@ -640,9 +789,9 @@ export function AdminAnalytics() {
                         }}
                       />
                       <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                      <Area type="monotone" dataKey="sales" name="Kul Bikri (₹)" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#salesGrad)" />
-                      <Area type="monotone" dataKey="cost" name="Kul Kharid (₹)" stroke="#94a3b8" strokeWidth={2} fillOpacity={0.2} fill="#94a3b8" />
-                      <Area type="monotone" dataKey="profit" name="Asli Munafa (₹)" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#profitGrad)" />
+                      <Area type="monotone" dataKey="sales" name="Sales Revenue (₹)" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#salesGrad)" />
+                      <Area type="monotone" dataKey="cost" name="Cost of Goods (₹)" stroke="#94a3b8" strokeWidth={2} fillOpacity={0.2} fill="#94a3b8" />
+                      <Area type="monotone" dataKey="profit" name="Net Profit (₹)" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#profitGrad)" />
                     </AreaChart>
                   )}
                 </ResponsiveContainer>
@@ -656,7 +805,7 @@ export function AdminAnalytics() {
                 background: '#fafafa',
                 borderRadius: '10px'
               }}>
-                Is chune hue time period me koi delivered order record nahi hua.
+                No delivered orders recorded in the selected time period.
               </div>
             )}
           </div>
@@ -679,15 +828,16 @@ export function AdminAnalytics() {
             }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                  📦 Har Product Ka Bikri & Munafa Breakdown
+                  Product-Level Profit & Sales Breakdown
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
-                  Konsa product kitna bika, uski kharid rate kya thi, bikri rate kya thi, aur kul kitna munafa hua
+                  Shows exactly how much profit was made from each individual product
                 </p>
               </div>
 
-              {/* Search & Sort Controls */}
+              {/* Search, Filter & Sort Controls */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {/* Search */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -713,6 +863,27 @@ export function AdminAnalytics() {
                   />
                 </div>
 
+                {/* Profit Status Filter */}
+                <select
+                  value={profitFilter}
+                  onChange={(e) => setProfitFilter(e.target.value)}
+                  style={{
+                    background: '#ffffff',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#334155'
+                  }}
+                >
+                  <option value="all">All Products</option>
+                  <option value="profitable">Profitable Only</option>
+                  <option value="loss">Loss-Making Only</option>
+                  <option value="unset">Unset Cost Price</option>
+                </select>
+
+                {/* Sort Option */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Sort:</span>
                   <select
@@ -728,9 +899,10 @@ export function AdminAnalytics() {
                       color: '#334155'
                     }}
                   >
-                    <option value="profit">Sabse Jyada Munafa</option>
-                    <option value="sales">Sabse Jyada Bikri (₹)</option>
-                    <option value="units">Sabse Jyada Bika (Qty)</option>
+                    <option value="profit">Highest Profit (₹)</option>
+                    <option value="margin">Highest Margin (%)</option>
+                    <option value="sales">Highest Sales Revenue</option>
+                    <option value="units">Most Units Sold</option>
                   </select>
                 </div>
               </div>
@@ -742,20 +914,20 @@ export function AdminAnalytics() {
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#64748b', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     <th style={{ padding: '12px 14px' }}>Product</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center' }}>Bika Hua Qty</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Kharid Rate</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Bikri Rate</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Per Pc Munafa</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Kul Bikri</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Kul Kharid</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Kul Munafa</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center' }}>Units Sold</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Cost Price</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Selling Price</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Profit / Unit</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Sales</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Cost</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', background: '#f0fdf4' }}>Total Profit Earned</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredProducts.length === 0 ? (
                     <tr>
                       <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                        {searchQuery ? `"${searchQuery}" se milta koi product nahi mila.` : 'Is period me koi product sale nahi hua.'}
+                        {searchQuery ? `No products found matching "${searchQuery}".` : 'No products sold in this period.'}
                       </td>
                     </tr>
                   ) : (
@@ -800,7 +972,7 @@ export function AdminAnalytics() {
                             </div>
                           </td>
 
-                          {/* Bika Hua Qty */}
+                          {/* Units Sold */}
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                             <span style={{
                               background: '#eff6ff',
@@ -814,21 +986,21 @@ export function AdminAnalytics() {
                             </span>
                           </td>
 
-                          {/* Kharid Rate */}
+                          {/* Cost Price */}
                           <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#64748b' }}>
                             {p.costPrice > 0 ? `₹${p.costPrice.toFixed(2)}` : (
-                              <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 700 }} title="Product edit karke kharid rate set karein">
+                              <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 700 }} title="Edit product to specify cost price">
                                 ₹0.00 (Unset)
                               </span>
                             )}
                           </td>
 
-                          {/* Bikri Rate */}
+                          {/* Selling Price */}
                           <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
                             ₹{p.sellingPrice.toFixed(2)}
                           </td>
 
-                          {/* Per Pc Munafa */}
+                          {/* Profit / Unit */}
                           <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                             <span style={{
                               fontWeight: 800,
@@ -838,21 +1010,21 @@ export function AdminAnalytics() {
                             </span>
                           </td>
 
-                          {/* Kul Bikri */}
+                          {/* Total Sales */}
                           <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: '#1e40af' }}>
                             ₹{p.totalSales.toFixed(2)}
                           </td>
 
-                          {/* Kul Kharid */}
+                          {/* Total Cost */}
                           <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#64748b' }}>
                             ₹{p.totalCost.toFixed(2)}
                           </td>
 
-                          {/* Kul Munafa */}
-                          <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                          {/* Total Profit Earned */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', background: isLoss ? '#fef2f2' : '#f0fdf4' }}>
                             <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                               <span style={{
-                                fontSize: '13.5px',
+                                fontSize: '14px',
                                 fontWeight: 900,
                                 color: isLoss ? '#dc2626' : '#047857'
                               }}>
@@ -861,7 +1033,7 @@ export function AdminAnalytics() {
                               <span style={{
                                 fontSize: '10.5px',
                                 fontWeight: 800,
-                                background: isLoss ? '#fef2f2' : '#ecfdf5',
+                                background: isLoss ? '#fee2e2' : '#dcfce7',
                                 border: '1px solid ' + (isLoss ? '#fecaca' : '#a7f3d0'),
                                 color: isLoss ? '#b91c1c' : '#047857',
                                 padding: '1px 6px',
@@ -894,11 +1066,11 @@ export function AdminAnalytics() {
                 fontSize: '12.5px',
                 color: '#64748b'
               }}>
-                <span>Total {filteredProducts.length} unique products sold in this period.</span>
+                <span>Showing <b>{filteredProducts.length}</b> unique products sold in this period.</span>
                 <div style={{ display: 'flex', gap: '16px' }}>
-                  <span>Kul Bikri: <b style={{ color: '#1e40af' }}>₹{summary.totalSales.toFixed(2)}</b></span>
-                  <span>Kul Kharid: <b style={{ color: '#64748b' }}>₹{summary.totalCost.toFixed(2)}</b></span>
-                  <span>Asli Munafa: <b style={{ color: '#047857' }}>₹{summary.netProfit.toFixed(2)} ({summary.marginPercent}%)</b></span>
+                  <span>Total Sales: <b style={{ color: '#1e40af' }}>₹{summary.totalSales.toFixed(2)}</b></span>
+                  <span>Total Cost: <b style={{ color: '#64748b' }}>₹{summary.totalCost.toFixed(2)}</b></span>
+                  <span>Total Net Profit: <b style={{ color: '#047857' }}>₹{summary.netProfit.toFixed(2)} ({summary.marginPercent}%)</b></span>
                 </div>
               </div>
             )}

@@ -231,10 +231,10 @@ export default function NewProductPacks({ packs, onChange, disabled, basePack = 
                     />
                   </div>
 
-                  {/* Kharid Rate / Cost */}
+                  {/* Cost Price */}
                   <div>
                     <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      Kharid Rate / Cost (₹)
+                      Cost Price (₹)
                     </label>
                     <input
                       type="number"
@@ -307,7 +307,7 @@ export default function NewProductPacks({ packs, onChange, disabled, basePack = 
                       fontSize: '11.5px',
                       fontWeight: 700
                     }}>
-                      Munafa: ₹{(priceNum - Number(pack.costPrice)).toFixed(2)} / pc ({(((priceNum - Number(pack.costPrice)) / priceNum) * 100).toFixed(1)}% Margin)
+                      Profit: ₹{(priceNum - Number(pack.costPrice)).toFixed(2)} / pc ({(((priceNum - Number(pack.costPrice)) / priceNum) * 100).toFixed(1)}% Margin)
                     </div>
                   )}
                 </div>
