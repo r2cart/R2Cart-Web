@@ -1,4 +1,47 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-export default defineConfig({ plugins: [react(), tailwindcss()] });
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+
+          // Charts only needed for admin analytics
+          if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) {
+            return 'vendor-charts';
+          }
+          // ExcelJS only needed for admin product/order exports
+          if (id.includes('exceljs') || id.includes('fflate') || id.includes('jszip')) {
+            return 'vendor-excel';
+          }
+          // Firebase authentication and push messaging
+          if (id.includes('firebase') || id.includes('@firebase')) {
+            return 'vendor-firebase';
+          }
+          // Icons
+          if (id.includes('lucide-react')) {
+            return 'vendor-icons';
+          }
+          // Core React framework
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/react-router/') ||
+            id.includes('/react-router-dom/') ||
+            id.includes('\\react\\') ||
+            id.includes('\\react-dom\\') ||
+            id.includes('\\react-router\\') ||
+            id.includes('\\react-router-dom\\')
+          ) {
+            return 'vendor-react-core';
+          }
+        }
+      }
+    }
+  }
+});
