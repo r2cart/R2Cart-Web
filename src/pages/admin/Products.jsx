@@ -21,6 +21,7 @@ import { generateProductDescription } from '../../utils/productDescriptionGenera
 import { translateToHindi, getCachedHindi } from '../../utils/translator';
 import ProductSpecificationsEditor from '../../components/admin/ProductSpecificationsEditor';
 import { parseProductDetails, formatProductDetails } from '../../utils/productDetails';
+import { compressImage } from '../../utils/imageCompressor';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
 const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
@@ -1109,7 +1110,7 @@ export function ProductForm(){
     }
   };
 
-  const handleChooseFiles = (event) => {
+  const handleChooseFiles = async (event) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
     const remaining = 8 - imageList.length;
@@ -1123,22 +1124,30 @@ export function ProductForm(){
         notify(`Skipped "${file.name}": Only JPG, PNG, and WebP supported`, 'error');
         continue;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        notify(`Skipped "${file.name}": Image exceeds 10 MB`, 'error');
-        continue;
+      try {
+        const compressedFile = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.82 });
+        const objectUrl = URL.createObjectURL(compressedFile);
+        valid.push({
+          id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          url: '',
+          file: compressedFile,
+          preview: objectUrl,
+          originalSrc: objectUrl
+        });
+      } catch {
+        const objectUrl = URL.createObjectURL(file);
+        valid.push({
+          id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          url: '',
+          file,
+          preview: objectUrl,
+          originalSrc: objectUrl
+        });
       }
-      const objectUrl = URL.createObjectURL(file);
-      valid.push({
-        id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        url: '',
-        file,
-        preview: objectUrl,
-        originalSrc: objectUrl
-      });
     }
     if (valid.length > 0) {
       setImageList(prev => [...prev, ...valid]);
-      notify(`Added ${valid.length} image${valid.length > 1 ? 's' : ''} to gallery`);
+      notify(`Added & compressed ${valid.length} image${valid.length > 1 ? 's' : ''}`);
     }
     event.target.value = '';
   };

@@ -4,6 +4,7 @@ import {ArrowDown,ArrowUp,Clock,Edit2,Eye,EyeOff,ImagePlus,LayoutTemplate,Loader
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
+import {compressImage} from '../../utils/imageCompressor';
 
 const emptyBanner={
   kicker:'FRESH DEALS',
@@ -84,10 +85,11 @@ export function AdminBanners(){
   if(!file)return;
   setBusy(true);
   try{
-   const result=await adminService.uploadBannerImage(file);
+   const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 800, quality: 0.84 });
+   const result=await adminService.uploadBannerImage(compressed);
    setEdit(curr=>({...curr,[fieldName]:result.url}));
    const label = fieldName === 'image' ? 'Main hero photo' : fieldName === 'secondaryImage' ? 'Badge 1 (Top-right)' : 'Badge 2 (Bottom-left)';
-   notify(`${label} uploaded successfully`);
+   notify(`${label} uploaded & compressed successfully`);
   }catch(err){
    notify(err.message,'error');
   }finally{

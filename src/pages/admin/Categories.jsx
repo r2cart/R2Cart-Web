@@ -4,6 +4,7 @@ import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
 import CategoryProductsModal from '../../components/admin/CategoryProductsModal';
+import {compressImage} from '../../utils/imageCompressor';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
 const labelStatus=status=>status==='ACTIVE'?'Active':'Inactive';
@@ -60,7 +61,8 @@ export function AdminCategories(){
   const oldImage=cat.image;
   setSaving(true);
   try{
-   const uploaded=await adminService.uploadCategoryImage(file);
+   const compressed = await compressImage(file, { maxWidth: 600, maxHeight: 600, quality: 0.85 });
+   const uploaded=await adminService.uploadCategoryImage(compressed);
    if(uploaded?.url){
     setList(curr=>curr.map(c=>c.id===cat.id?{...c,image:uploaded.url}:c));
     await adminService.updateCategory(cat.id,{
@@ -91,7 +93,8 @@ export function AdminCategories(){
   if(!file)return;
   setUploadingImage(true);
   try{
-   const result=await adminService.uploadCategoryImage(file);
+   const compressed = await compressImage(file, { maxWidth: 600, maxHeight: 600, quality: 0.85 });
+   const result=await adminService.uploadCategoryImage(compressed);
    if(result?.url){
     setEdit(curr=>({...curr,image:result.url}));
     notify('Category image uploaded to Cloudinary','success');

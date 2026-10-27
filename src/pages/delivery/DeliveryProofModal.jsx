@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '../../components/ui';
 import { deliveryService } from '../../services/delivery.service';
+import { compressImage } from '../../utils/imageCompressor';
 
 const money = val => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
@@ -153,7 +154,7 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
     }
   }, [order]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -161,16 +162,21 @@ export function DeliveryProofModal({ open, onClose, order, onSuccess }) {
       setError('Only image files (JPG, PNG, WebP) are accepted');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be under 5 MB');
-      return;
-    }
 
-    setError('');
-    setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setPhotoPreview(reader.result);
-    reader.readAsDataURL(file);
+    try {
+      setError('');
+      // Auto-compress heavy smartphone camera photos on device (e.g. 5MB -> 100KB)
+      const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
+      setPhotoFile(compressed);
+      const reader = new FileReader();
+      reader.onload = () => setPhotoPreview(reader.result);
+      reader.readAsDataURL(compressed);
+    } catch {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onload = () => setPhotoPreview(reader.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleResetPhoto = () => {
