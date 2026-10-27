@@ -7,6 +7,21 @@ import {useLanguage} from '../../context/LanguageContext';
 import {normalizeHomeLayout} from '../../config/homeLayout';
 import {catalogService} from '../../services/catalog.service';
 import {dedupeProductPacks} from '../../utils/products';
+import {useScrollReveal} from '../../hooks/useScrollReveal';
+
+/**
+ * Reveal — wraps any section with a scroll-triggered animation.
+ * @param {'section'|'zoom'|'up'|'fade'} type - animation style
+ * @param {string} delay - optional CSS delay class ('delay-1'..'delay-4')
+ */
+function Reveal({ children, type = 'section', delay = '' }) {
+ const ref = useScrollReveal('is-revealed', 0.1, '0px 0px -40px 0px');
+ return (
+  <div ref={ref} className={`reveal-${type}${delay ? ` ${delay}` : ''}`}>
+   {children}
+  </div>
+ );
+}
 
 export function HomePage(){
  const {categories,products,banners,deliveryConfig,storeSettings}=useApp();
@@ -131,13 +146,16 @@ export function HomePage(){
     case 'heroBanners':
      if(!heroBanners.length)return null;
      return (
-      <HeroBannerSection heroBanners={heroBanners} products={products} bannerVisuals={bannerVisuals} key="heroBanners" />
+      <Reveal key="heroBanners" type="zoom">
+       <HeroBannerSection heroBanners={heroBanners} products={products} bannerVisuals={bannerVisuals} />
+      </Reveal>
      );
 
     case 'campaignOffers':
      if(!campaignBanners.length && !section.comingSoon)return null;
      return (
-      <section className="container campaign-section" key="campaignOffers">
+      <Reveal key="campaignOffers" type="section">
+       <section className="container campaign-section">
        <div className="section-head">
         <div>
          <h2>
@@ -217,11 +235,12 @@ export function HomePage(){
         </div>
        )}
       </section>
+      </Reveal>
      );
 
     case 'shopCategories':
      return (
-      <section className="container section categories" key="shopCategories">
+      <Reveal key="shopCategories" type="section"><section className="container section categories">
        <div className="section-head">
         <div>
          <h2>
@@ -277,6 +296,7 @@ export function HomePage(){
         </div>
        )}
       </section>
+      </Reveal>
      );
 
     case 'bestSellers':{
@@ -286,7 +306,7 @@ export function HomePage(){
      const displayItems=items.slice(0,count);
      if(!displayItems.length && !section.comingSoon)return null;
      return (
-      <div className="container" key="bestSellers">
+      <Reveal key="bestSellers" type="up"><div className="container">
        <ProductRail
         title={lang==='hi' ? t('bestSellers') : (bestSellersData?.title||section.title||'Best sellers')}
         subtitle={lang==='hi' ? 'ग्राहकों द्वारा सबसे ज्यादा खरीदे गए ताज़ा सामान' : (bestSellersData?.subtitle||'Most popular grocery items bought by our customers')}
@@ -297,6 +317,7 @@ export function HomePage(){
         comingSoonNotice={section.comingSoonNotice}
        />
       </div>
+      </Reveal>
      );
     }
 
@@ -307,7 +328,7 @@ export function HomePage(){
      const displayItems=items.slice(0,count);
      if(!displayItems.length && !section.comingSoon)return null;
      return (
-      <div className="container" key="topPicks">
+      <Reveal key="topPicks" type="up"><div className="container">
        <ProductRail
         title={lang==='hi' ? t('topPicks') : (topPicksData?.title||section.title||'Top picks')}
         subtitle={lang==='hi' ? 'दैनिक जरूरतें, मौसमी उत्पाद और बेहतरीन कीमतें' : (topPicksData?.subtitle||'Daily essentials, seasonal favorites, and great value')}
@@ -318,6 +339,7 @@ export function HomePage(){
         comingSoonNotice={section.comingSoonNotice}
        />
       </div>
+      </Reveal>
      );
     }
 
@@ -325,7 +347,7 @@ export function HomePage(){
      const items=products.slice(2,2+(Number(section.count)||10));
      if(!items.length && !section.comingSoon)return null;
      return (
-      <div className="container" key="recommended">
+      <Reveal key="recommended" type="up"><div className="container">
        <ProductRail
         title={lang==='hi' ? t('recommended') : (section.title||'Recommended for you')}
         to={orderedCategories[1]?`/category/${orderedCategories[1].slug}`:'/category/dairy-breakfast'}
@@ -335,23 +357,26 @@ export function HomePage(){
         comingSoonNotice={section.comingSoonNotice}
        />
       </div>
+      </Reveal>
      );
     }
 
     case 'promoStrip':
      if(section.comingSoon){
       return (
-       <div className="container" key="promoStrip">
+       <Reveal key="promoStrip-cs" type="fade">
+        <div className="container">
         <div className="section-cs-banner" style={{margin:'30px 0'}}>
          <span className="cs-chip"><Sparkles size={12}/> {lang==='hi'?'जल्द आ रहा है':'COMING SOON'}</span>
          <h4>{lang==='hi' ? t('specialOffers') : (section.title||'Special Savings Deals')}</h4>
          <p>{section.comingSoonNotice||(lang==='hi'?'विशेष कूपन ऑफर्स और डिस्काउंट वाउचर्स जल्द उपलब्ध होंगे।':'Exclusive coupon packages and festive vouchers will be available here soon.')}</p>
         </div>
-       </div>
+        </div>
+       </Reveal>
       );
      }
      return (
-      <div className="container" key="promoStrip">
+      <Reveal key="promoStrip" type="fade"><div className="container">
        <PromoStrip
         tag={lang==='hi' ? 'आपकी बचत' : (section.tag||'YOUR SAVINGS')}
         title={lang==='hi' ? 'खरीदें ज्यादा · बचाएं ज्यादा' : (section.title||'Stock up. Save more.')}
@@ -360,30 +385,34 @@ export function HomePage(){
         buttonLink={section.buttonLink||'/coupons'}
        />
       </div>
+      </Reveal>
      );
 
     case 'categoryRails':{
      if(section.comingSoon){
       return (
-       <div className="container" key="categoryRails">
+       <Reveal key="categoryRails-cs" type="section">
+        <div className="container">
         <div className="section-cs-banner" style={{margin:'20px 0'}}>
          <span className="cs-chip"><Sparkles size={12}/> {lang==='hi'?'जल्द आ रहा है':'COMING SOON'}</span>
          <h4>{lang==='hi'?'कैटेगरी सेक्शन तैयार हो रहे हैं':'Category Aisles Under Preparation'}</h4>
          <p>{section.comingSoonNotice||(lang==='hi'?'स्नैक्स, डेयरी, फल व सब्जियों के सेक्शन में स्टॉक भरा जा रहा है।':'Dedicated aisles for snacks, dairy, fruits and more are being stocked.')}</p>
         </div>
-       </div>
+        </div>
+       </Reveal>
       );
      }
      const maxCats=Number(section.maxCategories)||8;
      const railsToRender=orderedCategories.slice(0,maxCats);
      return (
-      <div className="container" key="categoryRails">
+      <Reveal key="categoryRails" type="up"><div className="container">
        {railsToRender.map(category=>{
         const catProducts=products.filter(p=>p.category===category.slug||p.category?.slug===category.slug||p.categoryId===category.id);
         if(!catProducts.length)return null;
         return <ProductRail key={category.slug} title={tCat(category.name)} to={`/category/${category.slug}`} items={dedupeProductPacks(catProducts)}/>;
        })}
       </div>
+      </Reveal>
      );
     }
 
@@ -391,7 +420,7 @@ export function HomePage(){
      const items=products.filter(p=>p.mrp-p.price>10).slice(0,Number(section.count)||10);
      if(!items.length && !section.comingSoon)return null;
      return (
-      <div className="container" key="specialOffers">
+      <Reveal key="specialOffers" type="up"><div className="container">
        <ProductRail 
         title={lang==='hi' ? t('specialOffers') : (section.title||'Special offers')} 
         to="/coupons" 
@@ -401,6 +430,7 @@ export function HomePage(){
         comingSoonNotice={section.comingSoonNotice}
        />
       </div>
+      </Reveal>
      );
     }
 
@@ -408,7 +438,7 @@ export function HomePage(){
      const items=products.slice(8,8+(Number(section.count)||8));
      if(!items.length && !section.comingSoon)return null;
      return (
-      <div className="container" key="recentlyViewed">
+      <Reveal key="recentlyViewed" type="up"><div className="container">
        <ProductRail
         title={lang==='hi' ? t('recentlyViewed') : (section.title||'Recently viewed')}
         to={orderedCategories[0]?`/category/${orderedCategories[0].slug}`:'/category/fruits-vegetables'}
@@ -418,18 +448,20 @@ export function HomePage(){
         comingSoonNotice={section.comingSoonNotice}
        />
       </div>
+      </Reveal>
      );
     }
 
     case 'promise':
      return (
-      <section className="promise" key="promise">
+      <Reveal key="promise" type="fade"><section className="promise">
        <div className="container promise-grid">
         <div><Zap/><span><b>{deliveryConfig.estimatedDelivery ? tEta(deliveryConfig.estimatedDelivery) : (lang==='hi'?'10-मिनट डिलीवरी':t('tagline'))}</b><small>{t('doorstepDelivery')}</small></span></div>
         <div><Leaf/><span><b>{t('freshnessGuaranteed')}</b><small>{t('handpickedDaily')}</small></span></div>
         <div><ShieldCheck/><span><b>{t('qualityTrust')}</b><small>{t('easyReturns')}</small></span></div>
        </div>
       </section>
+      </Reveal>
      );
 
     default:
