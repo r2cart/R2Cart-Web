@@ -1,7 +1,7 @@
 import {api} from './httpClient';
 import {flattenProducts} from '../utils/products';
 export const catalogService={
- listProducts:async query=>{const params=new URLSearchParams(query||'');params.set('limit','50');const rows=[];let page=1,batch;do{params.set('page',String(page++));batch=await api.get(`/products?${params}`);rows.push(...batch)}while(batch.length===50);return flattenProducts(rows)},
+listProducts:async query=>{const params=new URLSearchParams(query||'');params.set('limit','100');const rows=[];let page=1,batch;do{params.set('page',String(page++));batch=await api.get(`/products?${params}`);rows.push(...batch)}while(batch.length===100);return flattenProducts(rows)},
  getProduct:id=>api.get(`/products/${id}`),
  listCategories:()=>api.get('/categories'),
  listBanners:()=>api.get('/banners'),
