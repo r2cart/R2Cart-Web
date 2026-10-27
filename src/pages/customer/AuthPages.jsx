@@ -207,8 +207,8 @@ export function ForgotPasswordPage(){
   if(!cleanEmail)return notify('Please enter your email','error');
   setLoading(true);
   try{
-   const result=await authService.requestPasswordReset(cleanEmail);
-   setSeconds(result?.expiresInSeconds||300);
+   await authService.requestPasswordReset(cleanEmail);
+   setSeconds(60);
    setStage('reset');
    notify('Reset code sent to your email');
   }catch(error){
