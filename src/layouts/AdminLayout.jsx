@@ -55,7 +55,7 @@ const NAV_LINKS = [
 
 function getStoredUser() {
   try {
-    const raw = localStorage.getItem('r2cart-admin-user');
+    const raw = sessionStorage.getItem('r2cart-admin-user') || localStorage.getItem('r2cart-admin-user');
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -108,7 +108,7 @@ export default function AdminLayout({ children }) {
   // Always refresh permissions and active status from authenticated backend source
   useEffect(() => {
     let mounted = true;
-    const token = localStorage.getItem('r2cart-admin-access-token');
+    const token = sessionStorage.getItem('r2cart-admin-access-token') || localStorage.getItem('r2cart-admin-access-token');
     if (!token) {
       window.location.replace(loginUrl);
       return;

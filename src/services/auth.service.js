@@ -1,75 +1,52 @@
 import {api} from './httpClient';
 
-// ─── Token Storage Strategy (BUG-03 Fix) ──────────────────────────────────
-// Access tokens  → sessionStorage  (JS-readable but clears on tab close,
-//                                   much lower XSS blast radius)
-// Refresh tokens → HttpOnly Cookie  (set by backend, NOT stored here)
-// User profile   → localStorage     (non-sensitive, keeps UX continuity)
-//
-// MIGRATION SHIM: existing localStorage access tokens are silently moved to
-// sessionStorage on first page load so no user is ever force-logged out.
-// ──────────────────────────────────────────────────────────────────────────
-(function migrateOnce() {
+// Clean stale refresh tokens from localStorage (they are now HttpOnly cookies)
+(function cleanStaleTokens() {
   if (typeof window === 'undefined') return;
-  ['r2cart-access-token','r2cart-admin-access-token','r2cart-delivery-access-token'].forEach(key => {
-    const val = localStorage.getItem(key);
-    if (val && !sessionStorage.getItem(key)) sessionStorage.setItem(key, val);
-    localStorage.removeItem(key);
-  });
-  // Refresh tokens are now HttpOnly cookie-only — remove stale copies
   ['r2cart-refresh-token','r2cart-admin-refresh-token','r2cart-delivery-refresh-token'].forEach(key => {
-    localStorage.removeItem(key);
+    try { localStorage.removeItem(key); } catch {}
   });
 })();
 
-const setTok  = (k, v) => sessionStorage.setItem(k, v);
-const dropTok = k      => sessionStorage.removeItem(k);
+export const setTok = (k, v) => {
+  try { sessionStorage.setItem(k, v); } catch {}
+  try { localStorage.setItem(k, v); } catch {}
+};
+
+export const dropTok = k => {
+  try { sessionStorage.removeItem(k); } catch {}
+  try { localStorage.removeItem(k); } catch {}
+};
+
+export const getTok = k => {
+  try {
+    return sessionStorage.getItem(k) || localStorage.getItem(k) || null;
+  } catch {
+    return null;
+  }
+};
 
 const save = session => {
   if (session.accessToken) setTok('r2cart-access-token', session.accessToken);
   localStorage.setItem('r2cart-user', JSON.stringify(session.user));
-
-  const isDelivery = session.user?.role === 'DELIVERY_PERSON' || session.user?.staffRole === 'DELIVERY_PERSON';
-  const isAdmin    = ['SUPER_ADMIN','ADMIN','MANAGER'].includes(session.user?.role) ||
-                     ['SUPER_ADMIN','ADMIN','MANAGER'].includes(session.user?.staffRole);
-
-  if (isDelivery) {
-    if (session.accessToken) setTok('r2cart-delivery-access-token', session.accessToken);
-    localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
-    localStorage.setItem('r2cart-delivery', 'true');
-  }
-  if (isAdmin) {
-    if (session.accessToken) setTok('r2cart-admin-access-token', session.accessToken);
-    localStorage.setItem('r2cart-admin-user', JSON.stringify(session.user));
-    localStorage.setItem('r2cart-admin', 'true');
-  }
+  localStorage.setItem('r2cart-session-active', '1');
   return session.user;
 };
 
 const saveAdmin = session => {
   if (session.accessToken) {
     setTok('r2cart-admin-access-token', session.accessToken);
-    setTok('r2cart-access-token', session.accessToken);
   }
   localStorage.setItem('r2cart-admin-user', JSON.stringify(session.user));
-  localStorage.setItem('r2cart-user', JSON.stringify(session.user));
   localStorage.setItem('r2cart-admin', 'true');
-
-  if (session.user?.role === 'DELIVERY_PERSON' || session.user?.staffRole === 'DELIVERY_PERSON') {
-    if (session.accessToken) setTok('r2cart-delivery-access-token', session.accessToken);
-    localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
-    localStorage.setItem('r2cart-delivery', 'true');
-  }
   return session.user;
 };
 
 const saveDelivery = session => {
   if (session.accessToken) {
     setTok('r2cart-delivery-access-token', session.accessToken);
-    setTok('r2cart-access-token', session.accessToken);
   }
   localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
-  localStorage.setItem('r2cart-user', JSON.stringify(session.user));
   localStorage.setItem('r2cart-delivery', 'true');
   return session.user;
 };
@@ -96,20 +73,19 @@ export const authService = {
 
   async logout() {
     try {
-      // HttpOnly cookie sent automatically — no token needed in body
-      await api.post('/auth/logout', {}).catch(() => {});
+      await api.post('/auth/logout', { role: 'CUSTOMER' }).catch(() => {});
     } finally {
       dropTok('r2cart-access-token');
       localStorage.removeItem('r2cart-user');
+      localStorage.removeItem('r2cart-session-active');
     }
   },
 
   async adminLogout() {
     try {
-      await api.post('/auth/logout', {}).catch(() => {});
+      await api.post('/auth/logout', { role: 'ADMIN' }).catch(() => {});
     } finally {
       dropTok('r2cart-admin-access-token');
-      dropTok('r2cart-access-token');
       localStorage.removeItem('r2cart-admin-user');
       localStorage.removeItem('r2cart-admin');
     }
@@ -117,10 +93,9 @@ export const authService = {
 
   async deliveryLogout() {
     try {
-      await api.post('/auth/logout', {}).catch(() => {});
+      await api.post('/auth/logout', { role: 'DELIVERY' }).catch(() => {});
     } finally {
       dropTok('r2cart-delivery-access-token');
-      dropTok('r2cart-access-token');
       localStorage.removeItem('r2cart-delivery-user');
       localStorage.removeItem('r2cart-delivery');
     }

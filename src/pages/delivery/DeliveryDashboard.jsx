@@ -162,8 +162,16 @@ export function DeliveryDashboard() {
   };
 
   useEffect(() => {
-    const deliveryToken = localStorage.getItem('r2cart-delivery-access-token') || localStorage.getItem('r2cart-access-token');
-    const raw = localStorage.getItem('r2cart-delivery-user') || localStorage.getItem('r2cart-user');
+    const deliveryToken =
+      sessionStorage.getItem('r2cart-delivery-access-token') ||
+      localStorage.getItem('r2cart-delivery-access-token') ||
+      sessionStorage.getItem('r2cart-access-token') ||
+      localStorage.getItem('r2cart-access-token');
+    const raw =
+      sessionStorage.getItem('r2cart-delivery-user') ||
+      localStorage.getItem('r2cart-delivery-user') ||
+      sessionStorage.getItem('r2cart-user') ||
+      localStorage.getItem('r2cart-user');
     let u = null;
     try { u = raw ? JSON.parse(raw) : null; } catch {}
     if (!deliveryToken || !u || u.role === 'CUSTOMER') {
