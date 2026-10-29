@@ -42,7 +42,10 @@ export function AdminLogin({superAdmin: isSuperAdminProp = false}){
    window.location.assign(target);
   }catch(reason){
    console.error(`${isSuperAdmin ? 'Super Admin' : 'Admin'} login error:`, reason);
-   setError(reason.message || 'Invalid credentials or unauthorized access.');
+   const raw = reason?.message || '';
+   const isTokenErr = raw.toLowerCase().includes('refresh token') || raw.toLowerCase().includes('jwt');
+   const isInvalidCreds = raw.toLowerCase().includes('invalid') || isTokenErr;
+   setError(isInvalidCreds ? 'Invalid credentials' : (raw || 'Invalid credentials'));
   }finally{
    setLoading(false);
   }

@@ -30,7 +30,9 @@ export function DeliveryLogin() {
         window.location.assign(target);
       }
     } catch (err) {
-      setError(err.message || 'Invalid delivery credentials. Please check your login details.');
+      const raw = err?.message || '';
+      const isTokenErr = raw.toLowerCase().includes('refresh token') || raw.toLowerCase().includes('jwt');
+      setError(isTokenErr || !raw ? 'Invalid delivery credentials. Please check your login details.' : raw);
     } finally {
       setLoading(false);
     }

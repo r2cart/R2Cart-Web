@@ -300,7 +300,7 @@ export function Dashboard() {
                     className="stock-alert"
                     key={product.id}
                   >
-                    {product.image && <img src={product.image} alt="" />}
+                    {product.image && <img src={product.image} alt={product.name || 'Product'} />}
                     <div>
                       <b>{product.name}</b>
                       <small>
@@ -329,7 +329,7 @@ export function Dashboard() {
                 data.topProducts.map((product, index) => (
                   <div className="rank-row" key={product.id}>
                     <b>{String(index + 1).padStart(2, '0')}</b>
-                    {product.image && <img src={product.image} alt="" />}
+                    {product.image && <img src={product.image} alt={product.name || 'Product'} />}
                     <span>
                       {product.name}
                       <small>

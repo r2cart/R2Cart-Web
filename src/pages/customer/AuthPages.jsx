@@ -293,7 +293,7 @@ export function OTPPage(){
  const {setUser,notify}=useApp();
  const seed=(location.state?.email&&location.state?.mode==='signup')?location.state:getAuthSeed();
  const [otp,setOtp]=useState(['','','','','','']);
- const [seconds,setSeconds]=useState(30);
+ const [seconds,setSeconds]=useState(60);
  const [loading,setLoading]=useState(false);
  const [errorMsg,setErrorMsg]=useState('');
 
@@ -330,7 +330,7 @@ export function OTPPage(){
  const resend=async()=>{
   try{
    await authService.requestOtp({email:seed.email,mode:'signup'});
-   setSeconds(30);
+   setSeconds(60);
    notify('A new OTP was sent');
   }catch(error){
    notify(error.message,'error');
@@ -380,7 +380,7 @@ export function OTPPage(){
    <div className="row between auth-links">
     <Link to="/signup">Change details</Link>
     <button type="button" disabled={seconds>0} onClick={resend}>
-      {seconds?`Resend in 00:${seconds.toString().padStart(2,'0')}`:'Resend OTP'}
+      {seconds ? `Resend in ${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}` : 'Resend OTP'}
     </button>
    </div>
   </AuthShell>

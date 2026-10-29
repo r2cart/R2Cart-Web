@@ -149,7 +149,7 @@ export function ModifyOrderItemModal({ open, onClose, order, item, onUpdated }) 
             {/* Target Item Card */}
             <div style={{ display: 'flex', gap: '14px', alignItems: 'center', background: 'rgba(255,255,255,0.04)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
               {item.image && (
-                <img src={item.image} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                <img src={item.image} alt={item.name || 'Order item'} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <b style={{ display: 'block', fontSize: '14px', color: '#f8fafc' }}>{item.name}</b>

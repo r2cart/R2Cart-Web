@@ -891,7 +891,7 @@ export function AdminAnalytics() {
                         {p.image ? (
                           <img
                             src={p.image}
-                            alt=""
+                            alt={p.name || 'Product'}
                             style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e2e8f0', flexShrink: 0 }}
                             onError={(e) => (e.currentTarget.style.display = 'none')}
                           />
@@ -1267,7 +1267,7 @@ export function AdminAnalytics() {
                               {p.image ? (
                                 <img
                                   src={p.image}
-                                  alt=""
+                                  alt={p.name || 'Product'}
                                   style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }}
                                   onError={(e) => (e.currentTarget.style.display = 'none')}
                                 />

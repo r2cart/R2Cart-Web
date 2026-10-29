@@ -51,6 +51,28 @@ export function CartPage() {
 
   const nav = useNavigate();
   const rules = activeDeliveryRules || deliveryConfig;
+  const effectiveStatus = storeSettings?.effectiveStatus;
+  const isEmergencyPaused = Boolean(
+    storeSettings?.policies?.emergencyPause?.isPaused ||
+    storeSettings?.isOrderPaused ||
+    effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED'
+  );
+  const isStoreFullyClosed = Boolean(
+    effectiveStatus?.storeStatus === 'CLOSED' ||
+    (effectiveStatus?.allowImmediateOrders === false && effectiveStatus?.allowScheduledOrders === false)
+  );
+  const isInstantClosed = Boolean(
+    isEmergencyPaused ||
+    isStoreFullyClosed ||
+    effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' ||
+    effectiveStatus?.allowImmediateOrders === false
+  );
+  const allowScheduled = Boolean(
+    !isStoreFullyClosed &&
+    (effectiveStatus !== undefined && effectiveStatus !== null ? effectiveStatus.allowScheduledOrders : true)
+  );
+  const isPaused = Boolean(rules?.isPaused || isEmergencyPaused);
+  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed);
 
   // Coupon state
   const [coupon, setCoupon] = useState(() => sessionStorage.getItem('r2cart-coupon') || '');
@@ -334,8 +356,12 @@ export function CartPage() {
               marginBottom: '10px'
             }}
           >
-            <Zap size={13} color="#059669" />
-            <span>Delivery in {rules?.estimatedDelivery || '15–20 mins'}</span>
+            <Zap size={13} color={isClosed || isPaused ? "#d97706" : "#059669"} />
+            <span>
+              {isClosed || isPaused
+                ? (isStoreFullyClosed || isPaused ? 'Delivery Unavailable' : 'Scheduled Delivery Available')
+                : `Delivery in ${rules?.estimatedDelivery || '15–20 mins'}`}
+            </span>
           </div>
 
           <h1
@@ -751,7 +777,9 @@ export function CartPage() {
                   }}
                 />
                 <b style={{ fontSize: '13.5px', color: '#0f172a' }}>
-                  Delivery in {rules?.estimatedDelivery || '10-15 mins'}
+                  {isClosed || isPaused
+                    ? (isStoreFullyClosed || isPaused ? 'Delivery Unavailable' : 'Scheduled Delivery Available')
+                    : `Delivery in ${rules?.estimatedDelivery || '10-15 mins'}`}
                 </b>
               </div>
               <div

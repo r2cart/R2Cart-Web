@@ -62,12 +62,13 @@ export function AppProvider({children}){
   return()=>clearTimeout(timer);
  },[user?.id]);
 
- function onlineSession(){return Boolean(localStorage.getItem('r2cart-access-token'))}
+ // BUG-03: access token is now in sessionStorage (migrated from localStorage on first load)
+ function onlineSession(){return Boolean(sessionStorage.getItem('r2cart-access-token'))||Boolean(localStorage.getItem('r2cart-session-active'))}
  const online=onlineSession;
  const setUser=value=>{setUserState(value);if(value)storage.set('user',value);else storage.remove('user')};
- const clearCustomerView=()=>{setUserState(null);setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION);storage.remove('user');storage.remove('location');storage.remove('active_address_id')};
+ const clearCustomerView=()=>{setUserState(null);setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION);storage.remove('user');storage.remove('location');storage.remove('active_address_id');sessionStorage.removeItem('r2cart-access-token');localStorage.removeItem('r2cart-session-active')};
  const logout=async()=>{try{await authService.logout()}finally{clearCustomerView()}};
- useEffect(()=>{if(!isInvalidCustomer(user))return;authService.logout().catch(()=>{});localStorage.removeItem('r2cart-access-token');clearCustomerView()},[user]);
+ useEffect(()=>{if(!isInvalidCustomer(user))return;authService.logout().catch(()=>{});sessionStorage.removeItem('r2cart-access-token');localStorage.removeItem('r2cart-session-active');clearCustomerView()},[user]);
  useEffect(()=>{storage.remove('location');if(!user?.id){setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION)}},[user?.id]);
  useEffect(()=>{if(user?.id&&location!==DEFAULT_LOCATION)storage.set(`location-${user.id}`,location)},[location,user?.id]);
  useEffect(()=>{
@@ -75,7 +76,7 @@ export function AppProvider({children}){
   const localCart=storage.get('cart',{});
   const syncPromises=Object.entries(localCart).filter(([,q])=>q>0).map(([id,q])=>customerService.setCartItem(id,q).catch(()=>{}));
   Promise.all(syncPromises).then(()=>Promise.all([authService.me(),customerService.cart(),customerService.favorites(),customerService.addresses()])).then(([profile,remoteCart,remoteFavorites,remoteAddresses])=>{
-    if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});localStorage.removeItem('r2cart-access-token');clearCustomerView();return null}
+    if(isInvalidCustomer(profile)){authService.logout().catch(()=>{});sessionStorage.removeItem('r2cart-access-token');localStorage.removeItem('r2cart-session-active');clearCustomerView();return null}
     const addresses=remoteAddresses.map(addressView);
     setUser(profile);
     setCart(remoteCart.cart);
@@ -95,8 +96,8 @@ export function AppProvider({children}){
     return orderService.list();
   }).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{
     if(error?.status===403&&String(error?.message||'').toLowerCase().includes('deactivated')){
-      localStorage.removeItem('r2cart-access-token');
-      localStorage.removeItem('r2cart-refresh-token');
+      sessionStorage.removeItem('r2cart-access-token');
+      localStorage.removeItem('r2cart-session-active');
       clearCustomerView();
     }
   });

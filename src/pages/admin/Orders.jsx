@@ -694,7 +694,7 @@ export function AdminOrderDetails() {
                   <div className="enhanced-item-left">
                     <img
                       src={item.image || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"%3E%3Cpath d="m7.5 4.27 9 5.15"%3E%3C/path%3E%3Cpath d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"%3E%3C/path%3E%3C/svg%3E'}
-                      alt=""
+                      alt={item.name || 'Order item'}
                       className="enhanced-item-img"
                       onError={(e) => {
                         e.currentTarget.onerror = null;

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node scripts/verify-headers.js && node scripts/verify-auth-error-handling.js && node scripts/verify-store-closed-messaging.js && node scripts/verify-a11y-compliance.js && node scripts/verify-modal-stacking.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.0",
@@ -15,7 +16,6 @@
     "fflate": "^0.8.3",
     "firebase": "^13.0.0",
     "lucide-react": "latest",
-    "nodemailer": "^10.1.0",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",

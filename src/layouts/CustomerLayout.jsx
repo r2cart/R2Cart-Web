@@ -1,5 +1,5 @@
 import {useEffect, useState, useMemo, useCallback} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,UserRound,X,Zap,AlertCircle} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,UserRound,X,Zap,AlertCircle,Moon} from 'lucide-react';
 import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,money} from '../components/ui';
 import {useLanguage} from '../context/LanguageContext';
 import LaunchNoticeModal from '../components/customer/LaunchNoticeModal';
@@ -11,7 +11,162 @@ import {addressPayload,addressView} from '../utils/address';
 
 import {ItemPrice,PriceSummary} from '../components/customer/PriceSummary';
 export function Logo(){return <Link className="logo" to="/" aria-label={`${BRAND.name} home`}><span className="brand-wordmark"><img src={brandWordmark} alt={BRAND.name}/></span></Link>}
-function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();const [q,setQ]=useState('');const [open,setOpen]=useState(false);const [history,setHistory]=useState([]);const load=async()=>{setOpen(true);try{setHistory(user?await customerService.searchHistory():JSON.parse(localStorage.getItem('r2cart-search-history')||'[]'))}catch(error){notify(error.message,'error')}};const go=value=>{const query=value.trim();if(!query)return;setOpen(false);nav(`/search?q=${encodeURIComponent(query)}`)};const remove=async value=>{try{const next=history.filter(item=>item!==value);if(user)await customerService.removeSearch(value);else localStorage.setItem('r2cart-search-history',JSON.stringify(next));setHistory(next);notify('Search removed')}catch(error){notify(error.message,'error')}};const clear=async()=>{try{if(user)await customerService.clearSearchHistory();else localStorage.removeItem('r2cart-search-history');setHistory([]);notify('Search history cleared')}catch(error){notify(error.message,'error')}};return <div className="header-search"><SearchInput value={q} onChange={setQ} onSubmit={()=>go(q)} onFocus={load} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&<div className="header-search-history" onMouseDown={event=>event.preventDefault()}><div className="row between"><b>Recent searches</b>{history.length>0&&<button type="button" onClick={clear}>Clear all</button>}</div>{history.length?<div>{history.map(item=><span className="header-history-row" key={item}><button type="button" onClick={()=>go(item)}><History/><span>{item}</span></button><button type="button" className="remove-history" onClick={()=>remove(item)} aria-label={`Remove ${item}`}>×</button></span>)}</div>:<p>No recent searches yet.</p>}</div>}</div>}export function Header(){const nav=useNavigate();const routeLocation=useLocation();const isSearchPage=routeLocation.pathname==='/search';const {cartItems,setLocationOpen,setCartOpen,user,location,activeDeliveryRules,deliveryConfig}=useApp();const {lang,toggleLang,t,tEta}=useLanguage();const count=cartItems.reduce((s,x)=>s+x.qty,0),rules=activeDeliveryRules||deliveryConfig;const rawEta=rules?.estimatedDelivery;const cleanEta=rawEta&&!rawEta.toLowerCase().includes('unavailable')?rawEta:'15–20 mins';const formattedEta=tEta(cleanEta);const isPaused=Boolean(rules?.isPaused);const handleCartClick=()=>{if(routeLocation.pathname==='/cart'){window.scrollTo({top:0,behavior:'smooth'});return;}setCartOpen(true);};return <><header className={`site-header ${isSearchPage?'search-route-header':''}`}><div className="header-main container"><Logo/><button className="location-btn" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined}><span>{isPaused?<AlertCircle size={19} color="#ef4444"/>:<MapPin size={19}/>}</span><span>{isPaused?<b style={{color:'#ef4444'}}>{t('deliveryPaused')}</b>:<b>{t('deliveryIn')} {formattedEta}</b>}<small title={location} style={isPaused?{color:'#991b1b'}:undefined}>{location} {isPaused?<span style={{fontWeight:800}}>(Paused)</span>:null} <ChevronDown size={13}/></small></span></button>{!isSearchPage?<HeaderSearch user={user}/>:<div style={{flex:1,minWidth:'160px'}}/>}<div className="header-right-actions"><button type="button" className="lang-toggle-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Toggle language"><Globe size={15} color="#059669"/><span>{lang==='hi'?'English':'हिंदी'}</span></button><Link className="account-btn" to={user?'/account':'/login'} title={user?.name||'Account'}><UserRound/><span><small>{user?t('welcomeBack'):t('helloSignIn')}</small><b title={user?.name}>{user?.name||t('account')}</b></span></Link><button className="cart-btn" onClick={handleCartClick}><ShoppingCart size={19} strokeWidth={2.2}/><span>{count?<><b>{count} {t('items')}</b><small>{money(cartItems.reduce((s,x)=>s+x.price*x.qty,0))}</small></>:<b>{t('myCart')}</b>}</span>{count>0&&<i>{count}</i>}</button></div></div><div className="mobile-head container"><div className="mobile-top-bar"><Logo/><div className="mobile-head-actions"><button type="button" className="mobile-lang-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Switch language"><Globe size={13} color="#059669"/><span>{lang==='hi'?'EN':'हिन्दी'}</span></button><Link className="mobile-user-btn" to={user?'/account':'/login'} aria-label={user?'My account':'Sign in'} title={user?.name||'Account'}><UserRound size={15}/>{user?<span>{user.name?user.name.split(' ')[0]:t('account')}</span>:<span>{t('signIn')}</span>}</Link><button className="mobile-cart" onClick={handleCartClick} aria-label="Shopping cart"><ShoppingCart size={18} strokeWidth={2.2}/>{count>0&&<i>{count}</i>}</button></div></div><div className="mobile-sub-row"><button type="button" className="mobile-location-bar" onClick={()=>setLocationOpen(true)} style={isPaused?{borderColor:'#fca5a5',background:'#fff5f5'}:undefined} aria-label="Delivery location"><div className="mobile-loc-eta">{isPaused?<AlertCircle size={13} color="#ef4444"/>:<Clock3 size={13} color="#059669"/>}<span>{isPaused?t('deliveryPaused'):`${t('deliveryIn')} ${formattedEta}`}</span></div><div className="mobile-loc-address" title={location}><MapPin size={12} color="#059669" style={{flexShrink:0}}/><span className="address-text">{location}</span><ChevronDown size={11} color="#64748b" style={{flexShrink:0}}/></div></button></div>{!isSearchPage&&<div className="mobile-search-row" onClick={()=>nav('/search')}><SearchInput value="" placeholder={t('searchPlaceholder')}/></div>}</div></header></>}
+function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();const [q,setQ]=useState('');const [open,setOpen]=useState(false);const [history,setHistory]=useState([]);const load=async()=>{setOpen(true);try{setHistory(user?await customerService.searchHistory():JSON.parse(localStorage.getItem('r2cart-search-history')||'[]'))}catch(error){notify(error.message,'error')}};const go=value=>{const query=value.trim();if(!query)return;setOpen(false);nav(`/search?q=${encodeURIComponent(query)}`)};const remove=async value=>{try{const next=history.filter(item=>item!==value);if(user)await customerService.removeSearch(value);else localStorage.setItem('r2cart-search-history',JSON.stringify(next));setHistory(next);notify('Search removed')}catch(error){notify(error.message,'error')}};const clear=async()=>{try{if(user)await customerService.clearSearchHistory();else localStorage.removeItem('r2cart-search-history');setHistory([]);notify('Search history cleared')}catch(error){notify(error.message,'error')}};return <div className="header-search"><SearchInput value={q} onChange={setQ} onSubmit={()=>go(q)} onFocus={load} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&<div className="header-search-history" onMouseDown={event=>event.preventDefault()}><div className="row between"><b>Recent searches</b>{history.length>0&&<button type="button" onClick={clear}>Clear all</button>}</div>{history.length?<div>{history.map(item=><span className="header-history-row" key={item}><button type="button" onClick={()=>go(item)}><History/><span>{item}</span></button><button type="button" className="remove-history" onClick={()=>remove(item)} aria-label={`Remove ${item}`}>×</button></span>)}</div>:<p>No recent searches yet.</p>}</div>}</div>}export function Header(){
+  const nav=useNavigate();
+  const routeLocation=useLocation();
+  const isSearchPage=routeLocation.pathname==='/search';
+  const {cartItems,setLocationOpen,setCartOpen,user,location,activeDeliveryRules,deliveryConfig,storeSettings}=useApp();
+  const {lang,toggleLang,t,tEta}=useLanguage();
+  const count=cartItems.reduce((s,x)=>s+x.qty,0),rules=activeDeliveryRules||deliveryConfig;
+  const rawEta=rules?.estimatedDelivery;
+  const cleanEta=rawEta&&!rawEta.toLowerCase().includes('unavailable')?rawEta:'15–20 mins';
+  const formattedEta=tEta(cleanEta);
+
+  const effectiveStatus = storeSettings?.effectiveStatus;
+  const isEmergencyPaused = Boolean(
+    storeSettings?.policies?.emergencyPause?.isPaused ||
+    storeSettings?.isOrderPaused ||
+    effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED'
+  );
+  const isStoreFullyClosed = Boolean(
+    effectiveStatus?.storeStatus === 'CLOSED' ||
+    (effectiveStatus?.allowImmediateOrders === false && effectiveStatus?.allowScheduledOrders === false)
+  );
+  const isInstantClosed = Boolean(
+    isEmergencyPaused ||
+    isStoreFullyClosed ||
+    effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' ||
+    effectiveStatus?.allowImmediateOrders === false
+  );
+  const allowScheduled = Boolean(
+    !isStoreFullyClosed &&
+    (effectiveStatus !== undefined && effectiveStatus !== null ? effectiveStatus.allowScheduledOrders : true)
+  );
+  const isPaused = Boolean(rules?.isPaused || isEmergencyPaused);
+  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed);
+  const nextOpening = effectiveStatus?.nextAvailableOpening;
+  const reopenLabel = nextOpening?.label;
+
+  const handleCartClick=()=>{
+    if(routeLocation.pathname==='/cart'){
+      window.scrollTo({top:0,behavior:'smooth'});
+      return;
+    }
+    setCartOpen(true);
+  };
+
+  const locationBtnStyle = isPaused
+    ? {borderColor:'#fca5a5',background:'#fff5f5'}
+    : isClosed
+    ? {borderColor:'#fed7aa',background:'#fffbeb'}
+    : undefined;
+
+  return (
+    <>
+      <header className={`site-header ${isSearchPage?'search-route-header':''}`}>
+        <div className="header-main container">
+          <Logo/>
+          <button className="location-btn" onClick={()=>setLocationOpen(true)} style={locationBtnStyle}>
+            <span>
+              {isPaused ? (
+                <AlertCircle size={19} color="#ef4444"/>
+              ) : isClosed ? (
+                <Moon size={19} color="#d97706"/>
+              ) : (
+                <MapPin size={19}/>
+              )}
+            </span>
+            <span>
+              {isPaused ? (
+                <b style={{color:'#ef4444'}}>{t('deliveryPaused')}</b>
+              ) : isClosed ? (
+                <b style={{color:'#b45309'}}>{t('storeClosed')}</b>
+              ) : (
+                <b>{t('deliveryIn')} {formattedEta}</b>
+              )}
+              <small title={location} style={isPaused ? {color:'#991b1b'} : isClosed ? {color:'#92400e'} : undefined}>
+                {isPaused ? (
+                  <>{location} <span style={{fontWeight:800}}>(Paused)</span></>
+                ) : isClosed && allowScheduled ? (
+                  <>{t('scheduleOpen')} · {location}</>
+                ) : isClosed ? (
+                  <>{reopenLabel ? `Reopens ${reopenLabel}` : t('storeClosed')} · {location}</>
+                ) : (
+                  <>{location} <ChevronDown size={13}/></>
+                )}
+              </small>
+            </span>
+          </button>
+          {!isSearchPage?<HeaderSearch user={user}/>:<div style={{flex:1,minWidth:'160px'}}/>}
+          <div className="header-right-actions">
+            <button type="button" className="lang-toggle-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Toggle language">
+              <Globe size={15} color="#059669"/>
+              <span>{lang==='hi'?'English':'हिंदी'}</span>
+            </button>
+            <Link className="account-btn" to={user?'/account':'/login'} title={user?.name||'Account'}>
+              <UserRound/>
+              <span>
+                <small>{user?t('welcomeBack'):t('helloSignIn')}</small>
+                <b title={user?.name}>{user?.name||t('account')}</b>
+              </span>
+            </Link>
+            <button className="cart-btn" onClick={handleCartClick}>
+              <ShoppingCart size={19} strokeWidth={2.2}/>
+              <span>{count?<><b>{count} {t('items')}</b><small>{money(cartItems.reduce((s,x)=>s+x.price*x.qty,0))}</small></>:<b>{t('myCart')}</b>}</span>
+              {count>0&&<i>{count}</i>}
+            </button>
+          </div>
+        </div>
+
+        <div className="mobile-head container">
+          <div className="mobile-top-bar">
+            <Logo/>
+            <div className="mobile-head-actions">
+              <button type="button" className="mobile-lang-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Switch language">
+                <Globe size={13} color="#059669"/>
+                <span>{lang==='hi'?'EN':'हिन्दी'}</span>
+              </button>
+              <Link className="mobile-user-btn" to={user?'/account':'/login'} aria-label={user?'My account':'Sign in'} title={user?.name||'Account'}>
+                <UserRound size={15}/>
+                {user?<span>{user.name?user.name.split(' ')[0]:t('account')}</span>:<span>{t('signIn')}</span>}
+              </Link>
+              <button className="mobile-cart" onClick={handleCartClick} aria-label="Shopping cart">
+                <ShoppingCart size={18} strokeWidth={2.2}/>
+                {count>0&&<i>{count}</i>}
+              </button>
+            </div>
+          </div>
+          <div className="mobile-sub-row">
+            <button type="button" className="mobile-location-bar" onClick={()=>setLocationOpen(true)} style={locationBtnStyle} aria-label="Delivery location">
+              <div className="mobile-loc-eta">
+                {isPaused ? (
+                  <AlertCircle size={13} color="#ef4444"/>
+                ) : isClosed ? (
+                  <Moon size={13} color="#d97706"/>
+                ) : (
+                  <Clock3 size={13} color="#059669"/>
+                )}
+                <span>
+                  {isPaused
+                    ? t('deliveryPaused')
+                    : isClosed
+                    ? (allowScheduled ? `${t('storeClosed')} · ${t('scheduleOpen')}` : t('storeClosed'))
+                    : `${t('deliveryIn')} ${formattedEta}`}
+                </span>
+              </div>
+              <div className="mobile-loc-address" title={location}>
+                <MapPin size={12} color={isClosed ? "#d97706" : "#059669"} style={{flexShrink:0}}/>
+                <span className="address-text">{location}</span>
+                <ChevronDown size={11} color="#64748b" style={{flexShrink:0}}/>
+              </div>
+            </button>
+          </div>
+          {!isSearchPage&&<div className="mobile-search-row" onClick={()=>nav('/search')}><SearchInput value="" placeholder={t('searchPlaceholder')}/></div>}
+        </div>
+      </header>
+    </>
+  );
+}
 export function ShareModal({ open, onClose }) {
   const { notify } = useApp();
   const [copied, setCopied] = useState(false);
@@ -577,8 +732,186 @@ export function LocationModal(){
     </Modal>
   );
 }
-export function AddressForm({onSave,onCancel,initial={}}){const {availableLocalities}=useApp();const fields=[['name','Full name'],['mobile','Mobile number'],['street','Street / Colony / Ward details'],['landmark','Nearby Landmark (Mandir, School, etc.)'],['area','Village / Area']];const required=['name','mobile','landmark','area'];const standardTypes=['Home','Work'];const initialType=standardTypes.includes(initial.type)?initial.type:initial.type?'Other':'Home';const [form,setForm]=useState({...initial,house:initial.house||'',street:initial.street||'',landmark:initial.landmark||'',area:availableLocalities.includes(initial.area)?initial.area:(initial.area||''),city:'Hathua',type:initialType,customType:initialType==='Other'?initial.type:'',isDefault:initial.isDefault??true});const submit=e=>{e.preventDefault();if(fields.some(([key])=>!String(form[key]||'').trim()&&required.includes(key)))return;if(form.type==='Other'&&!form.customType?.trim())return;onSave({...form,house:'',street:String(form.street||'').trim(),landmark:String(form.landmark||'').trim(),area:String(form.area||'').trim(),city:'Hathua',type:form.type==='Other'?form.customType.trim():form.type,isDefault:form.isDefault??true})};return <form onSubmit={submit} className="address-form"><div className="form-grid">{fields.map(([key,label])=><label key={key}>{label}{required.includes(key)&&' *'}{key==='area'?<LocalityPicker localities={availableLocalities} value={form.area} onChange={area=>setForm({...form,area})}/>:<input value={form[key]||''} onChange={e=>setForm({...form,[key]:e.target.value})} placeholder={key==='landmark'?'e.g. Near Shiv Mandir, High School':key==='street'?'e.g. Ward No. 3, Main Market road':undefined} required={required.includes(key)}/>}</label>)}</div><p className="service-area-note">{availableLocalities.length?`Delivery active in Hathua across ${availableLocalities.length} localities.`:'No delivery locality is active right now.'}</p><label>Address type<div className="segmented">{['Home','Work','Other'].map(type=><button type="button" className={form.type===type?'active':''} onClick={()=>setForm({...form,type})} key={type}>{type}</button>)}</div></label>{form.type==='Other'&&<label className="custom-address-type">Custom address label *<input value={form.customType||''} onChange={e=>setForm({...form,customType:e.target.value.slice(0,30)})} placeholder="e.g. Parents, Shop or Hostel" required autoFocus/></label>}<div className="row end gap address-form-actions">{onCancel&&<Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}<Button type="submit" disabled={!availableLocalities.length}>Save address</Button></div></form>}
-function LocalityPicker({localities,value,onChange}){const [query,setQuery]=useState(value||'');const [open,setOpen]=useState(false);const results=localities.filter(locality=>locality.toLowerCase().includes(query.trim().toLowerCase()));const choose=locality=>{setQuery(locality);onChange(locality);setOpen(false)};return <span className="locality-picker"><span className="locality-input"><Search/><input value={query} required autoComplete="off" placeholder="Search delivery village / area" onFocus={()=>setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),150)} onChange={event=>{setQuery(event.target.value);onChange('');setOpen(true)}}/><ChevronDown/></span>{open&&<span className="locality-menu" onMouseDown={event=>event.preventDefault()}>{results.length?results.map(locality=><button type="button" className={value===locality?'selected':''} onClick={()=>choose(locality)} key={locality}><MapPin/><span>{locality}<small>Delivery available</small></span>{value===locality&&<b>✓</b>}</button>):<span className="locality-empty">No active delivery locality found</span>}</span>}</span>}
+export function AddressForm({onSave,onCancel,initial={}}){
+  const {availableLocalities}=useApp();
+  const fields=[
+    ['name','Full name'],
+    ['mobile','Mobile number'],
+    ['street','Street / Colony / Ward details'],
+    ['landmark','Nearby Landmark (Mandir, School, etc.)'],
+    ['area','Village / Area']
+  ];
+  const required=['name','mobile','landmark','area'];
+  const standardTypes=['Home','Work'];
+  const initialType=standardTypes.includes(initial.type)?initial.type:initial.type?'Other':'Home';
+  const [form,setForm]=useState({
+    ...initial,
+    house:initial.house||'',
+    street:initial.street||'',
+    landmark:initial.landmark||'',
+    area:availableLocalities.includes(initial.area)?initial.area:(initial.area||''),
+    city:'Hathua',
+    type:initialType,
+    customType:initialType==='Other'?initial.type:'',
+    isDefault:initial.isDefault??true
+  });
+
+  const submit=e=>{
+    e.preventDefault();
+    if(fields.some(([key])=>!String(form[key]||'').trim()&&required.includes(key)))return;
+    if(form.type==='Other'&&!form.customType?.trim())return;
+    onSave({
+      ...form,
+      house:'',
+      street:String(form.street||'').trim(),
+      landmark:String(form.landmark||'').trim(),
+      area:String(form.area||'').trim(),
+      city:'Hathua',
+      type:form.type==='Other'?form.customType.trim():form.type,
+      isDefault:form.isDefault??true
+    });
+  };
+
+  return (
+    <form onSubmit={submit} className="address-form" aria-label="Delivery address details">
+      <div className="form-grid">
+        {fields.map(([key,label]) => {
+          const inputId = `address-${key}`;
+          const isReq = required.includes(key);
+          return (
+            <label key={key} htmlFor={inputId}>
+              <span>{label}{isReq && ' *'}</span>
+              {key === 'area' ? (
+                <LocalityPicker
+                  id={inputId}
+                  localities={availableLocalities}
+                  value={form.area}
+                  onChange={area => setForm({...form, area})}
+                />
+              ) : (
+                <input
+                  id={inputId}
+                  name={key}
+                  type={key === 'mobile' ? 'tel' : 'text'}
+                  value={form[key] || ''}
+                  onChange={e => setForm({...form, [key]: e.target.value})}
+                  placeholder={
+                    key === 'landmark' ? 'e.g. Near Shiv Mandir, High School' :
+                    key === 'street' ? 'e.g. Ward No. 3, Main Market road' :
+                    key === 'name' ? 'Enter your full name' :
+                    key === 'mobile' ? '10-digit mobile number' : undefined
+                  }
+                  autoComplete={key === 'name' ? 'name' : key === 'mobile' ? 'tel' : key === 'street' ? 'street-address' : undefined}
+                  required={isReq}
+                  aria-required={isReq}
+                />
+              )}
+            </label>
+          );
+        })}
+      </div>
+
+      <p className="service-area-note">
+        {availableLocalities.length ? `Delivery active in Hathua across ${availableLocalities.length} localities.` : 'No delivery locality is active right now.'}
+      </p>
+
+      <label id="address-type-label">
+        <span>Address type</span>
+        <div className="segmented" role="group" aria-labelledby="address-type-label">
+          {['Home','Work','Other'].map(type => (
+            <button
+              type="button"
+              className={form.type === type ? 'active' : ''}
+              onClick={() => setForm({...form, type})}
+              key={type}
+              aria-pressed={form.type === type}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      </label>
+
+      {form.type === 'Other' && (
+        <label htmlFor="address-customType" className="custom-address-type">
+          <span>Custom address label *</span>
+          <input
+            id="address-customType"
+            name="customType"
+            value={form.customType || ''}
+            onChange={e => setForm({...form, customType: e.target.value.slice(0,30)})}
+            placeholder="e.g. Parents, Shop or Hostel"
+            required
+            autoFocus
+            aria-required="true"
+          />
+        </label>
+      )}
+
+      <div className="row end gap address-form-actions">
+        {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
+        <Button type="submit" disabled={!availableLocalities.length}>Save address</Button>
+      </div>
+    </form>
+  );
+}
+
+function LocalityPicker({id = 'address-area', localities, value, onChange}){
+  const [query, setQuery] = useState(value || '');
+  const [open, setOpen] = useState(false);
+  const results = localities.filter(locality => locality.toLowerCase().includes(query.trim().toLowerCase()));
+  const choose = locality => {
+    setQuery(locality);
+    onChange(locality);
+    setOpen(false);
+  };
+
+  return (
+    <span className="locality-picker">
+      <span className="locality-input">
+        <Search aria-hidden="true"/>
+        <input
+          id={id}
+          name="area"
+          aria-label="Village / Area"
+          value={query}
+          required
+          autoComplete="off"
+          placeholder="Search delivery village / area"
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onChange={event => {
+            setQuery(event.target.value);
+            onChange('');
+            setOpen(true);
+          }}
+          aria-required="true"
+        />
+        <ChevronDown aria-hidden="true"/>
+      </span>
+      {open && (
+        <span className="locality-menu" onMouseDown={event => event.preventDefault()}>
+          {results.length ? (
+            results.map(locality => (
+              <button
+                type="button"
+                className={value === locality ? 'selected' : ''}
+                onClick={() => choose(locality)}
+                key={locality}
+              >
+                <MapPin aria-hidden="true"/>
+                <span>{locality}<small>Delivery available</small></span>
+                {value === locality && <b aria-hidden="true">✓</b>}
+              </button>
+            ))
+          ) : (
+            <span className="locality-empty">No active delivery locality found</span>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
 export function CartDrawer() {
   const {
     cartOpen,
@@ -602,6 +935,29 @@ export function CartDrawer() {
   const rules = activeDeliveryRules || deliveryConfig;
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
   const fee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
+
+  const effectiveStatus = storeSettings?.effectiveStatus;
+  const isEmergencyPaused = Boolean(
+    storeSettings?.policies?.emergencyPause?.isPaused ||
+    storeSettings?.isOrderPaused ||
+    effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED'
+  );
+  const isStoreFullyClosed = Boolean(
+    effectiveStatus?.storeStatus === 'CLOSED' ||
+    (effectiveStatus?.allowImmediateOrders === false && effectiveStatus?.allowScheduledOrders === false)
+  );
+  const isInstantClosed = Boolean(
+    isEmergencyPaused ||
+    isStoreFullyClosed ||
+    effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' ||
+    effectiveStatus?.allowImmediateOrders === false
+  );
+  const allowScheduled = Boolean(
+    !isStoreFullyClosed &&
+    (effectiveStatus !== undefined && effectiveStatus !== null ? effectiveStatus.allowScheduledOrders : true)
+  );
+  const isPaused = Boolean(rules?.isPaused || isEmergencyPaused);
+  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed);
 
   const popularCats = (categories && categories.length > 0 ? categories : [
     { name: 'Fruits & Vegetables', slug: 'fruits-vegetables' },
@@ -652,6 +1008,8 @@ export function CartDrawer() {
             <span style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px', display: 'block' }}>
               {itemCount > 0
                 ? `${itemCount} ${itemCount === 1 ? 'item' : 'items'} · ${money(subtotal)}`
+                : isClosed || isPaused
+                ? (isStoreFullyClosed || isPaused ? 'Delivery currently unavailable' : '🌙 Schedule orders for upcoming slots')
                 : `⚡ Delivery in ${rules?.estimatedDelivery || '15–20 mins'}`}
             </span>
           </div>
@@ -794,7 +1152,7 @@ export function CartDrawer() {
                         }}
                       >
                         {cat.image ? (
-                          <img src={cat.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          <img src={cat.image} alt={cat.name || 'Category'} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         ) : (
                           <ShoppingBag size={14} color="#059669" />
                         )}
@@ -831,7 +1189,7 @@ export function CartDrawer() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                           <img
                             src={p.image}
-                            alt=""
+                            alt={tProd(p.name) || p.name || 'Product'}
                             style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'contain', background: '#f8fafc', flexShrink: 0 }}
                           />
                           <div style={{ minWidth: 0, flex: 1 }}>
@@ -890,10 +1248,21 @@ export function CartDrawer() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock3 size={15} color="#059669" />
-                  <span style={{ fontSize: '12px', color: '#334155' }}>
-                    Delivery in <b style={{ color: '#0f172a' }}>{tEta(rules.estimatedDelivery)}</b>
-                  </span>
+                  {isClosed || isPaused ? (
+                    <>
+                      <Moon size={15} color="#d97706" />
+                      <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>
+                        {isStoreFullyClosed || isPaused ? 'Delivery currently paused' : (allowScheduled ? 'Scheduled Delivery Available' : 'Store closed')}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock3 size={15} color="#059669" />
+                      <span style={{ fontSize: '12px', color: '#334155' }}>
+                        Delivery in <b style={{ color: '#0f172a' }}>{tEta(rules.estimatedDelivery)}</b>
+                      </span>
+                    </>
+                  )}
                 </div>
                 {fee === 0 ? (
                   <span style={{ fontSize: '11px', fontWeight: 800, color: '#15803d', background: '#dcfce7', padding: '2px 7px', borderRadius: '5px' }}>
@@ -925,7 +1294,7 @@ export function CartDrawer() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                       <img
                         src={product.image}
-                        alt=""
+                        alt={tProd(product.name) || product.name || 'Cart item'}
                         style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'contain', background: '#f8fafc', flexShrink: 0 }}
                       />
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -1086,7 +1455,7 @@ import {FloatingBottomCartBar} from '../components/customer/FloatingBottomCartBa
 import {subscribeToPush,playNotificationSound} from '../services/pushNotification.service';
 
 export default function CustomerLayout({children}){
- const {user,storeSettings,setLocationOpen,addressesLoaded,activeDeliveryRules,activeAddress,notify}=useApp();
+ const {user,storeSettings,locationOpen,setLocationOpen,addressesLoaded,activeDeliveryRules,activeAddress,notify}=useApp();
  const nav=useNavigate();
  const [customerAlert,setCustomerAlert]=useState(null);
  const [announcement,setAnnouncement]=useState(null);
@@ -1094,6 +1463,55 @@ export default function CustomerLayout({children}){
  const [showAnnouncementDetails,setShowAnnouncementDetails]=useState(false);
  const [promoPopup,setPromoPopup]=useState(null);
  const [showPromoModal,setShowPromoModal]=useState(false);
+
+ const isLaunchNoticeDismissed = useCallback(() => {
+  try {
+   return Boolean(localStorage.getItem('r2cart_launch_notice_dismissed_v4'));
+  } catch {
+   return true;
+  }
+ }, []);
+
+ const [launchNoticeOpen, setLaunchNoticeOpen] = useState(false);
+ const [pendingAddressPrompt, setPendingAddressPrompt] = useState(false);
+
+ // Launch notice presentation timer: only triggered if notice is not dismissed and no modal is active
+ useEffect(() => {
+  const path = window.location.pathname;
+  if (['/checkout','/order-success','/login','/signup','/verify-otp','/forgot-password'].includes(path) || path.startsWith('/admin') || path.startsWith('/delivery') || path.startsWith('/super-admin')) {
+   return;
+  }
+  if (!isLaunchNoticeDismissed() && !locationOpen) {
+   const timer = setTimeout(() => {
+    if (!locationOpen) {
+     setLaunchNoticeOpen(true);
+    }
+   }, 500);
+   return () => clearTimeout(timer);
+  }
+ }, [locationOpen, isLaunchNoticeDismissed]);
+
+ const handleDismissLaunchNotice = useCallback(() => {
+  setLaunchNoticeOpen(false);
+  try {
+   localStorage.setItem('r2cart_launch_notice_dismissed_v4', 'true');
+  } catch {}
+
+  // BUG-15 Fix: If an address confirmation prompt was queued while the notice was open,
+  // open it now sequentially as a single clear prompt with a smooth delay.
+  if (pendingAddressPrompt || (user?.id && addressesLoaded)) {
+   const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+   const lastPromptTime = Number(localStorage.getItem('r2cart_last_address_prompt_time') || 0);
+   const now = Date.now();
+   if (now - lastPromptTime >= TWO_HOURS_MS) {
+    localStorage.setItem('r2cart_last_address_prompt_time', String(now));
+    setPendingAddressPrompt(false);
+    setTimeout(() => {
+     setLocationOpen(true);
+    }, 350);
+   }
+  }
+ }, [pendingAddressPrompt, user?.id, addressesLoaded, setLocationOpen]);
 
  const handleAnnouncementAction = (e) => {
   if (e) e.preventDefault();
@@ -1160,13 +1578,23 @@ export default function CustomerLayout({children}){
   if (now - lastPromptTime < TWO_HOURS_MS) {
    return;
   }
+
+  // BUG-15 Fix: If Launch Notice modal is active or not yet dismissed, DO NOT stack the choose-address modal!
+  // Queue the prompt so it displays as a single clear prompt ONLY after the notice is dismissed.
+  if (!isLaunchNoticeDismissed() || launchNoticeOpen) {
+   setPendingAddressPrompt(true);
+   return;
+  }
+
   // Set the timestamp immediately so subsequent fast navigations/reloads don't re-trigger it
   localStorage.setItem('r2cart_last_address_prompt_time', String(now));
   const timer=setTimeout(()=>{
-   setLocationOpen(true);
+   if (!launchNoticeOpen) {
+    setLocationOpen(true);
+   }
   }, 400);
   return()=>clearTimeout(timer);
- },[user?.id, addressesLoaded]);
+ },[user?.id, addressesLoaded, launchNoticeOpen, isLaunchNoticeDismissed, setLocationOpen]);
 
  const fetchActiveMarketing = useCallback(() => {
   // Clear legacy test dismissal keys
@@ -1199,7 +1627,9 @@ export default function CustomerLayout({children}){
      const dismissed = sessionStorage.getItem(verKey);
      if (!dismissed) {
       setPromoPopup(data.popup);
-      setShowPromoModal(true);
+      if (!launchNoticeOpen && !locationOpen && isLaunchNoticeDismissed()) {
+       setShowPromoModal(true);
+      }
       catalogService.trackMarketing(data.popup.id, 'view').catch(() => {});
      } else {
       setPromoPopup(null);
@@ -1211,7 +1641,7 @@ export default function CustomerLayout({children}){
     }
    })
    .catch(() => {});
- }, []);
+ }, [launchNoticeOpen, locationOpen, isLaunchNoticeDismissed]);
 
  useEffect(() => {
   fetchActiveMarketing();
@@ -1603,10 +2033,13 @@ export default function CustomerLayout({children}){
   <LocationModal/>
   <CartDrawer/>
   <AuthPromptModal/>
-  <LaunchNoticeModal/>
+  <LaunchNoticeModal
+    open={launchNoticeOpen}
+    onDismiss={handleDismissLaunchNotice}
+  />
 
   {/* Promotional Popup Modal */}
-  {promoPopup && showPromoModal && (
+  {promoPopup && showPromoModal && !launchNoticeOpen && !locationOpen && (
     <Modal
       open={showPromoModal}
       onClose={() => {
@@ -1620,7 +2053,7 @@ export default function CustomerLayout({children}){
         {promoPopup.imageUrl && (
           <img
             src={promoPopup.imageUrl}
-            alt={promoPopup.name || promoPopup.title}
+            alt={promoPopup.name || promoPopup.title || 'Special Offer'}
             style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px' }}
           />
         )}

@@ -89,6 +89,24 @@ export function ProductPage() {
   const currentImage = gallery[imgIdx] || product.image || '';
   const rules = activeDeliveryRules || deliveryConfig;
   const eta = rules?.estimatedDelivery || '15–20 mins';
+  const effectiveStatus = storeSettings?.effectiveStatus;
+  const isEmergencyPaused = Boolean(
+    storeSettings?.policies?.emergencyPause?.isPaused ||
+    storeSettings?.isOrderPaused ||
+    effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED'
+  );
+  const isStoreFullyClosed = Boolean(
+    effectiveStatus?.storeStatus === 'CLOSED' ||
+    (effectiveStatus?.allowImmediateOrders === false && effectiveStatus?.allowScheduledOrders === false)
+  );
+  const isInstantClosed = Boolean(
+    isEmergencyPaused ||
+    isStoreFullyClosed ||
+    effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' ||
+    effectiveStatus?.allowImmediateOrders === false
+  );
+  const isPaused = Boolean(rules?.isPaused || isEmergencyPaused);
+  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed);
   const discountPercent = product.mrp > product.price ? Math.round((1 - product.price / product.mrp) * 100) : 0;
   const isFav = favorites.includes(product.id);
   const packs = packOptions(product, products);
@@ -665,7 +683,7 @@ export function ProductPage() {
                         className={`thumb-btn-v2 ${imgIdx === idx ? 'active' : ''}`}
                         onClick={() => setImgIdx(idx)}
                       >
-                        <img src={src} alt="" />
+                        <img src={src} alt={`${tProd(product.name) || product.name || 'Product'} thumbnail ${idx + 1}`} />
                       </button>
                     ))}
                   </div>
@@ -709,8 +727,8 @@ export function ProductPage() {
                   fontWeight: 800
                 }}
               >
-                <Zap size={13} color="#059669" />
-                <span>Instant Delivery in {tEta(eta)}</span>
+                <Zap size={13} color={isClosed || isPaused ? "#d97706" : "#059669"} />
+                <span>{isClosed || isPaused ? (isStoreFullyClosed || isPaused ? 'Delivery Unavailable' : 'Scheduled Delivery Available') : `Instant Delivery in ${tEta(eta)}`}</span>
               </div>
 
               {dietaryPref && (
@@ -920,7 +938,7 @@ export function ProductPage() {
                 </div>
                 <div>
                   <b style={{ fontSize: '12.5px', color: '#0f172a', display: 'block' }}>
-                    Superfast {eta} Delivery
+                    {isClosed || isPaused ? 'Scheduled Grocery Delivery' : `Superfast ${eta} Delivery`}
                   </b>
                   <small style={{ fontSize: '11px', color: '#64748b' }}>
                     Direct from nearest dark store to your doorstep

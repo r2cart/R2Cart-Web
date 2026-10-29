@@ -1,22 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, Clock, MapPin, Sparkles, X, CheckCircle, ArrowRight, AlertTriangle } from 'lucide-react';
 import { BRAND } from '../../config/brand';
 
-export default function LaunchNoticeModal() {
-  const [open, setOpen] = useState(false);
+export default function LaunchNoticeModal({ open: controlledOpen, onDismiss }) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(5);
 
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+
   useEffect(() => {
+    if (isControlled) return;
     try {
       const dismissed = localStorage.getItem('r2cart_launch_notice_dismissed_v4');
       if (!dismissed) {
-        const timer = setTimeout(() => setOpen(true), 500);
+        const timer = setTimeout(() => setInternalOpen(true), 500);
         return () => clearTimeout(timer);
       }
     } catch {
-      setOpen(true);
+      setInternalOpen(true);
     }
-  }, []);
+  }, [isControlled]);
 
   useEffect(() => {
     if (!open) return;
@@ -33,17 +38,35 @@ export default function LaunchNoticeModal() {
     return () => clearInterval(interval);
   }, [open]);
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     if (timeLeft > 0) return;
-    setOpen(false);
+    if (!isControlled) {
+      setInternalOpen(false);
+    }
     try {
       localStorage.setItem('r2cart_launch_notice_dismissed_v4', 'true');
     } catch {}
-  };
+    onDismiss?.();
+  }, [timeLeft, isControlled, onDismiss]);
+
+  useEffect(() => {
+    if (!open) return;
+    document.body.classList.add('modal-open');
+    const onKey = (e) => {
+      if (e.key === 'Escape' && timeLeft === 0) {
+        handleDismiss();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.classList.remove('modal-open');
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open, timeLeft, handleDismiss]);
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop"
       style={{
@@ -367,6 +390,7 @@ export default function LaunchNoticeModal() {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

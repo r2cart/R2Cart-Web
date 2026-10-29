@@ -593,9 +593,9 @@ function HeroBanner({banner,index,main,secondary,third}){
     <small className="hero-note">{note}</small>
    </div>
    <div className="hero-visual" aria-hidden="true">
-    <div className="hero-photo"><img src={main} alt="" onError={event=>replaceOrHide(secondary,event)}/></div>
-    {secondary&&<div className="hero-product hero-product-one"><img src={secondary} alt="" onError={event=>replaceOrHide(third,event)}/></div>}
-    {third&&<div className="hero-product hero-product-two"><img src={third} alt="" onError={event=>replaceOrHide('',event)}/></div>}
+    <div className="hero-photo"><img src={main} alt={heading || 'Fresh daily groceries'} onError={event=>replaceOrHide(secondary,event)}/></div>
+    {secondary&&<div className="hero-product hero-product-one"><img src={secondary} alt={subtitle || 'Featured grocery item'} onError={event=>replaceOrHide(third,event)}/></div>}
+    {third&&<div className="hero-product hero-product-two"><img src={third} alt="Quality farm fresh groceries" onError={event=>replaceOrHide('',event)}/></div>}
     <span className="hero-offer"><b>{stickerBold}</b><small>{stickerSmall}</small></span>
    </div>
   </article>

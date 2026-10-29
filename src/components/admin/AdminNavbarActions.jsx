@@ -117,7 +117,7 @@ export default function AdminNavbarActions(){
    </form>
    {menu==='search'&&<div className="admin-navbar-popover">
     <b>Search records</b>
-    {!q.trim()?<p>Search by product, SKU, order number, customer or ticket.</p>:busy?<p>Searching…</p>:error?<p role="alert">{error}</p>:!results.length?<p>No matching records.</p>:results.map(item=><button key={`${item.type}-${item.id}`} className="navbar-result" onClick={()=>go(item.path)}>{item.image&&<img src={mediaUrl(item.image)} alt="" onError={e=>{e.currentTarget.hidden=true}}/>}<span><small>{item.type}</small><b>{item.title}</b><small>{item.subtitle}</small></span></button>)}
+    {!q.trim()?<p>Search by product, SKU, order number, customer or ticket.</p>:busy?<p>Searching…</p>:error?<p role="alert">{error}</p>:!results.length?<p>No matching records.</p>:results.map(item=><button key={`${item.type}-${item.id}`} className="navbar-result" onClick={()=>go(item.path)}>{item.image&&<img src={mediaUrl(item.image)} alt={item.title || item.type || 'Search result'} onError={e=>{e.currentTarget.hidden=true}}/>}<span><small>{item.type}</small><b>{item.title}</b><small>{item.subtitle}</small></span></button>)}
    </div>}
   </div>
 

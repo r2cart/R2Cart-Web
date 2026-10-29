@@ -10,19 +10,17 @@ let refreshDeliveryPromise=null;
 
 const isDeliveryPath=path=>path.startsWith('/delivery-portal')||path.startsWith('/delivery/auth')||(typeof window!=='undefined'&&window.location.pathname.startsWith('/delivery'));
 const isAdminPath=path=>path.startsWith('/admin')||path.startsWith('/super-admin')||(typeof window!=='undefined'&&(window.location.pathname.startsWith('/admin')||window.location.pathname.startsWith('/super-admin')||window.location.pathname.includes('administrator')));
+const isAuthEndpoint=path=>path.includes('/login')||path.includes('/refresh')||path.includes('/logout')||path.includes('/otp')||path.includes('/password')||path.includes('/bootstrap');
 
 const tokenKey=path=>{
  if(isDeliveryPath(path)){
-  return localStorage.getItem('r2cart-delivery-access-token')?'r2cart-delivery-access-token':(localStorage.getItem('r2cart-admin-access-token')?'r2cart-admin-access-token':'r2cart-access-token');
+  return sessionStorage.getItem('r2cart-delivery-access-token')?'r2cart-delivery-access-token':(sessionStorage.getItem('r2cart-admin-access-token')?'r2cart-admin-access-token':'r2cart-access-token');
  }
  return isAdminPath(path)?'r2cart-admin-access-token':'r2cart-access-token';
 };
-const refreshKey=path=>{
- if(isDeliveryPath(path)){
-  return localStorage.getItem('r2cart-delivery-refresh-token')?'r2cart-delivery-refresh-token':(localStorage.getItem('r2cart-admin-refresh-token')?'r2cart-admin-refresh-token':'r2cart-refresh-token');
- }
- return isAdminPath(path)?'r2cart-admin-refresh-token':'r2cart-refresh-token';
-};
+// refreshKey is no longer used for storage — HttpOnly cookies handle refresh tokens
+// Kept for backward compat with any external callers
+const refreshKey=path=>isAdminPath(path)?'r2cart-admin-refresh-token':'r2cart-refresh-token';
 const userKey=path=>{
  if(isDeliveryPath(path)){
   return localStorage.getItem('r2cart-delivery-user')?'r2cart-delivery-user':(localStorage.getItem('r2cart-admin-user')?'r2cart-admin-user':'r2cart-user');
@@ -31,7 +29,8 @@ const userKey=path=>{
 };
 
 const headersFor=(path,options)=>{
- const token=localStorage.getItem(tokenKey(path));
+ // Access tokens now live in sessionStorage (BUG-03 fix)
+ const token=sessionStorage.getItem(tokenKey(path));
  return {
   ...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),
   ...(token?{Authorization:`Bearer ${token}`}:{}),
@@ -45,21 +44,18 @@ async function parse(response){
 }
 
 async function refreshSession(isAdmin){
- const activeRefKey=isAdmin?'r2cart-admin-refresh-token':'r2cart-refresh-token';
  const activeAccKey=isAdmin?'r2cart-admin-access-token':'r2cart-access-token';
  const activeUsrKey=isAdmin?'r2cart-admin-user':'r2cart-user';
- const storedRefToken=localStorage.getItem(activeRefKey);
 
  const doRefresh=async()=>{
   const refreshEndpoint=`${env.apiBaseUrl}/auth/refresh`;
+  // HttpOnly cookie (r2cart_refresh / r2cart_admin_refresh) is sent automatically
+  // via credentials:'include' — no body/header token needed (BUG-03 fix)
   const res=await fetch(refreshEndpoint,{
    method:'POST',
    credentials:'include',
-   headers:{
-    'Content-Type':'application/json',
-    ...(storedRefToken?{'x-refresh-token':storedRefToken}:{})
-   },
-   body:JSON.stringify({refreshToken:storedRefToken||null})
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({})
   });
 
   const payload=await res.json();
@@ -67,19 +63,20 @@ async function refreshSession(isAdmin){
    // Only clear credentials if the refresh token is explicitly rejected as invalid or expired
    // DO NOT clear on 5xx or server restart during git push deployment
    if(res.status===401&&(payload?.message?.includes('invalid')||payload?.message?.includes('expired')||payload?.message?.includes('required'))){
-    localStorage.removeItem(activeAccKey);
-    localStorage.removeItem(activeRefKey);
+    sessionStorage.removeItem(activeAccKey);
     localStorage.removeItem(activeUsrKey);
    }
-   throw new ApiError(payload?.message||'Session refresh failed',res.status,payload);
+   const refreshErrorMsg=res.status===401?'Session expired. Please sign in again.':(payload?.message||'Session refresh failed');
+   throw new ApiError(refreshErrorMsg,res.status,payload);
   }
 
   const session=payload?.data??payload;
+  // New access token goes to sessionStorage only (BUG-03 fix)
   if(session?.accessToken){
-   localStorage.setItem(activeAccKey,session.accessToken);
-  }
-  if(session?.refreshToken){
-   localStorage.setItem(activeRefKey,session.refreshToken);
+   sessionStorage.setItem(activeAccKey,session.accessToken);
+   // Keep AppContext.onlineSession() working — it checks localStorage for 'r2cart-access-token'
+   // We bridge it via a flag so it stays consistent without exposing the real token
+   localStorage.setItem('r2cart-session-active','1');
   }
   if(session?.user){
    localStorage.setItem(activeUsrKey,JSON.stringify(session.user));
@@ -122,8 +119,8 @@ export async function request(path,options={}){
     signal:controller.signal
    }));
 
-   // Automatic silent session recovery on 401
-   if(result.response.status===401&&path!=='/auth/login'&&path!=='/admin/auth/login'&&path!=='/auth/refresh'&&path!=='/auth/logout'){
+   // Automatic silent session recovery on 401 (skip for all auth / login / credential endpoints)
+   if(result.response.status===401&&!isAuthEndpoint(path)){
     try{
      await refreshSession(isAdmin);
      result=await parse(await fetch(`${env.apiBaseUrl}${path}`,{

@@ -693,7 +693,7 @@ export function AdminRanking() {
                       const p = getProductById(pid);
                       return (
                         <span key={pid} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#fff', border: '1px solid var(--line)', borderRadius: 20, fontSize: 12 }}>
-                          {p?.image && <img src={p.image} alt="" style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />}
+                          {p?.image && <img src={p.image} alt={p.name || 'Product'} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />}
                           <span>{p?.name || pid}</span>
                           <button onClick={() => removeProductFromList(pid, 'bsFallback')} style={{ padding: 0, color: 'var(--muted)', display: 'grid', placeItems: 'center' }}>
                             <X size={13} />
@@ -740,7 +740,7 @@ export function AdminRanking() {
                       <div key={pid} className="between" style={{ padding: '6px 10px', background: '#fff', borderRadius: 8, border: '1px solid #eef2ef', fontSize: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontWeight: 800, color: 'var(--green)', fontSize: 11 }}>#{idx + 1}</span>
-                          {p?.image && <img src={p.image} alt="" style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />}
+                          {p?.image && <img src={p.image} alt={p.name || 'Product'} style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />}
                           <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p?.name || pid}</span>
                         </div>
                         <button onClick={() => removeProductFromList(pid, 'bsPins')} style={{ color: 'var(--muted)' }}><X size={14} /></button>
@@ -773,7 +773,7 @@ export function AdminRanking() {
                       <div key={pid} className="between" style={{ padding: '6px 10px', background: '#fff', borderRadius: 8, border: '1px solid #fee2e2', fontSize: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ color: '#dc2626', fontWeight: 700, fontSize: 11 }}>EXCLUDED</span>
-                          {p?.image && <img src={p.image} alt="" style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />}
+                          {p?.image && <img src={p.image} alt={p.name || 'Product'} style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />}
                           <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p?.name || pid}</span>
                         </div>
                         <button onClick={() => removeProductFromList(pid, 'bsExclusions')} style={{ color: 'var(--muted)' }}><X size={14} /></button>
@@ -995,7 +995,7 @@ export function AdminRanking() {
                   return (
                     <div key={pid} className="between" style={{ padding: '8px 12px', background: '#fafbfc', borderRadius: 8, border: '1px solid #eef2ef', fontSize: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {p?.image && <img src={p.image} alt="" style={{ width: 26, height: 26, borderRadius: 6, objectFit: 'cover' }} />}
+                        {p?.image && <img src={p.image} alt={p.name || 'Product'} style={{ width: 26, height: 26, borderRadius: 6, objectFit: 'cover' }} />}
                         <div style={{ maxWidth: 130 }}>
                           <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p?.name || pid}</b>
                           <small style={{ color: 'var(--muted)' }}>₹{p?.price}</small>
@@ -1104,7 +1104,7 @@ export function AdminRanking() {
                       <td><b style={{ color: 'var(--green)' }}>#{p.rank || idx + 1}</b></td>
                       <td>
                         <div className="product-cell">
-                          <img src={p.image} alt="" />
+                          <img src={p.image} alt={p.name || 'Product'} />
                           <span>
                             <b>{p.name}</b>
                             <small>{p.unit} · {p.categoryName}</small>
@@ -1183,7 +1183,7 @@ export function AdminRanking() {
                       <td><b style={{ color: 'var(--green)' }}>#{p.rank || idx + 1}</b></td>
                       <td>
                         <div className="product-cell">
-                          <img src={p.image} alt="" />
+                          <img src={p.image} alt={p.name || 'Product'} />
                           <span>
                             <b>{p.name}</b>
                             <small>{p.unit} · {p.categoryName}</small>
@@ -1338,7 +1338,7 @@ export function AdminRanking() {
                 <div key={p.id} className="between" style={{ padding: '8px 12px', background: '#fff', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {p.images?.[0]?.url && (
-                      <img src={p.images[0].url} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover' }} />
+                      <img src={p.images[0].url} alt={p.name || 'Product'} style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover' }} />
                     )}
                     <div>
                       <b style={{ display: 'block' }}>{p.name}</b>

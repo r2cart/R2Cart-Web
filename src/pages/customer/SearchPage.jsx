@@ -38,7 +38,7 @@ const TRENDING_SEARCHES = [
 export function SearchPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, notify, categories, products, activeDeliveryRules, deliveryConfig } = useApp();
+  const { user, notify, categories, products, activeDeliveryRules, deliveryConfig, storeSettings } = useApp();
   const initialQuery = new URLSearchParams(location.search).get('q') || '';
 
   const [q, setQ] = useState(initialQuery);
@@ -54,6 +54,24 @@ export function SearchPage() {
 
   const rules = activeDeliveryRules || deliveryConfig;
   const eta = rules?.estimatedDelivery || '15–20 mins';
+  const effectiveStatus = storeSettings?.effectiveStatus;
+  const isEmergencyPaused = Boolean(
+    storeSettings?.policies?.emergencyPause?.isPaused ||
+    storeSettings?.isOrderPaused ||
+    effectiveStatus?.storeStatus === 'EMERGENCY_PAUSED'
+  );
+  const isStoreFullyClosed = Boolean(
+    effectiveStatus?.storeStatus === 'CLOSED' ||
+    (effectiveStatus?.allowImmediateOrders === false && effectiveStatus?.allowScheduledOrders === false)
+  );
+  const isInstantClosed = Boolean(
+    isEmergencyPaused ||
+    isStoreFullyClosed ||
+    effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' ||
+    effectiveStatus?.allowImmediateOrders === false
+  );
+  const isPaused = Boolean(rules?.isPaused || isEmergencyPaused);
+  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed);
 
   // Sync initial query from URL
   useEffect(() => {
@@ -848,8 +866,8 @@ export function SearchPage() {
                         <b style={{ fontSize: '16px', color: '#0f172a', display: 'block' }}>
                           Similar Products You May Like
                         </b>
-                        <small style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>
-                          ⚡ In stock & ready for delivery in {eta}
+                        <small style={{ fontSize: '12px', color: isClosed || isPaused ? '#d97706' : '#059669', fontWeight: 600 }}>
+                          {isClosed || isPaused ? '⚡ In stock · Available for scheduled delivery' : `⚡ In stock & ready for delivery in ${eta}`}
                         </small>
                       </div>
                     </div>

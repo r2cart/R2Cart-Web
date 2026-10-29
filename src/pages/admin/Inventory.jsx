@@ -392,7 +392,7 @@ export function AdminInventory() {
                       <tr key={product.id}>
                         <td>
                           <div className="product-cell">
-                            {product.image && <img src={product.image} alt="" />}
+                            {product.image && <img src={product.image} alt={product.name || 'Product'} />}
                             <span>
                               <b>{product.name}</b>
                               <small>{product.sku} · {product.unit}</small>
