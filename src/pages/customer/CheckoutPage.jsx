@@ -23,6 +23,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { AddressForm } from '../../layouts/CustomerLayout';
 import { Badge, Button, EmptyState, Modal, money } from '../../components/ui';
+import { isProductComingSoon } from '../../config/homeLayout';
 import { orderService } from '../../services/order.service';
 import { customerService } from '../../services/customer.service';
 import { catalogService } from '../../services/catalog.service';
@@ -674,12 +675,7 @@ export function CheckoutPage() {
       return notify('Please select a valid delivery date and time slot', 'error');
     }
 
-    const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
-    const comingSoonProducts = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
-    const comingSoonItem = cartItems.find((p) => {
-      const slug = p.categorySlug || p.category?.slug || p.category;
-      return (slug && comingSoonCats.includes(slug)) || comingSoonProducts.includes(p.id) || p.isSoon;
-    });
+    const comingSoonItem = cartItems.find((p) => isProductComingSoon(p, storeSettings));
     if (comingSoonItem) {
       return notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket.`, 'error');
     }

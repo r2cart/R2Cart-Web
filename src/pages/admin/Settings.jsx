@@ -648,7 +648,7 @@ export function AdminSettings(){
    lastSettingsFetch=Date.now();
    setSettings(data);
    setSaved(data);
-   window.dispatchEvent(new Event('r2cart:settings-updated'));
+   window.dispatchEvent(new CustomEvent('r2cart:settings-updated', { detail: { policies: data.policies, settings: data } }));
    window.dispatchEvent(new Event('r2cart:delivery-updated'));
    const navObj=policyNav.find(p=>p.type===pKey);
    notify(`Saved and published ${navObj?.label || pKey} live!`);
@@ -902,7 +902,7 @@ export function AdminSettings(){
    lastSettingsFetch=Date.now();
    setSettings(data);
    setSaved(data);
-   window.dispatchEvent(new Event('r2cart:settings-updated'));
+   window.dispatchEvent(new CustomEvent('r2cart:settings-updated', { detail: { policies: data.policies, settings: data } }));
    window.dispatchEvent(new Event('r2cart:delivery-updated'));
    notify('Store settings, storefront layout and policy CMS saved');
   }catch(error){

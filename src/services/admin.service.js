@@ -196,22 +196,29 @@ export const adminService = {
     } catch {
       const current = await api.get('/admin/settings');
       const layout = current.policies?.homeLayout || {};
+      const comingSoonCats = layout.comingSoonCategories || [];
       const existing = new Set(layout.comingSoonProducts || []);
+      const exempt = new Set(layout.comingSoonExemptions || []);
       let nextSoon = isSoon !== undefined ? isSoon : !existing.has(productId);
-      if (nextSoon) existing.add(productId);
-      else existing.delete(productId);
+      if (nextSoon) {
+        existing.add(productId);
+        exempt.delete(productId);
+      } else {
+        existing.delete(productId);
+      }
       const updated = {
         ...current,
         policies: {
           ...current.policies,
           homeLayout: {
             ...layout,
-            comingSoonProducts: Array.from(existing)
+            comingSoonProducts: Array.from(existing),
+            comingSoonExemptions: Array.from(exempt)
           }
         }
       };
       await api.put('/admin/settings', updated);
-      return { isSoon: nextSoon, comingSoonProducts: Array.from(existing) };
+      return { isSoon: nextSoon, comingSoonProducts: Array.from(existing), comingSoonExemptions: Array.from(exempt), policies: updated.policies };
     }
   },
   setEmergencyPause: payload => api.post('/admin/store/emergency-pause', payload),

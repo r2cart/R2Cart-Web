@@ -19,6 +19,7 @@ import { Button, Modal, money } from '../ui';
 import { useApp } from '../../context/AppContext';
 import { adminService } from '../../services/admin.service';
 import { ProductDetailModal } from '../../pages/admin/Products';
+import { isProductComingSoon } from '../../config/homeLayout';
 
 function getAdminUser() {
   try {
@@ -29,7 +30,7 @@ function getAdminUser() {
 }
 
 export default function CategoryProductsModal({ category, onClose, onRefreshCategories }) {
-  const { notify, storeSettings } = useApp();
+  const { notify, storeSettings, setStoreSettings } = useApp();
   const currentUser = getAdminUser();
   const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN';
   const basePath = isSuper ? '/super-admin' : '/admin';
@@ -43,17 +44,40 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
   const [inspectProduct, setInspectProduct] = useState(null);
   const [togglingId, setTogglingId] = useState('');
   const [togglingSoonId, setTogglingSoonId] = useState('');
-  const comingSoonProds = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
+  const [localSoonMap, setLocalSoonMap] = useState({});
+
+  const checkIsSoon = (prod) => {
+    if (!prod) return false;
+    if (localSoonMap[prod.id] !== undefined) return localSoonMap[prod.id];
+    return isProductComingSoon(prod, storeSettings);
+  };
 
   const toggleComingSoon = async (product) => {
+    const currentSoon = checkIsSoon(product);
+    const nextSoon = !currentSoon;
+
+    // Optimistic UI update in 0ms:
+    const packIds = [product.id, ...(product.packs || []).map(p => p.id)];
+    const newMap = { ...localSoonMap };
+    packIds.forEach(id => { newMap[id] = nextSoon; });
+    setLocalSoonMap(newMap);
+    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, isSoon: nextSoon } : p));
     setTogglingSoonId(product.id);
+
     try {
-      const res = await adminService.toggleProductComingSoon(product.id);
+      const res = await adminService.toggleProductComingSoon(product.id, nextSoon);
       notify(`"${product.name}" is now marked as ${res.isSoon ? 'Coming Soon' : 'Available'}`, 'success');
-      window.dispatchEvent(new Event('r2cart:settings-updated'));
+      if (res.policies && setStoreSettings) {
+        setStoreSettings(prev => ({ ...prev, policies: res.policies }));
+      }
+      window.dispatchEvent(new CustomEvent('r2cart:settings-updated', { detail: { policies: res.policies, settings: res.policies } }));
       window.dispatchEvent(new Event('r2cart:products-updated'));
     } catch (err) {
       notify(err.message || 'Failed to update Coming Soon status', 'error');
+      const reverted = { ...localSoonMap };
+      packIds.forEach(id => { reverted[id] = currentSoon; });
+      setLocalSoonMap(reverted);
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, isSoon: currentSoon } : p));
     } finally {
       setTogglingSoonId('');
     }
@@ -303,7 +327,7 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
                   >
                     {/* Media Area */}
                     <div className="card-shape-media">
-                      {Boolean(comingSoonProds.includes(product.id) || product.isSoon) && (
+                      {BooleancheckIsSoon(product) && (
                         <span style={{ position: 'absolute', top: '8px', left: '8px', background: '#d97706', color: '#fff', fontSize: '9.5px', fontWeight: 800, padding: '2px 6px', borderRadius: '6px', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                           <Clock3 size={10} /> SOON
                         </span>
@@ -375,19 +399,19 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
                             fontSize: '11px',
                             padding: '4px 8px',
                             borderRadius: '6px',
-                            border: (comingSoonProds.includes(product.id) || product.isSoon) ? '1.5px solid #fde68a' : '1px solid #e2e8f0',
-                            background: (comingSoonProds.includes(product.id) || product.isSoon) ? '#fef3c7' : '#ffffff',
-                            color: (comingSoonProds.includes(product.id) || product.isSoon) ? '#b45309' : '#64748b',
+                            border: checkIsSoon(product) ? '1.5px solid #fde68a' : '1px solid #e2e8f0',
+                            background: checkIsSoon(product) ? '#fef3c7' : '#ffffff',
+                            color: checkIsSoon(product) ? '#b45309' : '#64748b',
                             cursor: 'pointer',
                             fontWeight: 700,
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px'
                           }}
-                          title={(comingSoonProds.includes(product.id) || product.isSoon) ? "Marked as Coming Soon (Click to make Available)" : "Marked as Available (Click to mark Coming Soon)"}
+                          title={checkIsSoon(product) ? "Marked as Coming Soon (Click to make Available)" : "Marked as Available (Click to mark Coming Soon)"}
                         >
                           <Clock3 size={11} />
-                          {(comingSoonProds.includes(product.id) || product.isSoon) ? 'Soon: ON' : 'Soon: OFF'}
+                          {checkIsSoon(product) ? 'Soon: ON' : 'Soon: OFF'}
                         </button>
 
                         <Link

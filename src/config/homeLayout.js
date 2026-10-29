@@ -103,8 +103,32 @@ export const defaultHomeLayout = {
  bannerPlacements: {},
  categoryOrder: [],
  comingSoonCategories: [],
- comingSoonProducts: []
+ comingSoonProducts: [],
+ comingSoonExemptions: []
 };
+
+export function isProductComingSoon(product, layoutOrSettings) {
+ if (!product) return false;
+ const layout = layoutOrSettings?.policies?.homeLayout || layoutOrSettings?.homeLayout || layoutOrSettings || {};
+ const comingSoonCategories = Array.isArray(layout.comingSoonCategories) ? layout.comingSoonCategories : [];
+ const comingSoonProducts = Array.isArray(layout.comingSoonProducts) ? layout.comingSoonProducts : [];
+ const comingSoonExemptions = Array.isArray(layout.comingSoonExemptions) ? layout.comingSoonExemptions : [];
+
+ const id = product.id;
+ const catSlug = product.categorySlug || product.category?.slug || (typeof product.category === 'string' ? product.category : null);
+
+ // 1. Explicit individual Coming Soon (ON)
+ if (id && comingSoonProducts.includes(id)) return true;
+
+ // 2. Explicit individual Available / Exemption (OFF)
+ if (id && comingSoonExemptions.includes(id)) return false;
+
+ // 3. Category level Soon
+ if (catSlug && comingSoonCategories.includes(catSlug)) return true;
+
+ // 4. Product-level flag if any
+ return Boolean(product.isSoon);
+}
 
 export function normalizeHomeLayout(rawLayout) {
  if (!rawLayout || typeof rawLayout !== 'object') {
@@ -143,6 +167,7 @@ export function normalizeHomeLayout(rawLayout) {
   heroRotation: rawLayout.heroRotation && typeof rawLayout.heroRotation === 'object' ? rawLayout.heroRotation : {},
   categoryOrder: Array.isArray(rawLayout.categoryOrder) ? rawLayout.categoryOrder : [],
   comingSoonCategories: Array.isArray(rawLayout.comingSoonCategories) ? rawLayout.comingSoonCategories : [],
-  comingSoonProducts: Array.isArray(rawLayout.comingSoonProducts) ? rawLayout.comingSoonProducts : []
+  comingSoonProducts: Array.isArray(rawLayout.comingSoonProducts) ? rawLayout.comingSoonProducts : [],
+  comingSoonExemptions: Array.isArray(rawLayout.comingSoonExemptions) ? rawLayout.comingSoonExemptions : []
  };
 }

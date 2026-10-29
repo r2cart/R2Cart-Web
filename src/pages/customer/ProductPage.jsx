@@ -23,6 +23,7 @@ import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Badge, Button, EmptyState, ProductRail, QuantitySelector, money } from '../../components/ui';
 import ProductRating from '../../components/customer/ProductRating';
+import { isProductComingSoon } from '../../config/homeLayout';
 import { packOptions } from '../../utils/products';
 import { parseProductDetails } from '../../utils/productDetails';
 
@@ -111,10 +112,7 @@ export function ProductPage() {
   const isFav = favorites.includes(product.id);
   const packs = packOptions(product, products);
   const categoryObj = categories.find((c) => c.slug === product.category);
-  const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
-  const comingSoonProducts = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
-  const prodCatSlug = product?.categorySlug || product?.category?.slug || product?.category;
-  const isProductSoon = Boolean((prodCatSlug && comingSoonCats.includes(prodCatSlug)) || (product?.id && comingSoonProducts.includes(product.id)) || product?.isSoon);
+  const isProductSoon = isProductComingSoon(product, storeSettings);
 
   // Parse rich structured details (or fallback to plain description with auto-inference)
   const details = parseProductDetails(product.description, product);

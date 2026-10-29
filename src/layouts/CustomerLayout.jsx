@@ -10,6 +10,7 @@ import {catalogService} from '../services/catalog.service';
 import {addressPayload,addressView} from '../utils/address';
 
 import {ItemPrice,PriceSummary} from '../components/customer/PriceSummary';
+import {isProductComingSoon} from '../config/homeLayout';
 export function Logo(){return <Link className="logo" to="/" aria-label={`${BRAND.name} home`}><span className="brand-wordmark"><img src={brandWordmark} alt={BRAND.name}/></span></Link>}
 function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();const [q,setQ]=useState('');const [open,setOpen]=useState(false);const [history,setHistory]=useState([]);const load=async()=>{setOpen(true);try{setHistory(user?await customerService.searchHistory():JSON.parse(localStorage.getItem('r2cart-search-history')||'[]'))}catch(error){notify(error.message,'error')}};const go=value=>{const query=value.trim();if(!query)return;setOpen(false);nav(`/search?q=${encodeURIComponent(query)}`)};const remove=async value=>{try{const next=history.filter(item=>item!==value);if(user)await customerService.removeSearch(value);else localStorage.setItem('r2cart-search-history',JSON.stringify(next));setHistory(next);notify('Search removed')}catch(error){notify(error.message,'error')}};const clear=async()=>{try{if(user)await customerService.clearSearchHistory();else localStorage.removeItem('r2cart-search-history');setHistory([]);notify('Search history cleared')}catch(error){notify(error.message,'error')}};return <div className="header-search"><SearchInput value={q} onChange={setQ} onSubmit={()=>go(q)} onFocus={load} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&<div className="header-search-history" onMouseDown={event=>event.preventDefault()}><div className="row between"><b>Recent searches</b>{history.length>0&&<button type="button" onClick={clear}>Clear all</button>}</div>{history.length?<div>{history.map(item=><span className="header-history-row" key={item}><button type="button" onClick={()=>go(item)}><History/><span>{item}</span></button><button type="button" className="remove-history" onClick={()=>remove(item)} aria-label={`Remove ${item}`}>×</button></span>)}</div>:<p>No recent searches yet.</p>}</div>}</div>}export function Header(){
   const nav=useNavigate();
@@ -1304,11 +1305,7 @@ export function CartDrawer() {
                         <small style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
                           {product.unit}
                         </small>
-                        {Boolean(
-                          ((product.categorySlug || product.category?.slug || product.category) && (storeSettings?.policies?.homeLayout?.comingSoonCategories || []).includes(product.categorySlug || product.category?.slug || product.category)) ||
-                          ((storeSettings?.policies?.homeLayout?.comingSoonProducts || []).includes(product.id)) ||
-                          product.isSoon
-                        ) && (
+                        {Boolean(isProductComingSoon(product, storeSettings)) && (
                           <span style={{ fontSize: '10px', color: '#b45309', background: '#fef3c7', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, display: 'inline-block', marginTop: '2px' }}>
                             Soon · Remove
                           </span>
@@ -1406,12 +1403,7 @@ export function CartDrawer() {
             <button
               type="button"
               onClick={() => {
-                const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
-                const comingSoonProducts = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
-                const comingSoonItem = cartItems.find((p) => {
-                  const slug = p.categorySlug || p.category?.slug || p.category;
-                  return (slug && comingSoonCats.includes(slug)) || comingSoonProducts.includes(p.id) || p.isSoon;
-                });
+                const comingSoonItem = cartItems.find((p) => isProductComingSoon(p, storeSettings));
                 if (comingSoonItem) {
                   notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket.`, 'error');
                 }

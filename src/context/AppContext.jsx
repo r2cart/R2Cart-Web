@@ -7,6 +7,7 @@ import {catalogService} from '../services/catalog.service';
 import {addressView} from '../utils/address';
 import {mediaUrl} from '../utils/media';
 import {humanErrorMessage} from '../components/ui';
+import {isProductComingSoon} from '../config/homeLayout';
 import r2cartLogo from '../assets/r2cart-mark.svg';
 
 const Ctx=createContext(null);
@@ -243,9 +244,37 @@ export function AppProvider({children}){
     return [];
   }
  };
- useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('r2cart:categories-updated',refresh);window.addEventListener('r2cart:products-updated',refresh);window.addEventListener('r2cart:banners-updated',refresh);window.addEventListener('r2cart:delivery-updated',refresh);window.addEventListener('r2cart:settings-updated',refresh);return()=>{window.removeEventListener('r2cart:categories-updated',refresh);window.removeEventListener('r2cart:products-updated',refresh);window.removeEventListener('r2cart:banners-updated',refresh);window.removeEventListener('r2cart:delivery-updated',refresh);window.removeEventListener('r2cart:settings-updated',refresh)}},[]);
+ useEffect(()=>{
+  const handleSettingsUpdated=(e)=>{
+    if(e?.detail?.policies){
+      setStoreSettings(prev=>({
+        ...prev,
+        policies: e.detail.policies
+      }));
+      storage.set('cached_store_settings', {
+        ...storage.get('cached_store_settings', {}),
+        policies: e.detail.policies
+      });
+    }
+    refreshDelivery();
+  };
+  const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};
+  refresh();
+  window.addEventListener('r2cart:categories-updated',refresh);
+  window.addEventListener('r2cart:products-updated',refresh);
+  window.addEventListener('r2cart:banners-updated',refresh);
+  window.addEventListener('r2cart:delivery-updated',refresh);
+  window.addEventListener('r2cart:settings-updated',handleSettingsUpdated);
+  return()=>{
+    window.removeEventListener('r2cart:categories-updated',refresh);
+    window.removeEventListener('r2cart:products-updated',refresh);
+    window.removeEventListener('r2cart:banners-updated',refresh);
+    window.removeEventListener('r2cart:delivery-updated',refresh);
+    window.removeEventListener('r2cart:settings-updated',handleSettingsUpdated);
+  };
+ },[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
- const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);const comingSoonCats=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];const comingSoonProducts=storeSettings?.policies?.homeLayout?.comingSoonProducts||[];const catSlug=product?.categorySlug||product?.category?.slug||product?.category;const isSoon=(catSlug&&comingSoonCats.includes(catSlug))||comingSoonProducts.includes(id)||Boolean(product?.isSoon);if(quantity>0&&isSoon){notify('This product is coming soon and cannot be ordered yet','error');return false}if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
+ const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);const isSoon=isProductComingSoon(product,storeSettings);if(quantity>0&&isSoon){notify('This product is coming soon and cannot be ordered yet','error');return false}if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
  const add=id=>{const quantity=(cart[id]||0)+1;if(!canSetQuantity(id,quantity))return;setCart(current=>({...current,[id]:quantity}));syncCart(id,quantity);notify('Added to your basket')};
  const qty=(id,quantity)=>{if(!canSetQuantity(id,quantity))return;setCart(current=>{const next={...current};if(quantity<=0)delete next[id];else next[id]=quantity;return next});syncCart(id,quantity)};
  const toggleFavorite=async id=>{const saved=favorites.includes(id);if(!online())return notify('Please sign in to use your wishlist','error');setFavorites(current=>saved?current.filter(value=>value!==id):[...current,id]);try{await(saved?customerService.removeFavorite(id):customerService.addFavorite(id));notify(saved?'Removed from favourites':'Saved to favourites')}catch(error){setFavorites(current=>saved?[...new Set([...current,id])]:current.filter(value=>value!==id));notify(error.message,'error')}};
@@ -394,6 +423,6 @@ export function AppProvider({children}){
   return deliveryConfig;
  },[activeAddress,deliveryRulesFor,deliveryConfig]);
 
- return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,addressesLoaded,activeAddress,setActiveAddress,activeDeliveryRules,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
+ return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,addressesLoaded,activeAddress,setActiveAddress,activeDeliveryRules,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,setStoreSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
 }
 export const useApp=()=>useContext(Ctx);
