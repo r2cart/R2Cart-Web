@@ -112,8 +112,9 @@ export function ProductPage() {
   const packs = packOptions(product, products);
   const categoryObj = categories.find((c) => c.slug === product.category);
   const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
+  const comingSoonProducts = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
   const prodCatSlug = product?.categorySlug || product?.category?.slug || product?.category;
-  const isProductSoon = Boolean(prodCatSlug && comingSoonCats.includes(prodCatSlug));
+  const isProductSoon = Boolean((prodCatSlug && comingSoonCats.includes(prodCatSlug)) || (product?.id && comingSoonProducts.includes(product.id)) || product?.isSoon);
 
   // Parse rich structured details (or fallback to plain description with auto-inference)
   const details = parseProductDetails(product.description, product);

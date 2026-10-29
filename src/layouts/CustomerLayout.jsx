@@ -1304,7 +1304,11 @@ export function CartDrawer() {
                         <small style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
                           {product.unit}
                         </small>
-                        {Boolean((product.categorySlug || product.category?.slug || product.category) && (storeSettings?.policies?.homeLayout?.comingSoonCategories || []).includes(product.categorySlug || product.category?.slug || product.category)) && (
+                        {Boolean(
+                          ((product.categorySlug || product.category?.slug || product.category) && (storeSettings?.policies?.homeLayout?.comingSoonCategories || []).includes(product.categorySlug || product.category?.slug || product.category)) ||
+                          ((storeSettings?.policies?.homeLayout?.comingSoonProducts || []).includes(product.id)) ||
+                          product.isSoon
+                        ) && (
                           <span style={{ fontSize: '10px', color: '#b45309', background: '#fef3c7', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, display: 'inline-block', marginTop: '2px' }}>
                             Soon · Remove
                           </span>
@@ -1403,12 +1407,13 @@ export function CartDrawer() {
               type="button"
               onClick={() => {
                 const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
+                const comingSoonProducts = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
                 const comingSoonItem = cartItems.find((p) => {
                   const slug = p.categorySlug || p.category?.slug || p.category;
-                  return slug && comingSoonCats.includes(slug);
+                  return (slug && comingSoonCats.includes(slug)) || comingSoonProducts.includes(p.id) || p.isSoon;
                 });
                 if (comingSoonItem) {
-                  notify(`"${comingSoonItem.name}" belongs to a Coming Soon category and cannot be ordered. Please remove it from your basket.`, 'error');
+                  notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket.`, 'error');
                 }
                 setCartOpen(false);
                 nav('/cart');

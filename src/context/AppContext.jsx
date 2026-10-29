@@ -74,7 +74,7 @@ export function AppProvider({children}){
  useEffect(()=>{
   if(typeof window!=='undefined'){
    const p=window.location.pathname;
-   if(p.startsWith('/admin')||p.startsWith('/super-admin')||p.startsWith('/delivery')||p.includes('administrator'))return;
+   if(p.startsWith('/admin')||p.startsWith('/super-admin')||p.startsWith('/delivery')||p.includes('administrator')||p==='/login'||p==='/signup'||p==='/verify-otp')return;
   }
   if(!isInvalidCustomer(user))return;
   authService.logout().catch(()=>{});
@@ -88,7 +88,7 @@ export function AppProvider({children}){
  useEffect(()=>{
   if(typeof window!=='undefined'){
    const p=window.location.pathname;
-   if(p.startsWith('/admin')||p.startsWith('/super-admin')||p.startsWith('/delivery')||p.includes('administrator'))return;
+   if(p.startsWith('/admin')||p.startsWith('/super-admin')||p.startsWith('/delivery')||p.includes('administrator')||p==='/login'||p==='/signup'||p==='/verify-otp')return;
   }
   if(!online())return;
   const localCart=storage.get('cart',{});
@@ -245,7 +245,7 @@ export function AppProvider({children}){
  };
  useEffect(()=>{const refresh=()=>{refreshCategories();refreshProducts();refreshBanners();refreshDelivery()};refresh();window.addEventListener('r2cart:categories-updated',refresh);window.addEventListener('r2cart:products-updated',refresh);window.addEventListener('r2cart:banners-updated',refresh);window.addEventListener('r2cart:delivery-updated',refresh);window.addEventListener('r2cart:settings-updated',refresh);return()=>{window.removeEventListener('r2cart:categories-updated',refresh);window.removeEventListener('r2cart:products-updated',refresh);window.removeEventListener('r2cart:banners-updated',refresh);window.removeEventListener('r2cart:delivery-updated',refresh);window.removeEventListener('r2cart:settings-updated',refresh)}},[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
- const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);const comingSoon=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];const catSlug=product?.categorySlug||product?.category?.slug||product?.category;if(quantity>0&&catSlug&&comingSoon.includes(catSlug)){notify('Products from this category are coming soon and cannot be ordered yet','error');return false}if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
+ const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);const comingSoonCats=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];const comingSoonProducts=storeSettings?.policies?.homeLayout?.comingSoonProducts||[];const catSlug=product?.categorySlug||product?.category?.slug||product?.category;const isSoon=(catSlug&&comingSoonCats.includes(catSlug))||comingSoonProducts.includes(id)||Boolean(product?.isSoon);if(quantity>0&&isSoon){notify('This product is coming soon and cannot be ordered yet','error');return false}if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
  const add=id=>{const quantity=(cart[id]||0)+1;if(!canSetQuantity(id,quantity))return;setCart(current=>({...current,[id]:quantity}));syncCart(id,quantity);notify('Added to your basket')};
  const qty=(id,quantity)=>{if(!canSetQuantity(id,quantity))return;setCart(current=>{const next={...current};if(quantity<=0)delete next[id];else next[id]=quantity;return next});syncCart(id,quantity)};
  const toggleFavorite=async id=>{const saved=favorites.includes(id);if(!online())return notify('Please sign in to use your wishlist','error');setFavorites(current=>saved?current.filter(value=>value!==id):[...current,id]);try{await(saved?customerService.removeFavorite(id):customerService.addFavorite(id));notify(saved?'Removed from favourites':'Saved to favourites')}catch(error){setFavorites(current=>saved?[...new Set([...current,id])]:current.filter(value=>value!==id));notify(error.message,'error')}};

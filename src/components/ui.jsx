@@ -181,8 +181,9 @@ export function QuantitySelector({id,small=false,choosePacks=small,product:propP
  const product=propProduct||products.find(item=>item.id===id);const n=cart[id]||0;
  const options=product?packOptions(product,products):[];
  const comingSoonCats=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];
+ const comingSoonProducts=storeSettings?.policies?.homeLayout?.comingSoonProducts||[];
  const catSlug=product?.categorySlug||product?.category?.slug||product?.category;
- const isComingSoon=Boolean(catSlug&&comingSoonCats.includes(catSlug));
+ const isComingSoon=Boolean((catSlug&&comingSoonCats.includes(catSlug))||(product?.id&&comingSoonProducts.includes(product.id))||product?.isSoon);
  const unavailable=!product||product.stock<=0||product.status==='INACTIVE';const maximum=Math.min(99,Number(product?.stock||0));
  const canChoose=choosePacks&&options.length>1;
  const formatStock = (count) => {
@@ -199,8 +200,9 @@ function BaseProductCard({product,packSelector}){
  const {favorites,toggleFavorite,activeDeliveryRules,deliveryConfig,storeSettings}=useApp();
  const {t,tEta,tProd}=useLanguage();
  const comingSoonCats=storeSettings?.policies?.homeLayout?.comingSoonCategories||[];
+ const comingSoonProducts=storeSettings?.policies?.homeLayout?.comingSoonProducts||[];
  const catSlug=product?.categorySlug||product?.category?.slug||product?.category;
- const isComingSoon=Boolean(catSlug&&comingSoonCats.includes(catSlug));
+ const isComingSoon=Boolean((catSlug&&comingSoonCats.includes(catSlug))||(product?.id&&comingSoonProducts.includes(product.id))||product?.isSoon);
  const eta=(activeDeliveryRules||deliveryConfig)?.estimatedDelivery;
  const off=Math.round((1-product.price/product.mrp)*100);
  const gallery=(product.images&&product.images.length>0)?product.images:(product.image?[product.image]:[]);

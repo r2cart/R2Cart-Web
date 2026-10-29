@@ -190,6 +190,30 @@ export const adminService = {
   settings: () => api.get('/admin/settings'),
   uploadStoreLogo: file => upload('/admin/uploads/settings/logo', file),
   saveSettings: value => api.put('/admin/settings', value),
+  toggleProductComingSoon: async (productId, isSoon) => {
+    try {
+      return await api.patch(`/admin/products/${productId}/coming-soon`, isSoon !== undefined ? { isSoon } : {});
+    } catch {
+      const current = await api.get('/admin/settings');
+      const layout = current.policies?.homeLayout || {};
+      const existing = new Set(layout.comingSoonProducts || []);
+      let nextSoon = isSoon !== undefined ? isSoon : !existing.has(productId);
+      if (nextSoon) existing.add(productId);
+      else existing.delete(productId);
+      const updated = {
+        ...current,
+        policies: {
+          ...current.policies,
+          homeLayout: {
+            ...layout,
+            comingSoonProducts: Array.from(existing)
+          }
+        }
+      };
+      await api.put('/admin/settings', updated);
+      return { isSoon: nextSoon, comingSoonProducts: Array.from(existing) };
+    }
+  },
   setEmergencyPause: payload => api.post('/admin/store/emergency-pause', payload),
   getProfile: () => api.get('/admin/profile'),
   updateProfile: value => api.patch('/admin/profile', value),

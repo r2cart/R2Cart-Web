@@ -102,7 +102,8 @@ export const defaultHomeLayout = {
  sections: defaultHomeSections,
  bannerPlacements: {},
  categoryOrder: [],
- comingSoonCategories: []
+ comingSoonCategories: [],
+ comingSoonProducts: []
 };
 
 export function normalizeHomeLayout(rawLayout) {
@@ -141,6 +142,7 @@ export function normalizeHomeLayout(rawLayout) {
   bannerVisuals: rawLayout.bannerVisuals && typeof rawLayout.bannerVisuals === 'object' ? rawLayout.bannerVisuals : {},
   heroRotation: rawLayout.heroRotation && typeof rawLayout.heroRotation === 'object' ? rawLayout.heroRotation : {},
   categoryOrder: Array.isArray(rawLayout.categoryOrder) ? rawLayout.categoryOrder : [],
-  comingSoonCategories: Array.isArray(rawLayout.comingSoonCategories) ? rawLayout.comingSoonCategories : []
+  comingSoonCategories: Array.isArray(rawLayout.comingSoonCategories) ? rawLayout.comingSoonCategories : [],
+  comingSoonProducts: Array.isArray(rawLayout.comingSoonProducts) ? rawLayout.comingSoonProducts : []
  };
 }

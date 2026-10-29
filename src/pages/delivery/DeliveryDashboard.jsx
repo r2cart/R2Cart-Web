@@ -152,7 +152,7 @@ export function DeliveryDashboard() {
       if (cData) setCodSummary(cData);
     } catch (err) {
       if (err.status === 401 || err.status === 403) {
-        navigate('/delivery/login', { replace: true });
+        navigate('/login', { replace: true });
         return;
       }
       if (!silent) notify(err.message || 'Failed to load assigned deliveries', 'error');
@@ -175,7 +175,7 @@ export function DeliveryDashboard() {
     let u = null;
     try { u = raw ? JSON.parse(raw) : null; } catch {}
     if (!deliveryToken || !u || u.role === 'CUSTOMER') {
-      navigate('/delivery/login', { replace: true });
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -229,7 +229,7 @@ export function DeliveryDashboard() {
 
   const handleLogout = async () => {
     await authService.deliveryLogout();
-    navigate('/delivery/login', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   const currentDuty = profile?.dutyStatus || 'OFF_DUTY';

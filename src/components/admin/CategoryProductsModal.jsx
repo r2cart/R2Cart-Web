@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Check, 
+  Clock3,
   Crop, 
   Edit2, 
   ExternalLink, 
@@ -28,7 +29,7 @@ function getAdminUser() {
 }
 
 export default function CategoryProductsModal({ category, onClose, onRefreshCategories }) {
-  const { notify } = useApp();
+  const { notify, storeSettings } = useApp();
   const currentUser = getAdminUser();
   const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN';
   const basePath = isSuper ? '/super-admin' : '/admin';
@@ -41,6 +42,22 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
   const [statusFilter, setStatusFilter] = useState('all'); // all, ACTIVE, INACTIVE
   const [inspectProduct, setInspectProduct] = useState(null);
   const [togglingId, setTogglingId] = useState('');
+  const [togglingSoonId, setTogglingSoonId] = useState('');
+  const comingSoonProds = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
+
+  const toggleComingSoon = async (product) => {
+    setTogglingSoonId(product.id);
+    try {
+      const res = await adminService.toggleProductComingSoon(product.id);
+      notify(`"${product.name}" is now marked as ${res.isSoon ? 'Coming Soon' : 'Available'}`, 'success');
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
+    } catch (err) {
+      notify(err.message || 'Failed to update Coming Soon status', 'error');
+    } finally {
+      setTogglingSoonId('');
+    }
+  };
 
   const loadProducts = async () => {
     if (!category?.slug) return;
@@ -286,6 +303,11 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
                   >
                     {/* Media Area */}
                     <div className="card-shape-media">
+                      {Boolean(comingSoonProds.includes(product.id) || product.isSoon) && (
+                        <span style={{ position: 'absolute', top: '8px', left: '8px', background: '#d97706', color: '#fff', fontSize: '9.5px', fontWeight: 800, padding: '2px 6px', borderRadius: '6px', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                          <Clock3 size={10} /> SOON
+                        </span>
+                      )}
                       {product.image ? (
                         <img 
                           src={product.image} 
@@ -343,6 +365,29 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
                           title="View product details"
                         >
                           <Eye size={14} /> Details
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={togglingSoonId === product.id}
+                          onClick={() => toggleComingSoon(product)}
+                          style={{
+                            fontSize: '11px',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            border: (comingSoonProds.includes(product.id) || product.isSoon) ? '1.5px solid #fde68a' : '1px solid #e2e8f0',
+                            background: (comingSoonProds.includes(product.id) || product.isSoon) ? '#fef3c7' : '#ffffff',
+                            color: (comingSoonProds.includes(product.id) || product.isSoon) ? '#b45309' : '#64748b',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={(comingSoonProds.includes(product.id) || product.isSoon) ? "Marked as Coming Soon (Click to make Available)" : "Marked as Available (Click to mark Coming Soon)"}
+                        >
+                          <Clock3 size={11} />
+                          {(comingSoonProds.includes(product.id) || product.isSoon) ? 'Soon: ON' : 'Soon: OFF'}
                         </button>
 
                         <Link

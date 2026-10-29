@@ -191,12 +191,13 @@ export function CartPage() {
       return notify(`Add ${money(minimumRemaining)} more to reach minimum order of ${money(rules.minimumOrder)}`, 'error');
     }
     const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
+    const comingSoonProducts = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
     const comingSoonItem = cartItems.find((p) => {
       const slug = p.categorySlug || p.category?.slug || p.category;
-      return slug && comingSoonCats.includes(slug);
+      return (slug && comingSoonCats.includes(slug)) || comingSoonProducts.includes(p.id) || p.isSoon;
     });
     if (comingSoonItem) {
-      return notify(`"${comingSoonItem.name}" belongs to a Coming Soon category and cannot be ordered. Please remove it from your basket to proceed.`, 'error');
+      return notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket to proceed.`, 'error');
     }
     const outOfStockItem = cartItems.find((p) => p.stock < p.qty);
     if (outOfStockItem) {
@@ -974,7 +975,11 @@ export function CartPage() {
                           </span>
                         ) : null}
 
-                        {Boolean((product.categorySlug || product.category?.slug || product.category) && (storeSettings?.policies?.homeLayout?.comingSoonCategories || []).includes(product.categorySlug || product.category?.slug || product.category)) && (
+                        {Boolean(
+                          ((product.categorySlug || product.category?.slug || product.category) && (storeSettings?.policies?.homeLayout?.comingSoonCategories || []).includes(product.categorySlug || product.category?.slug || product.category)) ||
+                          ((storeSettings?.policies?.homeLayout?.comingSoonProducts || []).includes(product.id)) ||
+                          product.isSoon
+                        ) && (
                           <span style={{ fontSize: '11px', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '2px 7px', borderRadius: '5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
                             <Clock3 size={12} /> Coming Soon · Remove to checkout
                           </span>

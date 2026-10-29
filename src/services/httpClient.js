@@ -50,19 +50,27 @@ async function parse(response){
  return {data,response};
 }
 
-async function refreshSession(isAdmin){
- const activeAccKey=isAdmin?'r2cart-admin-access-token':'r2cart-access-token';
- const activeUsrKey=isAdmin?'r2cart-admin-user':'r2cart-user';
+async function refreshSession(role = 'CUSTOMER'){
+ const activeAccKey = role === 'ADMIN'
+   ? 'r2cart-admin-access-token'
+   : role === 'DELIVERY'
+   ? 'r2cart-delivery-access-token'
+   : 'r2cart-access-token';
+ const activeUsrKey = role === 'ADMIN'
+   ? 'r2cart-admin-user'
+   : role === 'DELIVERY'
+   ? 'r2cart-delivery-user'
+   : 'r2cart-user';
 
  const doRefresh=async()=>{
   const refreshEndpoint=`${env.apiBaseUrl}/auth/refresh`;
-  // HttpOnly cookie (r2cart_refresh / r2cart_admin_refresh) is sent automatically
+  // HttpOnly cookie (r2cart_refresh / r2cart_admin_refresh / r2cart_delivery_refresh) is sent automatically
   // via credentials:'include' — no body/header token needed (BUG-03 fix)
   const res=await fetch(refreshEndpoint,{
    method:'POST',
    credentials:'include',
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({})
+   body:JSON.stringify({ role })
   });
 
   const payload=await res.json();
@@ -90,11 +98,16 @@ async function refreshSession(isAdmin){
   return session;
  };
 
- if(isAdmin){
+ if(role==='ADMIN'){
   if(!refreshAdminPromise){
    refreshAdminPromise=doRefresh().finally(()=>{refreshAdminPromise=null;});
   }
   return refreshAdminPromise;
+ }else if(role==='DELIVERY'){
+  if(!refreshDeliveryPromise){
+   refreshDeliveryPromise=doRefresh().finally(()=>{refreshDeliveryPromise=null;});
+  }
+  return refreshDeliveryPromise;
  }else{
   if(!refreshCustomerPromise){
    refreshCustomerPromise=doRefresh().finally(()=>{refreshCustomerPromise=null;});
@@ -110,7 +123,9 @@ export async function request(path,options={}){
  const method=(options.method||'GET').toUpperCase();
  const isSafeToRetry=method==='GET'||options.retry===true;
  const maxRetries=isSafeToRetry?2:0;
+ const isDelivery=isDeliveryPath(path);
  const isAdmin=isAdminPath(path);
+ const role=isDelivery?'DELIVERY':(isAdmin?'ADMIN':'CUSTOMER');
 
  for(let attempt=0;attempt<=maxRetries;attempt++){
   const controller=new AbortController();
@@ -128,7 +143,7 @@ export async function request(path,options={}){
    // Automatic silent session recovery on 401 (skip for all auth / login / credential endpoints)
    if(result.response.status===401&&!isAuthEndpoint(path)){
     try{
-     await refreshSession(isAdmin);
+     await refreshSession(role);
      result=await parse(await fetch(`${env.apiBaseUrl}${path}`,{
       ...options,
       credentials:'include',

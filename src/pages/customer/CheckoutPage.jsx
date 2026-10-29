@@ -675,12 +675,13 @@ export function CheckoutPage() {
     }
 
     const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
+    const comingSoonProducts = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
     const comingSoonItem = cartItems.find((p) => {
       const slug = p.categorySlug || p.category?.slug || p.category;
-      return slug && comingSoonCats.includes(slug);
+      return (slug && comingSoonCats.includes(slug)) || comingSoonProducts.includes(p.id) || p.isSoon;
     });
     if (comingSoonItem) {
-      return notify(`"${comingSoonItem.name}" belongs to a Coming Soon category and cannot be ordered. Please remove it from your basket.`, 'error');
+      return notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket.`, 'error');
     }
 
     const combinedInstruction = [...selectedInstructions, customNote].filter(Boolean).join('. ');

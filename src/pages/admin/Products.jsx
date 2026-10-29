@@ -8,7 +8,7 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
-import {ArrowLeft,Star,Upload,Check,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet} from 'lucide-react';
+import {ArrowLeft,Star,Upload,Check,Clock3,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -56,13 +56,15 @@ const removeGlobalCaches = (productId, packCount = 1) => {
 };
 
 export function AdminProducts(){
- const {notify,refreshProducts}=useApp();
+ const {notify,refreshProducts,storeSettings}=useApp();
  const currentUser = getAdminUser();
  const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN';
  const basePath = isSuper ? '/super-admin' : '/admin';
  const canCreate = isSuper || hasPermission(currentUser, 'products.create');
  const canEdit = isSuper || hasPermission(currentUser, 'products.edit');
  const canDelete = isSuper || hasPermission(currentUser, 'products.edit');
+ const comingSoonProds = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
+ const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
  const {categories,categoryError,reloadCategories}=useAdminCategories();
  const [searchParams, setSearchParams] = useSearchParams();
  const urlCat = searchParams.get('cat') || searchParams.get('category') || 'all';
@@ -200,6 +202,19 @@ export function AdminProducts(){
     notify(reason.message||'Failed to update stock','error');
     setList(prev=>prev.map(p=>p.id===product.id?{...p,stock:prevStock}:p));
     updateGlobalCaches(product.id, p=>({...p,stock:prevStock}));
+  }
+ };
+ const toggleComingSoon=async (product)=>{
+  setBusy(`soon-${product.id}`);
+  try{
+    const res=await adminService.toggleProductComingSoon(product.id);
+    notify(`"${product.name}" is now marked as ${res.isSoon ? 'Coming Soon' : 'Available'}`,'success');
+    window.dispatchEvent(new Event('r2cart:settings-updated'));
+    window.dispatchEvent(new Event('r2cart:products-updated'));
+  }catch(err){
+    notify(err.message||'Failed to update Coming Soon status','error');
+  }finally{
+    setBusy('');
   }
  };
  const destroy=async()=>{
@@ -482,9 +497,15 @@ export function AdminProducts(){
          const isLowStock = !isOutOfStock && product.stock <= (product.lowStockThreshold || 5);
          const hasDiscount = Number(product.mrp) > Number(product.price);
          const discountPct = hasDiscount ? Math.round(((Number(product.mrp) - Number(product.price)) / Number(product.mrp)) * 100) : 0;
+         const isProductSoon = Boolean(comingSoonProds.includes(product.id) || product.isSoon);
          return (
            <div key={product.id} className="product-card-shape">
              <div className="card-shape-media">
+               {isProductSoon && (
+                 <span style={{ position: 'absolute', top: '8px', left: '8px', background: '#d97706', color: '#fff', fontSize: '9.5px', fontWeight: 800, padding: '2px 6px', borderRadius: '6px', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                   <Clock3 size={10} /> SOON
+                 </span>
+               )}
                {product.image ? (
                  <img src={product.image} alt={product.name} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
                ) : (
@@ -534,6 +555,28 @@ export function AdminProducts(){
                   >
                     <span className="dot" /> {product.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                   </button>
+                  <button
+                    type="button"
+                    disabled={busy === `soon-${product.id}`}
+                    onClick={() => toggleComingSoon(product)}
+                    style={{
+                      fontSize: '10.5px',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: isProductSoon ? '1.5px solid #fde68a' : '1px solid #e2e8f0',
+                      background: isProductSoon ? '#fef3c7' : '#ffffff',
+                      color: isProductSoon ? '#b45309' : '#64748b',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title={isProductSoon ? "Marked as Coming Soon (Click to make Available)" : "Marked as Available (Click to mark Coming Soon)"}
+                  >
+                    <Clock3 size={11} />
+                    {isProductSoon ? 'Soon: ON' : 'Soon: OFF'}
+                  </button>
                   <div className="card-action-icons">
                     <button type="button" className="r2c-action-btn r2c-btn-view" onClick={() => inspect(product.id)} title="View details"><Eye size={14}/></button>
                     <Link to={`${basePath}/products/${product.id}/edit`} state={{ product }} className="r2c-action-btn r2c-btn-edit" title="Edit product"><Edit2 size={14}/></Link>
@@ -547,7 +590,7 @@ export function AdminProducts(){
      )}
    </div>
   ) : (
-   <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th style={{width:'34%',minWidth:'260px'}}>Product</th><th style={{width:'15%',minWidth:'130px'}}>Category</th><th style={{width:'12%',minWidth:'110px'}}>Unit</th><th style={{width:'8%',minWidth:'70px'}}>MRP</th><th style={{width:'9%',minWidth:'85px'}}>Selling price</th><th style={{width:'13%',minWidth:'135px'}}>Stock status</th><th style={{width:'8%',minWidth:'85px'}}>Status</th><th style={{width:'9%',minWidth:'90px'}}>Actions</th></tr></thead><tbody>
+   <div className="admin-card table-card"><div className="table-wrap"><table><thead><tr><th style={{width:'32%',minWidth:'250px'}}>Product</th><th style={{width:'14%',minWidth:'125px'}}>Category</th><th style={{width:'11%',minWidth:'105px'}}>Unit</th><th style={{width:'8%',minWidth:'70px'}}>MRP</th><th style={{width:'9%',minWidth:'85px'}}>Selling price</th><th style={{width:'13%',minWidth:'135px'}}>Stock status</th><th style={{width:'8%',minWidth:'80px'}}>Soon</th><th style={{width:'8%',minWidth:'85px'}}>Status</th><th style={{width:'9%',minWidth:'90px'}}>Actions</th></tr></thead><tbody>
     {loading ? (
       Array.from({ length: 8 }).map((_, i) => (
         <tr key={i} className="skeleton-table-row">
@@ -566,6 +609,7 @@ export function AdminProducts(){
           <td><div className="r2c-skeleton-box" style={{ height: '14px', width: '50px', borderRadius: '4px' }} /></td>
           <td><div className="r2c-skeleton-box" style={{ height: '18px', width: '42px', borderRadius: '12px' }} /></td>
           <td><div className="r2c-skeleton-box" style={{ height: '20px', width: '55px', borderRadius: '12px' }} /></td>
+          <td><div className="r2c-skeleton-box" style={{ height: '20px', width: '55px', borderRadius: '12px' }} /></td>
           <td>
             <div style={{ display: 'flex', gap: '6px' }}>
               <div className="r2c-skeleton-box" style={{ width: '28px', height: '28px', borderRadius: '6px' }} />
@@ -575,7 +619,7 @@ export function AdminProducts(){
           </td>
         </tr>
       ))
-    ) : error?<tr><td colSpan="8"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="8">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td style={{verticalAlign:'middle'}}><div className="product-cell">{product.image?<img src={product.image} alt={product.name || 'Product'} onError={e=>{e.currentTarget.style.display='none'}}/>:<div style={{width:'44px',height:'44px',borderRadius:'8px',background:'#f1f5f9',display:'grid',placeItems:'center',flexShrink:0,color:'#94a3b8'}}><Package size={20}/></div>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b title={product.name}>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td className="product-table-cat-col" title={product.categoryName||product.category}><b>{product.categoryName||product.category}</b></td><td style={{whiteSpace:'nowrap'}}><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td style={{whiteSpace:'nowrap'}}>{money(product.mrp)}</td><td style={{whiteSpace:'nowrap'}}><b>{money(product.price)}</b></td><td style={{whiteSpace:'nowrap',verticalAlign:'middle'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span className={product.stock<=0?'badge badge-red':product.stock<=product.lowStockThreshold?'badge badge-amber':''} style={{fontSize:'11px',fontWeight:700}}>{product.stock<=0?'0 Sold Out':`${product.stock} in stock`}</span>{product.stock>0?<button type="button" onClick={()=>toggleStock(product,0)} title="Click to Mark as Sold Out / Out of Stock" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontWeight:700}}>Sold Out</button>:<button type="button" onClick={()=>toggleStock(product,20)} title="Click to Restock / Mark In Stock (+20 units)" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:700}}>+ In Stock</button>}</div></td><td style={{whiteSpace:'nowrap'}}><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td style={{whiteSpace:'nowrap'}}><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)} className="r2c-table-btn r2c-btn-view" title="View product details"><Eye size={15}/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`} state={{ product }} className="r2c-table-btn r2c-btn-edit" title="Edit product"><Edit2 size={15}/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)} className="r2c-table-btn r2c-btn-delete" title="Delete product"><Trash2 size={15}/></button></div></td></tr>)}
+    ) : error?<tr><td colSpan="9"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="9">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td style={{verticalAlign:'middle'}}><div className="product-cell">{product.image?<img src={product.image} alt={product.name || 'Product'} onError={e=>{e.currentTarget.style.display='none'}}/>:<div style={{width:'44px',height:'44px',borderRadius:'8px',background:'#f1f5f9',display:'grid',placeItems:'center',flexShrink:0,color:'#94a3b8'}}><Package size={20}/></div>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b title={product.name}>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small></span></div></td><td className="product-table-cat-col" title={product.categoryName||product.category}><b>{product.categoryName||product.category}</b></td><td style={{whiteSpace:'nowrap'}}><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td style={{whiteSpace:'nowrap'}}>{money(product.mrp)}</td><td style={{whiteSpace:'nowrap'}}><b>{money(product.price)}</b></td><td style={{whiteSpace:'nowrap',verticalAlign:'middle'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span className={product.stock<=0?'badge badge-red':product.stock<=product.lowStockThreshold?'badge badge-amber':''} style={{fontSize:'11px',fontWeight:700}}>{product.stock<=0?'0 Sold Out':`${product.stock} in stock`}</span>{product.stock>0?<button type="button" onClick={()=>toggleStock(product,0)} title="Click to Mark as Sold Out / Out of Stock" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontWeight:700}}>Sold Out</button>:<button type="button" onClick={()=>toggleStock(product,20)} title="Click to Restock / Mark In Stock (+20 units)" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:700}}>+ In Stock</button>}</div></td><td style={{whiteSpace:'nowrap'}}><button type="button" disabled={busy===`soon-${product.id}`} onClick={()=>toggleComingSoon(product)} style={{fontSize:'10px',padding:'3px 8px',borderRadius:'6px',border:(comingSoonProds.includes(product.id)||product.isSoon)?'1.5px solid #fde68a':'1px solid #e2e8f0',background:(comingSoonProds.includes(product.id)||product.isSoon)?'#fef3c7':'#f8fafc',color:(comingSoonProds.includes(product.id)||product.isSoon)?'#b45309':'#64748b',cursor:'pointer',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'4px'}} title={(comingSoonProds.includes(product.id)||product.isSoon)?'Marked as Coming Soon (Click to make Available)':'Marked as Available (Click to mark Coming Soon)'}><Clock3 size={11}/>{(comingSoonProds.includes(product.id)||product.isSoon)?'Soon: ON':'Soon: OFF'}</button></td><td style={{whiteSpace:'nowrap'}}><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td style={{whiteSpace:'nowrap'}}><div className="table-actions"><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)} className="r2c-table-btn r2c-btn-view" title="View product details"><Eye size={15}/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`} state={{ product }} className="r2c-table-btn r2c-btn-edit" title="Edit product"><Edit2 size={15}/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)} className="r2c-table-btn r2c-btn-delete" title="Delete product"><Trash2 size={15}/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
@@ -618,8 +662,27 @@ export function AdminProducts(){
 }
 
 export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
+  const { notify, storeSettings } = useApp();
   const [copied, setCopied] = useState(false);
+  const [togglingSoon, setTogglingSoon] = useState(false);
   const [activeImage, setActiveImage] = useState(view?.image || view?.images?.[0] || '');
+  const comingSoonProds = storeSettings?.policies?.homeLayout?.comingSoonProducts || [];
+  const isSoon = Boolean(view?.id && (comingSoonProds.includes(view.id) || view.isSoon));
+
+  const handleToggleSoon = async () => {
+    if (!view?.id) return;
+    setTogglingSoon(true);
+    try {
+      const res = await adminService.toggleProductComingSoon(view.id);
+      notify(`"${view.name}" is now marked as ${res.isSoon ? 'Coming Soon' : 'Available'}`, 'success');
+      window.dispatchEvent(new Event('r2cart:settings-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
+    } catch (err) {
+      notify(err.message || 'Failed to update Coming Soon status', 'error');
+    } finally {
+      setTogglingSoon(false);
+    }
+  };
 
   useEffect(() => {
     if (view) {
@@ -753,6 +816,12 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
               {view.unit && (
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', background: '#ffffff', padding: '2px 7px', borderRadius: '5px', border: '1px solid #e2e8f0' }}>
                   {view.unit}
+                </span>
+              )}
+
+              {isSoon && (
+                <span style={{ fontSize: '10.5px', fontWeight: 800, padding: '2px 7px', borderRadius: '5px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <Clock3 size={11} /> SOON
                 </span>
               )}
             </div>
@@ -909,10 +978,34 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
         </div>
 
         {/* Modal Actions Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Close
-          </Button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid #f1f5f9', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+            <button
+              type="button"
+              disabled={togglingSoon}
+              onClick={handleToggleSoon}
+              style={{
+                fontSize: '11.5px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: isSoon ? '1.5px solid #fde68a' : '1px solid #cbd5e1',
+                background: isSoon ? '#fef3c7' : '#ffffff',
+                color: isSoon ? '#b45309' : '#334155',
+                cursor: 'pointer',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title={isSoon ? 'Product is Coming Soon (Click to make Available)' : 'Product is Available (Click to mark Coming Soon)'}
+            >
+              <Clock3 size={12} />
+              {isSoon ? 'Soon: ON' : 'Soon: OFF'}
+            </button>
+          </div>
 
           <Link
             className="btn btn-primary"
@@ -970,8 +1063,12 @@ export function ProductForm(){
  const currentUser = getAdminUser();
  const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN' || location.pathname.startsWith('/super-admin');
  const basePath = isSuper ? '/super-admin' : '/admin';
- const {notify,refreshProducts}=useApp();
+ const {notify,refreshProducts,storeSettings}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();
+ const [isComingSoon, setIsComingSoon] = useState(() => {
+   if (id && storeSettings?.policies?.homeLayout?.comingSoonProducts?.includes(id)) return true;
+   return Boolean(routeProduct?.isSoon);
+ });
  const [form,setForm]=useState(() => ({
    ...emptyProduct,
    ...(routeProduct ? {
@@ -1037,6 +1134,9 @@ export function ProductForm(){
         let nameHi = product.nameHi || cachedHi || '';
         setForm({ ...emptyProduct, ...product, ...(nameHi ? { nameHi } : {}) });
         setDetails(parseProductDetails(product.description));
+        if (storeSettings?.policies?.homeLayout?.comingSoonProducts?.includes(id) || product.isSoon) {
+          setIsComingSoon(true);
+        }
         if (!nameHi && product.name) {
           try {
             const translated = await translateToHindi(product.name);
@@ -1374,6 +1474,12 @@ export function ProductForm(){
       const savedRes = await (id
         ? adminService.updateProduct(id, { ...payload(next), image: finalUrls[0], images: finalUrls, packs: cleanPacks })
         : adminService.createProduct({ ...payload(next), image: finalUrls[0], images: finalUrls, packs: cleanPacks }));
+
+      const effectiveId = id || savedRes?.id || savedRes?.product?.id;
+      if (effectiveId) {
+        await adminService.toggleProductComingSoon(effectiveId, isComingSoon).catch(() => {});
+        window.dispatchEvent(new Event('r2cart:settings-updated'));
+      }
 
       const savedProduct = savedRes?.product || {
         ...next,
@@ -2047,6 +2153,37 @@ export function ProductForm(){
    <section className="admin-card">
     <h3>Stock alert threshold</h3>
     <label>Notify when stock is at or below<input type="number" min="0" step="1" value={form.lowStockThreshold} placeholder="Use the backend default" onChange={event=>set('lowStockThreshold',event.target.value)}/></label>
+   </section>
+
+   <section className="admin-card">
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+      <div>
+        <h3 style={{ margin: 0, fontSize: '15px' }}>Coming Soon Status</h3>
+        <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+          Mark this product individually as Coming Soon so customers can view it on the storefront but cannot purchase yet.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setIsComingSoon(v => !v)}
+        style={{
+          fontSize: '12px',
+          padding: '6px 14px',
+          borderRadius: '8px',
+          border: isComingSoon ? '1.5px solid #fde68a' : '1px solid #cbd5e1',
+          background: isComingSoon ? '#fef3c7' : '#f8fafc',
+          color: isComingSoon ? '#b45309' : '#334155',
+          cursor: 'pointer',
+          fontWeight: 700,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+      >
+        <Clock3 size={14} />
+        {isComingSoon ? 'Soon: ON' : 'Soon: OFF'}
+      </button>
+    </div>
    </section>
 
    <div className="form-actions">
