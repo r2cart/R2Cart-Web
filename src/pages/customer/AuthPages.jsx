@@ -68,17 +68,8 @@ export function LoginPage({signup=false}){
 
  useEffect(()=>{
   const deliveryToken=sessionStorage.getItem('r2cart-delivery-access-token')||localStorage.getItem('r2cart-delivery-access-token');
-  const adminToken=sessionStorage.getItem('r2cart-admin-access-token')||localStorage.getItem('r2cart-admin-access-token');
   if(deliveryToken){
    nav('/delivery/dashboard',{replace:true});
-   return;
-  }
-  if(adminToken){
-   const raw=sessionStorage.getItem('r2cart-admin-user')||localStorage.getItem('r2cart-admin-user');
-   let u=null;
-   try{u=raw?JSON.parse(raw):null}catch{}
-   const target=resolveRoleRedirect(u,'/admin/dashboard');
-   nav(target,{replace:true});
    return;
   }
   if(user?.id){
@@ -108,11 +99,23 @@ export function LoginPage({signup=false}){
     sessionStorage.removeItem('r2cart-auth-redirect');
     const isDelivery=loggedUser?.role==='DELIVERY_PERSON'||loggedUser?.staffRole==='DELIVERY_PERSON';
     const isAdmin=loggedUser?.role==='SUPER_ADMIN'||loggedUser?.role==='ADMIN'||loggedUser?.role==='MANAGER';
-    const rolePrompt=isDelivery?'DELIVERY':(isAdmin?'ADMIN':'CUSTOMER');
+
+    if (isAdmin) {
+      authService.logout().catch(() => {});
+      const msg = loggedUser?.role === 'SUPER_ADMIN'
+        ? 'Super Admin accounts must sign in via their dedicated path: /r2cart/super-administrator/login'
+        : 'Store administrators must sign in via their dedicated path: /r2cart/administrator/login';
+      setAuthError(msg);
+      notify(msg, 'error');
+      setLoading(false);
+      return;
+    }
+
+    const rolePrompt=isDelivery?'DELIVERY':'CUSTOMER';
     sessionStorage.setItem('r2cart-auth-prompt',rolePrompt);
     const targetPath=resolveRoleRedirect(loggedUser,redirect);
 
-    if(isDelivery||isAdmin){
+    if(isDelivery){
      window.location.replace(targetPath);
      return;
     }

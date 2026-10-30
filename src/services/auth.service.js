@@ -27,20 +27,25 @@ export const getTok = k => {
 };
 
 const save = session => {
-  if (session.accessToken) setTok('r2cart-access-token', session.accessToken);
-  localStorage.setItem('r2cart-user', JSON.stringify(session.user));
-  localStorage.setItem('r2cart-session-active', '1');
-
   const role = session.user?.role || session.user?.staffRole;
+  if (['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
+    throw new Error(
+      role === 'SUPER_ADMIN'
+        ? 'Super Admin accounts must sign in via their dedicated path: /r2cart/super-administrator/login'
+        : 'Store administrators must sign in via their dedicated path: /r2cart/administrator/login'
+    );
+  }
+
   if (role === 'DELIVERY_PERSON') {
     if (session.accessToken) setTok('r2cart-delivery-access-token', session.accessToken);
     localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
     localStorage.setItem('r2cart-delivery', 'true');
-  } else if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'MANAGER') {
-    if (session.accessToken) setTok('r2cart-admin-access-token', session.accessToken);
-    localStorage.setItem('r2cart-admin-user', JSON.stringify(session.user));
-    localStorage.setItem('r2cart-admin', 'true');
+    return session.user;
   }
+
+  if (session.accessToken) setTok('r2cart-access-token', session.accessToken);
+  localStorage.setItem('r2cart-user', JSON.stringify(session.user));
+  localStorage.setItem('r2cart-session-active', '1');
   return session.user;
 };
 
