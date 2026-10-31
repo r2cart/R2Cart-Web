@@ -734,7 +734,7 @@ export function LocationModal(){
   );
 }
 export function AddressForm({onSave,onCancel,initial={},forcePanIndia=false}){
-  const {availableLocalities,isPanIndiaCart}=useApp();
+  const {availableLocalities,isPanIndiaCart,notify}=useApp();
   const [isPanIndia,setIsPanIndia]=useState(()=>Boolean(forcePanIndia || isPanIndiaCart || initial.pin || (initial.city && initial.city !== 'Hathua')));
 
   const localFields=[
@@ -772,12 +772,41 @@ export function AddressForm({onSave,onCancel,initial={},forcePanIndia=false}){
 
   const submit=e=>{
     e.preventDefault();
+    const cleanMobile = String(form.mobile || '').replace(/\D/g, '');
+    if (!/^\d{10}$/.test(cleanMobile)) {
+      notify?.('Please enter a valid 10-digit mobile number', 'error');
+      return;
+    }
+
     if (isPanIndia) {
-      if (!String(form.name||'').trim() || !String(form.mobile||'').trim() || !String(form.street||'').trim() || !String(form.city||'').trim() || !String(form.state||'').trim() || !String(form.pin||'').trim()) {
+      if (!String(form.name||'').trim()) {
+        notify?.('Please enter your full name', 'error');
+        return;
+      }
+      if (!String(form.street||'').trim()) {
+        notify?.('Please enter house/street/colony details', 'error');
+        return;
+      }
+      if (!String(form.city||'').trim()) {
+        notify?.('Please enter your city/town', 'error');
+        return;
+      }
+      if (!String(form.state||'').trim()) {
+        notify?.('Please enter your state', 'error');
+        return;
+      }
+      const cleanPin = String(form.pin || '').replace(/\D/g, '');
+      if (!/^\d{6}$/.test(cleanPin)) {
+        notify?.('Please enter a valid 6-digit postal pincode', 'error');
         return;
       }
     } else {
-      if (!String(form.name||'').trim() || !String(form.mobile||'').trim() || !String(form.landmark||'').trim() || !String(form.area||'').trim()) {
+      if (!String(form.name||'').trim()) {
+        notify?.('Please enter your full name', 'error');
+        return;
+      }
+      if (!String(form.landmark||'').trim() || !String(form.area||'').trim()) {
+        notify?.('Please select your village/area and nearby landmark', 'error');
         return;
       }
     }
@@ -785,6 +814,7 @@ export function AddressForm({onSave,onCancel,initial={},forcePanIndia=false}){
 
     onSave({
       ...form,
+      mobile: cleanMobile,
       house:String(form.house||'').trim(),
       street:String(form.street||'').trim(),
       landmark:String(form.landmark||'').trim(),
