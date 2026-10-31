@@ -25,8 +25,25 @@ import { parseProductDetails, formatProductDetails } from '../../utils/productDe
 import { compressImage } from '../../utils/imageCompressor';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
-const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false};
-const payload=product=>({name:product.name,category:product.category,unit:product.unit,mrp:Number(product.mrp),price:Number(product.price),costPrice:product.costPrice!==''&&product.costPrice!==undefined&&product.costPrice!==null?Number(product.costPrice):0,stock:Number(product.stock),...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),description:product.description,image:product.image||'',status:product.status==='Active'?'ACTIVE':product.status,featured:Boolean(product.featured),bestSeller:Boolean(product.bestSeller)});
+const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:''};
+const payload=product=>({
+  name:product.name,
+  category:product.category,
+  unit:product.unit,
+  mrp:Number(product.mrp),
+  price:Number(product.price),
+  costPrice:product.costPrice!==''&&product.costPrice!==undefined&&product.costPrice!==null?Number(product.costPrice):0,
+  stock:Number(product.stock),
+  ...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),
+  description:product.description,
+  image:product.image||'',
+  status:product.status==='Active'?'ACTIVE':product.status,
+  featured:Boolean(product.featured),
+  bestSeller:Boolean(product.bestSeller),
+  deliveryScope:product.deliveryScope||'LOCAL',
+  deliveryLocations:Array.isArray(product.deliveryLocations)?product.deliveryLocations:(product.deliveryLocations?String(product.deliveryLocations).split(',').map(s=>s.trim()).filter(Boolean):[]),
+  shippingFee:product.shippingFee?Number(product.shippingFee):0
+});
 
 
 let adminProductsCache = null;
@@ -849,6 +866,20 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
                 }}
               >
                 {view.categoryName || view.category}
+              </span>
+
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: view.deliveryScope === 'PAN_INDIA' ? '#6d28d9' : (view.deliveryScope === 'CUSTOM' ? '#0369a1' : '#475569'),
+                  background: view.deliveryScope === 'PAN_INDIA' ? '#ede9fe' : (view.deliveryScope === 'CUSTOM' ? '#e0f2fe' : '#f1f5f9'),
+                  padding: '2px 7px',
+                  borderRadius: '5px',
+                  border: `1px solid ${view.deliveryScope === 'PAN_INDIA' ? '#ddd6fe' : (view.deliveryScope === 'CUSTOM' ? '#bae6fd' : '#e2e8f0')}`
+                }}
+              >
+                {view.deliveryScope === 'PAN_INDIA' ? '🇮🇳 Pan-India' : (view.deliveryScope === 'CUSTOM' ? '📍 Specific Locations' : '🏘️ Local')}
               </span>
 
               {view.unit && (
@@ -2219,6 +2250,151 @@ export function ProductForm(){
         {isComingSoon ? 'Soon: ON' : 'Soon: OFF'}
       </button>
     </div>
+   </section>
+
+   {/* Delivery & Shipping Scope Section */}
+   <section className="admin-card">
+    <div style={{ marginBottom: '14px' }}>
+      <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span>🚚 Delivery & Shipping Scope</span>
+        <span style={{
+          fontSize: '11px',
+          fontWeight: 700,
+          padding: '2px 8px',
+          borderRadius: '12px',
+          background: form.deliveryScope === 'PAN_INDIA' ? '#ede9fe' : (form.deliveryScope === 'CUSTOM' ? '#e0f2fe' : '#f1f5f9'),
+          color: form.deliveryScope === 'PAN_INDIA' ? '#6d28d9' : (form.deliveryScope === 'CUSTOM' ? '#0369a1' : '#475569')
+        }}>
+          {form.deliveryScope === 'PAN_INDIA' ? '🇮🇳 Pan-India' : (form.deliveryScope === 'CUSTOM' ? '📍 Specific Locations' : '🏘️ Local Area Only')}
+        </span>
+      </h3>
+      <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+        Configure where this product can be ordered from. Local grocery items are limited to local serviceable villages, while crafts, gifts, and dry items can be delivered pan-India.
+      </p>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+      {/* Option 1: Local */}
+      <label style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px',
+        padding: '12px 14px',
+        borderRadius: '10px',
+        border: `2px solid ${!form.deliveryScope || form.deliveryScope === 'LOCAL' ? '#10b981' : '#e2e8f0'}`,
+        background: !form.deliveryScope || form.deliveryScope === 'LOCAL' ? '#f0fdf4' : '#fff',
+        cursor: 'pointer'
+      }}>
+        <input
+          type="radio"
+          name="deliveryScope"
+          value="LOCAL"
+          checked={!form.deliveryScope || form.deliveryScope === 'LOCAL'}
+          onChange={() => set('deliveryScope', 'LOCAL')}
+          style={{ marginTop: '2px' }}
+        />
+        <div>
+          <b style={{ fontSize: '13px', color: '#0f172a' }}>🏘️ Local Area Only</b>
+          <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            Deliverable only in standard serviceable villages / delivery areas (Instant & Scheduled delivery).
+          </p>
+        </div>
+      </label>
+
+      {/* Option 2: Pan-India */}
+      <label style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px',
+        padding: '12px 14px',
+        borderRadius: '10px',
+        border: `2px solid ${form.deliveryScope === 'PAN_INDIA' ? '#8b5cf6' : '#e2e8f0'}`,
+        background: form.deliveryScope === 'PAN_INDIA' ? '#f5f3ff' : '#fff',
+        cursor: 'pointer'
+      }}>
+        <input
+          type="radio"
+          name="deliveryScope"
+          value="PAN_INDIA"
+          checked={form.deliveryScope === 'PAN_INDIA'}
+          onChange={() => set('deliveryScope', 'PAN_INDIA')}
+          style={{ marginTop: '2px' }}
+        />
+        <div>
+          <b style={{ fontSize: '13px', color: '#6d28d9' }}>🇮🇳 Pan-India (All Over India)</b>
+          <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            Deliverable to any pin code across India via courier shipment.
+          </p>
+        </div>
+      </label>
+
+      {/* Option 3: Custom Locations */}
+      <label style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px',
+        padding: '12px 14px',
+        borderRadius: '10px',
+        border: `2px solid ${form.deliveryScope === 'CUSTOM' ? '#0284c7' : '#e2e8f0'}`,
+        background: form.deliveryScope === 'CUSTOM' ? '#f0f9ff' : '#fff',
+        cursor: 'pointer'
+      }}>
+        <input
+          type="radio"
+          name="deliveryScope"
+          value="CUSTOM"
+          checked={form.deliveryScope === 'CUSTOM'}
+          onChange={() => set('deliveryScope', 'CUSTOM')}
+          style={{ marginTop: '2px' }}
+        />
+        <div>
+          <b style={{ fontSize: '13px', color: '#0369a1' }}>📍 Specific Locations</b>
+          <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            Deliverable only to selected cities, states, or pin codes.
+          </p>
+        </div>
+      </label>
+    </div>
+
+    {/* Custom Locations Input */}
+    {form.deliveryScope === 'CUSTOM' && (
+      <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+          Allowed Cities / States / Pincodes (Comma separated) *
+        </label>
+        <input
+          type="text"
+          value={Array.isArray(form.deliveryLocations) ? form.deliveryLocations.join(', ') : (form.deliveryLocations || '')}
+          onChange={e => set('deliveryLocations', e.target.value.split(',').map(s => s.trim()))}
+          placeholder="e.g. 110001, Delhi, Mumbai, Bihar, 800001"
+          style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+        />
+        <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
+          Customers with addresses matching any of these pincodes, cities, or states will be allowed to order.
+        </small>
+      </div>
+    )}
+
+    {/* Shipping / Courier Fee Field (Optional) */}
+    {(form.deliveryScope === 'PAN_INDIA' || form.deliveryScope === 'CUSTOM') && (
+      <div style={{ maxWidth: '300px' }}>
+        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+          Extra Courier / Shipping Fee (₹)
+        </label>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={form.shippingFee ?? ''}
+          onChange={e => set('shippingFee', e.target.value)}
+          placeholder="0 for free shipping, or e.g. 50"
+          style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+        />
+        <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
+          Leave 0 or blank for free delivery, or enter courier shipping charge.
+        </small>
+      </div>
+    )}
    </section>
 
    <div className="form-actions">
