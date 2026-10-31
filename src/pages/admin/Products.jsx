@@ -1,6 +1,6 @@
 function getAdminUser() {
   try {
-    return JSON.parse(localStorage.getItem('r2cart-admin-user')) || null;
+    return JSON.parse(sessionStorage.getItem('r2cart-admin-user') || localStorage.getItem('r2cart-admin-user')) || null;
   } catch {
     return null;
   }
@@ -1145,6 +1145,7 @@ export function ProductForm(){
  const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN' || location.pathname.startsWith('/super-admin');
  const assignedCategoryIds = Array.isArray(currentUser?.assignedCategoryIds) ? currentUser.assignedCategoryIds : [];
  const isCategoryScopedAdmin = currentUser?.staffRole === 'CATEGORY_ADMIN' || assignedCategoryIds.length > 0;
+ const showSpecialtyControls = isCategoryScopedAdmin || isSuper;
  const basePath = isSuper ? '/super-admin' : '/admin';
  const {notify,refreshProducts,storeSettings,setStoreSettings}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();
@@ -2266,8 +2267,8 @@ export function ProductForm(){
     </div>
    </section>
 
-   {/* Delivery & Shipping Scope & Customer Inquiry Mode (Available exclusively to Category Scoped Admins) */}
-   {isCategoryScopedAdmin && (
+   {/* Delivery & Shipping Scope & Customer Inquiry Mode (Available to Category Scoped Admins and Super Admin) */}
+   {showSpecialtyControls && (
      <>
        {/* Delivery & Shipping Scope Section */}
        <section className="admin-card">
