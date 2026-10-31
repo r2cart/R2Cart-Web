@@ -229,3 +229,4 @@ export default function ProductEnquiryModal({ product, isOpen, onClose }) {
     </div>
   );
 }
+
