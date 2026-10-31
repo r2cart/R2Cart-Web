@@ -33,7 +33,11 @@ function CategoryListSkeleton(){
 }
 
 export function AdminCategories(){
- const {notify,refreshCategories}=useApp();
+ const {notify,refreshCategories,user}=useApp();
+ const isCategoryScopedAdmin = Boolean(
+   user?.staffRole === 'CATEGORY_ADMIN' ||
+   (Array.isArray(user?.assignedCategoryIds) && user.assignedCategoryIds.length > 0)
+ );
  const [list,setList]=useState(adminCategoriesCache || []);
  const [loading,setLoading]=useState(!adminCategoriesCache);
  const [error,setError]=useState('');
@@ -133,7 +137,12 @@ export function AdminCategories(){
     color:String(form.color||'#EAF8E8').trim(),
     parentId:form.parentId||null,
     position:rawPos,
-    status:form.status||'ACTIVE'
+    status:form.status||'ACTIVE',
+    badgeActive: Boolean(edit?.badgeActive),
+    badgeText: edit?.badgeActive ? String(form.badgeText || '').trim() || null : null,
+    noticeActive: Boolean(edit?.noticeActive),
+    noticeTitle: edit?.noticeActive ? String(form.noticeTitle || '').trim() || null : null,
+    noticeMessage: edit?.noticeActive ? String(form.noticeMessage || '').trim() || null : null
   };
 
   setSaving(true);
@@ -189,7 +198,15 @@ export function AdminCategories(){
  };
 
  return <>
-  <AdminTitle title="Categories" text="Organise your catalogue and storefront navigation." action={<Button onClick={()=>setEdit({status:'ACTIVE',color:'#EAF8E8',position:list.length+1})}><Plus/> Add category</Button>}/>
+  <AdminTitle
+    title="Categories"
+    text="Organise your catalogue, highlight badges, and customer notices."
+    action={!isCategoryScopedAdmin ? (
+      <Button onClick={()=>setEdit({status:'ACTIVE',color:'#EAF8E8',position:list.length+1,badgeActive:false,badgeText:'Pan India',noticeActive:false})}>
+        <Plus/> Add category
+      </Button>
+    ) : null}
+  />
   <input ref={directUploadInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" onChange={onDirectCategoryFileSelected} hidden />
   
   <div className="admin-card category-admin-list">
@@ -218,7 +235,19 @@ export function AdminCategories(){
       onClick={()=>setViewCategory(category)}
       title={`Click to view ${category.name} products in cards`}
     >
-      <b>{category.name}</b>
+      <b>
+        {category.name}
+        {category.badgeActive && category.badgeText && (
+          <span style={{marginLeft:'6px',fontSize:'10px',background:'#0284c7',color:'#fff',padding:'1px 6px',borderRadius:'10px',fontWeight:700}}>
+            🇮🇳 {category.badgeText}
+          </span>
+        )}
+        {category.noticeActive && (
+          <span style={{marginLeft:'4px',fontSize:'10px',background:'#fef3c7',color:'#b45309',border:'1px solid #fde68a',padding:'1px 5px',borderRadius:'10px',fontWeight:700}}>
+            Notice Active
+          </span>
+        )}
+      </b>
       <small>
         {(category._count?.products ?? 0) === 1 ? '1 product' : `${category._count?.products ?? 0} products`}
         {category.parent?.name?` · Under ${category.parent.name}`:category.children?.length?` · ${category.children.length} subcategories`:''}
@@ -229,7 +258,9 @@ export function AdminCategories(){
     <StatusBadge status={labelStatus(category.status)}/>
     <button type="button" className="r2c-cat-btn r2c-btn-view" onClick={()=>setViewCategory(category)} aria-label={`View ${category.name} products in cards`} title={`View ${category.name} products in cards`}><Eye size={15}/></button>
     <button type="button" className="r2c-cat-btn r2c-btn-edit" onClick={()=>setEdit(category)} aria-label={`Edit ${category.name}`} title="Edit category"><Edit2 size={15}/></button>
-    <button type="button" className="r2c-cat-btn r2c-btn-delete" onClick={()=>setRemove(category)} aria-label={`Delete ${category.name}`} title="Delete category"><Trash2 size={15}/></button>
+    {!isCategoryScopedAdmin && (
+      <button type="button" className="r2c-cat-btn r2c-btn-delete" onClick={()=>setRemove(category)} aria-label={`Delete ${category.name}`} title="Delete category"><Trash2 size={15}/></button>
+    )}
    </div>)}
   </div>
 
@@ -303,6 +334,75 @@ export function AdminCategories(){
       style={{fontSize:'0.82rem',padding:'7px 10px'}}
      />
     </div>
+
+    {/* Category Highlight Badge Section */}
+    <div style={{marginTop:'10px',padding:'12px 14px',background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:'10px'}}>
+      <label style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,fontSize:'0.88rem',color:'#0369a1',cursor:'pointer',margin:0}}>
+        <input 
+          type="checkbox" 
+          name="badgeActive" 
+          checked={edit?.badgeActive ?? false} 
+          onChange={e=>setEdit(c=>({...c,badgeActive:e.target.checked}))}
+        />
+        <span>Display Highlight Badge on Category (e.g. Pan India)</span>
+      </label>
+      {edit?.badgeActive && (
+        <div style={{marginTop:'8px'}}>
+          <label style={{fontSize:'0.8rem',fontWeight:600,color:'#0284c7',marginBottom:'3px',display:'block'}}>
+            Badge Text
+          </label>
+          <input 
+            name="badgeText" 
+            type="text" 
+            defaultValue={edit?.badgeText || 'Pan India'} 
+            placeholder="e.g. Pan India, Handcrafted, Express"
+            style={{background:'#ffffff',width:'100%'}}
+          />
+        </div>
+      )}
+    </div>
+
+    {/* Category Announcement / Notice Card Section */}
+    <div style={{marginTop:'10px',padding:'12px 14px',background:'#fefce8',border:'1px solid #fef08a',borderRadius:'10px'}}>
+      <label style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,fontSize:'0.88rem',color:'#854d0e',cursor:'pointer',margin:0}}>
+        <input 
+          type="checkbox" 
+          name="noticeActive" 
+          checked={edit?.noticeActive ?? false} 
+          onChange={e=>setEdit(c=>({...c,noticeActive:e.target.checked}))}
+        />
+        <span>Display Notice / Announcement Card to Customers (1-hour interval)</span>
+      </label>
+      {edit?.noticeActive && (
+        <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
+          <div>
+            <label style={{fontSize:'0.8rem',fontWeight:600,color:'#a16207',marginBottom:'3px',display:'block'}}>
+              Notice Title
+            </label>
+            <input 
+              name="noticeTitle" 
+              type="text" 
+              defaultValue={edit?.noticeTitle || ''} 
+              placeholder="e.g. Important Notice for Resin Art Customers"
+              style={{background:'#ffffff',width:'100%'}}
+            />
+          </div>
+          <div>
+            <label style={{fontSize:'0.8rem',fontWeight:600,color:'#a16207',marginBottom:'3px',display:'block'}}>
+              Notice Description / Content
+            </label>
+            <textarea 
+              name="noticeMessage" 
+              rows={3} 
+              defaultValue={edit?.noticeMessage || ''} 
+              placeholder="e.g. We ship handcrafted resin artworks across India! Courier delivery takes 4-7 business days."
+              style={{background:'#ffffff',width:'100%',resize:'vertical',fontFamily:'inherit'}}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+
     <div className="form-grid">
      <label>Display order<input name="position" type="number" min="0" defaultValue={edit?.position??list.length}/></label>
      <label>Theme colour<input name="color" type="color" defaultValue={edit?.color||'#EAF8E8'} onChange={e=>setEdit(c=>({...c,color:e.target.value}))}/></label>

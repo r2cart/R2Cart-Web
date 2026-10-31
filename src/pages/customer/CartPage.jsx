@@ -34,6 +34,8 @@ export function CartPage() {
   const {
     cartItems,
     qty,
+    clearCart,
+    removeFromCart,
     add,
     subtotal,
     mrpTotal,
@@ -889,12 +891,35 @@ export function CartPage() {
             {/* Cart Items Card */}
             <div className="cart-card-v2">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #f1f5f9' }}>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                  Cart Items ({itemCount})
-                </h3>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
-                  {cartItems.length} {cartItems.length === 1 ? 'product' : 'products'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                    Cart Items ({itemCount})
+                  </h3>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
+                    · {cartItems.length} {cartItems.length === 1 ? 'product' : 'products'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  style={{
+                    background: '#fef2f2',
+                    border: '1px solid #fee2e2',
+                    color: '#ef4444',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    padding: '4px 9px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Clear entire basket"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear Basket</span>
+                </button>
               </div>
 
               <div>
@@ -1018,6 +1043,27 @@ export function CartPage() {
                           <Plus size={13} strokeWidth={2.5} />
                         </button>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart ? removeFromCart(product.id) : qty(product.id, 0)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#94a3b8',
+                          padding: '6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '6px',
+                          marginLeft: '4px'
+                        }}
+                        title={`Remove ${product.name} from basket`}
+                        aria-label={`Remove ${product.name}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   );
                 })}

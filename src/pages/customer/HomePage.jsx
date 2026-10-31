@@ -277,6 +277,29 @@ export function HomePage(){
              title={isCatSoon ? `${tCat(category.name)} (Coming Soon)` : `Browse ${tCat(category.name)}`}
             >
              <div className="category-thumb-wrap" style={{background:category.color, position:'relative'}}>
+              {category.badgeActive && category.badgeText && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    color: '#ffffff',
+                    fontSize: '9.5px',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                    borderRadius: '999px',
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.35)',
+                    zIndex: 3,
+                    lineHeight: 1.1,
+                    border: '1.5px solid #ffffff'
+                  }}
+                >
+                  {category.badgeText}
+                </span>
+              )}
               {isCatSoon && <span className="cat-soon-badge">SOON</span>}
               <img 
                src={category.image} 
@@ -409,7 +432,14 @@ export function HomePage(){
        {railsToRender.map(category=>{
         const catProducts=products.filter(p=>p.category===category.slug||p.category?.slug===category.slug||p.categoryId===category.id);
         if(!catProducts.length)return null;
-        return <ProductRail key={category.slug} title={tCat(category.name)} to={`/category/${category.slug}`} items={dedupeProductPacks(catProducts)}/>;
+        return (
+          <ProductRail 
+            key={category.slug} 
+            title={category.badgeActive && category.badgeText ? `${tCat(category.name)} · 🇮🇳 ${category.badgeText}` : tCat(category.name)} 
+            to={`/category/${category.slug}`} 
+            items={dedupeProductPacks(catProducts)}
+          />
+        );
        })}
       </div>
       </Reveal>

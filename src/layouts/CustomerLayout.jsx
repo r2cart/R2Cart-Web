@@ -1,5 +1,5 @@
 import {useEffect, useState, useMemo, useCallback} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,UserRound,X,Zap,AlertCircle,Moon} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,Trash2,UserRound,X,Zap,AlertCircle,Moon} from 'lucide-react';
 import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,money} from '../components/ui';
 import {useLanguage} from '../context/LanguageContext';
 import LaunchNoticeModal from '../components/customer/LaunchNoticeModal';
@@ -940,6 +940,8 @@ export function CartDrawer() {
     setCartOpen,
     cartItems,
     qty,
+    clearCart,
+    removeFromCart,
     add,
     subtotal,
     mrpTotal,
@@ -1036,25 +1038,52 @@ export function CartDrawer() {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setCartOpen(false)}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: '#f1f5f9',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#475569',
-              cursor: 'pointer',
-              transition: 'background 0.15s ease'
-            }}
-          >
-            <X size={16} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {itemCount > 0 && (
+              <button
+                type="button"
+                onClick={clearCart}
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fee2e2',
+                  color: '#ef4444',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  padding: '5px 9px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="Clear entire basket"
+              >
+                <Trash2 size={13} />
+                <span>Clear All</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setCartOpen(false)}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: '#f1f5f9',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#475569',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease'
+              }}
+              title="Close basket"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Drawer Body */}
@@ -1337,58 +1366,79 @@ export function CartDrawer() {
                       </div>
                     </div>
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        background: '#f0fdf4',
-                        border: '1px solid #a7f3d0',
-                        borderRadius: '8px',
-                        padding: '2px 4px',
-                        flexShrink: 0
-                      }}
-                    >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: '#f0fdf4',
+                          border: '1px solid #a7f3d0',
+                          borderRadius: '8px',
+                          padding: '2px 4px'
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => qty(product.id, product.qty - 1)}
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            border: 'none',
+                            background: '#ffffff',
+                            borderRadius: '6px',
+                            color: '#059669',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <Minus size={12} strokeWidth={2.5} />
+                        </button>
+                        <b style={{ fontSize: '12px', color: '#047857', minWidth: '16px', textAlign: 'center' }}>
+                          {product.qty}
+                        </b>
+                        <button
+                          type="button"
+                          onClick={() => qty(product.id, product.qty + 1)}
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            border: 'none',
+                            background: '#ffffff',
+                            borderRadius: '6px',
+                            color: '#059669',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <Plus size={12} strokeWidth={2.5} />
+                        </button>
+                      </div>
+
                       <button
                         type="button"
-                        onClick={() => qty(product.id, product.qty - 1)}
+                        onClick={() => removeFromCart ? removeFromCart(product.id) : qty(product.id, 0)}
                         style={{
-                          width: '22px',
-                          height: '22px',
+                          background: 'transparent',
                           border: 'none',
-                          background: '#ffffff',
-                          borderRadius: '6px',
-                          color: '#059669',
-                          fontWeight: 800,
+                          color: '#94a3b8',
+                          padding: '5px',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center'
+                          justifyContent: 'center',
+                          borderRadius: '6px'
                         }}
+                        title={`Remove ${product.name} from basket`}
+                        aria-label={`Remove ${product.name}`}
                       >
-                        <Minus size={12} strokeWidth={2.5} />
-                      </button>
-                      <b style={{ fontSize: '12px', color: '#047857', minWidth: '16px', textAlign: 'center' }}>
-                        {product.qty}
-                      </b>
-                      <button
-                        type="button"
-                        onClick={() => qty(product.id, product.qty + 1)}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          border: 'none',
-                          background: '#ffffff',
-                          borderRadius: '6px',
-                          color: '#059669',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Plus size={12} strokeWidth={2.5} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </div>

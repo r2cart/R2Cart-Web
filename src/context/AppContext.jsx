@@ -278,6 +278,8 @@ export function AppProvider({children}){
 
  const add=id=>{const quantity=(cart[id]||0)+1;if(!canSetQuantity(id,quantity))return;setCart(current=>({...current,[id]:quantity}));syncCart(id,quantity);notify('Added to your basket')};
  const qty=(id,quantity)=>{if(!canSetQuantity(id,quantity))return;setCart(current=>{const next={...current};if(quantity<=0)delete next[id];else next[id]=quantity;return next});syncCart(id,quantity)};
+ const clearCart=async()=>{setCart({});storage.set('cart',{});if(online()){try{await customerService.clearCart()}catch{}}notify('Basket cleared')};
+ const removeFromCart=id=>{qty(id,0);notify('Item removed from basket')};
  const toggleFavorite=async id=>{const saved=favorites.includes(id);if(!online())return notify('Please sign in to use your wishlist','error');setFavorites(current=>saved?current.filter(value=>value!==id):[...current,id]);try{await(saved?customerService.removeFavorite(id):customerService.addFavorite(id));notify(saved?'Removed from favourites':'Saved to favourites')}catch(error){setFavorites(current=>saved?[...new Set([...current,id])]:current.filter(value=>value!==id));notify(error.message,'error')}};
  const cartItems=useMemo(()=>products.filter(p=>cart[p.id]).map(p=>({...p,qty:cart[p.id]})),[cart,products]);
  const isPanIndiaCart = useMemo(() => cartItems.some(p => p.deliveryScope === 'PAN_INDIA' || p.deliveryScope === 'CUSTOM'), [cartItems]);
@@ -425,6 +427,6 @@ export function AppProvider({children}){
   return deliveryConfig;
  },[activeAddress,deliveryRulesFor,deliveryConfig]);
 
- return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,isPanIndiaCart,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,addressesLoaded,activeAddress,setActiveAddress,activeDeliveryRules,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,setStoreSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
+ return <Ctx.Provider value={{cart,setCart,add,qty,clearCart,removeFromCart,cartItems,isPanIndiaCart,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,addressesLoaded,activeAddress,setActiveAddress,activeDeliveryRules,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,setStoreSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
 }
 export const useApp=()=>useContext(Ctx);
