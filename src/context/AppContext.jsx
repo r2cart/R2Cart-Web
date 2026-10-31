@@ -286,32 +286,19 @@ export function AppProvider({children}){
    const hasPanIndia = existingItems.some(p => p.deliveryScope === 'PAN_INDIA' || p.deliveryScope === 'CUSTOM');
 
    if (isTargetPanIndia && hasLocal) {
-     return {
-       conflict: true,
-       type: 'LOCAL_TO_PAN_INDIA',
-       message: 'Your basket contains local grocery items for express local delivery.\n\nPan-India / courier shipping items must be ordered separately.\n\nWould you like to clear your basket and start a Pan-India order?'
-     };
+     return 'Cannot mix Pan-India items with local grocery items in the same basket. Please order them separately.';
    }
    if (!isTargetPanIndia && hasPanIndia) {
-     return {
-       conflict: true,
-       type: 'PAN_INDIA_TO_LOCAL',
-       message: 'Your basket contains Pan-India courier items.\n\nLocal grocery items must be ordered separately for express local delivery.\n\nWould you like to clear your basket and add this local grocery item?'
-     };
+     return 'Cannot mix local grocery items with Pan-India courier items in the same basket. Please order them separately.';
    }
    return false;
  };
 
  const add=id=>{
    const targetProduct = products.find(item => item.id === id);
-   const conflict = checkCartConflict(targetProduct);
-   if (conflict) {
-     if (window.confirm(conflict.message)) {
-       if (!canSetQuantity(id, 1)) return;
-       setCart({ [id]: 1 });
-       syncCart(id, 1);
-       notify(conflict.type === 'LOCAL_TO_PAN_INDIA' ? 'Started Pan-India basket' : 'Started local grocery basket');
-     }
+   const conflictError = checkCartConflict(targetProduct);
+   if (conflictError) {
+     notify(conflictError, 'error');
      return;
    }
    const quantity=(cart[id]||0)+1;
@@ -324,14 +311,9 @@ export function AppProvider({children}){
  const qty=(id,quantity)=>{
    if (quantity > 0 && !(cart[id] > 0)) {
      const targetProduct = products.find(item => item.id === id);
-     const conflict = checkCartConflict(targetProduct);
-     if (conflict) {
-       if (window.confirm(conflict.message)) {
-         if (!canSetQuantity(id, quantity)) return;
-         setCart({ [id]: quantity });
-         syncCart(id, quantity);
-         notify('Basket updated');
-       }
+     const conflictError = checkCartConflict(targetProduct);
+     if (conflictError) {
+       notify(conflictError, 'error');
        return;
      }
    }
