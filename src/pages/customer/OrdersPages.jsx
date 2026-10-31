@@ -985,7 +985,9 @@ function OrderCardV2({ order, onReorder, onCancel, onEdit, onChat }) {
           ) : order.status === 'Cancelled' ? (
             <>
               <AlertCircle size={15} color="#ef4444" />
-              <span>Order was cancelled</span>
+              <span>
+                Cancelled {order.cancellationReason ? `· ${order.cancellationReason}` : ''}
+              </span>
             </>
           ) : (
             <>
@@ -1860,11 +1862,25 @@ function OrderDetailTimeline({ status, order }) {
 
   if (status === 'Cancelled') {
     return (
-      <div style={{ padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', color: '#b91c1c' }}>
-        <AlertCircle size={20} />
+      <div style={{ padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#b91c1c' }}>
+        <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
         <div>
           <b style={{ display: 'block', fontSize: '13.5px' }}>Order Cancelled</b>
-          <span style={{ fontSize: '12px' }}>This order was cancelled and deducted stock has been restored.</span>
+          <span style={{ fontSize: '12px', display: 'block' }}>This order was cancelled and deducted stock has been restored.</span>
+          {order?.cancellationReason && (
+            <div style={{
+              marginTop: '6px',
+              padding: '3px 8px',
+              background: '#fee2e2',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#991b1b',
+              display: 'inline-block'
+            }}>
+              Reason: {order.cancellationReason}
+            </div>
+          )}
         </div>
       </div>
     );
