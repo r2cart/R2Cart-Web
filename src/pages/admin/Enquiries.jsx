@@ -60,8 +60,11 @@ export default function Enquiries() {
         params.search = search.trim();
       }
       const res = await adminService.getEnquiries(params);
-      setItems(res.data || []);
-      setMeta(res.meta || { total: res.data?.length || 0, totalPages: 1 });
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      const totalCount = res?.meta?.total ?? list.length;
+      const totalPgs = res?.meta?.totalPages ?? Math.max(1, Math.ceil(totalCount / 20));
+      setItems(list);
+      setMeta({ total: totalCount, totalPages: totalPgs });
     } catch (err) {
       console.error('Fetch enquiries error:', err);
       setError(err.message || 'Failed to load inquiries. The server may still be deploying, please retry.');
