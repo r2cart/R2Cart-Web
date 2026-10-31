@@ -715,23 +715,25 @@ export function ProductPage() {
           <div>
             {/* Top Row: Delivery ETA Pill & Dietary Badge */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  borderRadius: '20px',
-                  background: '#ecfdf5',
-                  border: '1px solid #a7f3d0',
-                  color: '#047857',
-                  fontSize: '11px',
-                  fontWeight: 800
-                }}
-              >
-                <Zap size={13} color={isClosed || isPaused ? "#d97706" : "#059669"} />
-                <span>{isClosed || isPaused ? (isStoreFullyClosed || isPaused ? 'Delivery Unavailable' : 'Scheduled Delivery Available') : `Instant Delivery in ${tEta(eta)}`}</span>
-              </div>
+              {product.orderMode !== 'CONTACT_REQUEST' && product.deliveryScope !== 'PAN_INDIA' && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    background: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    color: '#047857',
+                    fontSize: '11px',
+                    fontWeight: 800
+                  }}
+                >
+                  <Zap size={13} color={isClosed || isPaused ? "#d97706" : "#059669"} />
+                  <span>{isClosed || isPaused ? (isStoreFullyClosed || isPaused ? 'Delivery Unavailable' : 'Scheduled Delivery Available') : `Instant Delivery in ${tEta(eta)}`}</span>
+                </div>
+              )}
 
               {dietaryPref && (
                 <div className={`dietary-badge-pill ${isNonVeg ? 'non-veg' : ''}`}>

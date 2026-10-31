@@ -318,15 +318,19 @@ function BaseProductCard({product,packSelector}){
     )}
   </div>
   <div className="product-copy">
-    <div className="product-badge-row">
-      <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
-      {product.ratingCount > 0 && (
-        <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`}>
-          <Star size={10} fill="#059669" color="#059669" />
-          <span>{Number(product.rating).toFixed(1)}</span>
-        </span>
-      )}
-    </div>
+    {(product.orderMode !== 'CONTACT_REQUEST' && product.deliveryScope !== 'PAN_INDIA') || product.ratingCount > 0 ? (
+      <div className="product-badge-row">
+        {product.orderMode !== 'CONTACT_REQUEST' && product.deliveryScope !== 'PAN_INDIA' && (
+          <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
+        )}
+        {product.ratingCount > 0 && (
+          <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`}>
+            <Star size={10} fill="#059669" color="#059669" />
+            <span>{Number(product.rating).toFixed(1)}</span>
+          </span>
+        )}
+      </div>
+    ) : null}
     <Link to={`/product/${product.id}`} className="product-name">{tProd(product.name)}</Link>
     {packSelector||(
       <div className="product-meta-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', width: '100%', overflow: 'hidden', minHeight: '18px' }}>
