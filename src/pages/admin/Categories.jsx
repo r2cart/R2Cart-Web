@@ -51,53 +51,55 @@ export function AdminCategories(){
  const directUploadInputRef=useRef(null);
  const [categoryForUpload,setCategoryForUpload]=useState(null);
 
- const clientSideAiEnhance = (rawText, type) => {
-   let corrected = String(rawText || '').trim();
-   const DICT = [
-     [/\b(pan|all)\s*(indai|indiya|indya)\b/gi, 'Pan-India'],
-     [/\bpanindia\b/gi, 'Pan-India'],
-     [/\bdelivry|delvery|delivrey|dilvery|delevery\b/gi, 'delivery'],
-     [/\bavailble|availabe|avalable|avialable\b/gi, 'available'],
-     [/\bshiping|shipin|shippng\b/gi, 'shipping'],
-     [/\bresine|reisn|rasin\b/gi, 'resin'],
-     [/\bcouriar|coureir|curier\b/gi, 'courier'],
-     [/\bprodut|prduct|produc\b/gi, 'product'],
-     [/\bhandcraft|handcrafter|hand made|hand-craft\b/gi, 'handcrafted'],
-     [/\bdecore\b/gi, 'decor'],
-     [/\bgifitng|giftingg\b/gi, 'gifting'],
-     [/\bcustmer|customar|custmr\b/gi, 'customer'],
-     [/\bguarntee|garantee|guarenty\b/gi, 'guarantee'],
-     [/\bdisscount|dicount|discunt\b/gi, 'discount'],
-     [/\borderd|ordred\b/gi, 'ordered'],
-     [/\breceve|recieved\b/gi, 'received'],
-     [/\bbussiness|buisness|busines\b/gi, 'business'],
-     [/\bpincod|pincode|pin code\b/gi, 'pincode'],
-     [/\bnotis|notce\b/gi, 'notice'],
-     [/\bdont\b/gi, "don't"],
-     [/\bcant\b/gi, "can't"],
-     [/\bwont\b/gi, "won't"],
-     [/\bthats\b/gi, "that's"],
-     [/\bits\s+(a|an|the|our|your|my)\b/gi, "it's $1"],
-     [/\bwe\s+is\b/gi, "we are"],
-     [/\bi\b/g, 'I']
-   ];
-   for (const [pattern, repl] of DICT) {
-     corrected = corrected.replace(pattern, repl);
-   }
-   corrected = corrected.replace(/[ \t]+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+ const clientSideAiEnhance = (text, type) => {
+   const lower = String(text || '').toLowerCase();
+   const hasDelivery = /ship|deliver|courier|bhej|transport|reach|pan[\s-]*india|all[\s-]*india|desh|all over|har jagah/i.test(lower);
+   const hasHandmade = /hand[\s-]*made|handcraft|hath\s*se|custom|resin|curing|art\b|kala/i.test(lower);
+   const hasCancel = /cancel|return|wapas|refund|exchange/i.test(lower);
+   const hasTrack = /track|whatsapp|msg|call|sms|status/i.test(lower);
+   const hasFragile = /fragile|glass|tut|damage|safe|pack|care/i.test(lower);
+   const hasDays = /(\d+)\s*[-to\s]+\s*(\d+)\s*(days?|din)?/i.exec(lower);
+   const daysStr = hasDays ? `${hasDays[1]}–${hasDays[2]} business days` : '4–7 business days';
+
    if (type === 'badge') {
-     corrected = corrected.split(' ').map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : '').join(' ');
-   } else if (type === 'title') {
-     const minor = ['and', 'or', 'for', 'to', 'in', 'of', 'at', 'by', 'with', 'the', 'a', 'an'];
-     corrected = corrected.split(' ').map((w, idx) => {
-       const lower = w.toLowerCase();
-       return idx > 0 && minor.includes(lower) ? lower : (w ? w.charAt(0).toUpperCase() + w.slice(1) : '');
-     }).join(' ');
-   } else {
-     corrected = corrected.replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase());
-     if (corrected && !/[.!?]$/.test(corrected)) corrected += '.';
+     if (hasDelivery && /pan|all/i.test(lower)) return 'Pan-India Delivery';
+     if (hasHandmade) return 'Handcrafted & Custom';
+     if (/express|fast|quick|urgent/i.test(lower)) return 'Express Shipping';
+     if (/quality|best|premium/i.test(lower)) return 'Premium Quality';
+     if (hasDelivery) return 'All-India Shipping';
+     return text.split(' ').map(w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '').join(' ');
    }
-   return corrected;
+
+   if (type === 'title') {
+     if (hasHandmade && hasCancel) return 'Important: Custom Order & Cancellation Guidelines';
+     if (hasDelivery && (hasHandmade || /resin/i.test(lower))) return 'Pan-India Shipping & Handcrafted Order Notice';
+     if (hasDelivery) return 'Pan-India Shipping & Delivery Guidelines';
+     if (hasHandmade) return 'Important Notice for Resin Art Customers';
+     if (hasFragile) return 'Fragile Handling & Protective Transit Notice';
+     return 'Important Notice & Customer Guidelines';
+   }
+
+   // Message
+   const sentences = [];
+   if (hasHandmade) {
+     sentences.push('Every piece is meticulously handcrafted with premium resin and undergoes an artistic curing process.');
+   }
+   if (hasDelivery) {
+     sentences.push(`We provide reliable Pan-India courier delivery directly to your doorstep within ${daysStr}.`);
+   }
+   if (hasCancel) {
+     sentences.push('Because each item is custom-crafted specifically for you, orders cannot be cancelled or modified once crafting begins.');
+   }
+   if (hasFragile) {
+     sentences.push('All orders are wrapped in multi-layer protective bubble packaging to guarantee zero transit damage.');
+   }
+   if (hasTrack) {
+     sentences.push('A live courier tracking link will be sent to your registered WhatsApp number as soon as your package is dispatched.');
+   }
+   if (sentences.length === 0) {
+     sentences.push('We are committed to delivering the finest quality products with complete care and verified transit.');
+   }
+   return sentences.join(' ');
  };
 
  const handleAiCorrect = async (fieldName, type) => {
@@ -512,10 +514,10 @@ export function AdminCategories(){
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title="Auto-correct spelling and grammar using AI"
+              title="AI reads your text and rewrites it into a professional e-commerce badge"
             >
               {aiLoading.badgeText ? <LoaderCircle size={12} className="spin" /> : <Sparkles size={12} color="#2563eb" />}
-              <span>{aiLoading.badgeText ? 'Fixing with AI…' : '✨ AI Fix English'}</span>
+              <span>{aiLoading.badgeText ? 'AI Rewriting…' : '✨ AI Rewrite & Polish'}</span>
             </button>
           </div>
 
@@ -524,7 +526,7 @@ export function AdminCategories(){
             type="text" 
             value={edit?.badgeText ?? 'Pan India'} 
             onChange={e => setEdit(c => ({ ...c, badgeText: e.target.value }))} 
-            placeholder="e.g. Pan India, Handcrafted, Express Delivery"
+            placeholder="e.g. pan india, handcrafted, express"
             style={{
               width: '100%',
               padding: '8px 12px',
@@ -533,8 +535,34 @@ export function AdminCategories(){
               fontSize: '0.85rem'
             }}
           />
+
+          <div style={{ marginTop: '8px' }}>
+            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Quick Presets:</span>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {['Pan-India Delivery', 'Handcrafted & Custom', 'Express Shipping', 'Premium Quality'].map(preset => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setEdit(c => ({ ...c, badgeText: preset }))}
+                  style={{
+                    background: edit?.badgeText === preset ? '#0284c7' : '#f1f5f9',
+                    color: edit?.badgeText === preset ? '#ffffff' : '#334155',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    cursor: 'pointer'
+                  }}
+                >
+                  + {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>Preview:</span>
+            <span>Customer Preview:</span>
             <span style={{ background: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '10.5px', fontWeight: 800 }}>
               🇮🇳 {edit?.badgeText || 'Pan India'}
             </span>
@@ -643,10 +671,10 @@ export function AdminCategories(){
                   borderRadius: '6px',
                   cursor: 'pointer'
                 }}
-                title="Auto-correct spelling and grammar using AI"
+                title="AI reads your text and rewrites it into a professional heading"
               >
                 {aiLoading.noticeTitle ? <LoaderCircle size={12} className="spin" /> : <Sparkles size={12} color="#ca8a04" />}
-                <span>{aiLoading.noticeTitle ? 'Fixing with AI…' : '✨ AI Fix English'}</span>
+                <span>{aiLoading.noticeTitle ? 'AI Rewriting…' : '✨ AI Rewrite & Polish'}</span>
               </button>
             </div>
             <input 
@@ -654,9 +682,33 @@ export function AdminCategories(){
               type="text" 
               value={edit?.noticeTitle ?? ''} 
               onChange={e => setEdit(c => ({ ...c, noticeTitle: e.target.value }))} 
-              placeholder="e.g. Important Notice for Resin Art Customers"
+              placeholder="e.g. pan india delivery notice, resin art rules"
               style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
             />
+            <div style={{ marginTop: '6px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#854d0e', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Quick Title Presets:</span>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {['Pan-India Shipping & Delivery Notice', 'Important Notice for Resin Art Customers', 'Important: Custom Order & Policy Notice'].map(preset => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setEdit(c => ({ ...c, noticeTitle: preset }))}
+                    style={{
+                      background: edit?.noticeTitle === preset ? '#d97706' : '#fffbeb',
+                      color: edit?.noticeTitle === preset ? '#ffffff' : '#92400e',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid #fde68a',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div>
@@ -681,10 +733,10 @@ export function AdminCategories(){
                   borderRadius: '6px',
                   cursor: 'pointer'
                 }}
-                title="Auto-correct spelling and grammar using AI"
+                title="AI reads your Hindi, Hinglish, or rough text and rewrites it into professional customer-friendly English"
               >
                 {aiLoading.noticeMessage ? <LoaderCircle size={12} className="spin" /> : <Sparkles size={12} color="#ca8a04" />}
-                <span>{aiLoading.noticeMessage ? 'Fixing with AI…' : '✨ AI Fix English'}</span>
+                <span>{aiLoading.noticeMessage ? 'AI Rewriting…' : '✨ AI Rewrite & Polish'}</span>
               </button>
             </div>
             <textarea 
@@ -692,9 +744,38 @@ export function AdminCategories(){
               rows={3} 
               value={edit?.noticeMessage ?? ''} 
               onChange={e => setEdit(c => ({ ...c, noticeMessage: e.target.value }))} 
-              placeholder="e.g. We ship handcrafted resin artworks across India! Courier delivery takes 4-7 business days."
+              placeholder="e.g. hum log all india courier se bhejte h 4-5 din lagta h resin art handmade hai"
               style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'inherit' }}
             />
+            <div style={{ marginTop: '6px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#854d0e', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Quick Message Presets:</span>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[
+                  { label: '🚚 Pan-India Courier Delivery', text: 'We provide reliable Pan-India courier delivery directly to your doorstep within 4–7 business days with safe protective packaging.' },
+                  { label: '🎨 Handcrafted & No Cancellation', text: 'Every piece is meticulously handcrafted with premium resin and undergoes an artistic curing process. Because each item is custom-crafted specifically for you, orders cannot be cancelled or modified once crafting begins.' },
+                  { label: '📦 Multi-Layer Safe Packaging', text: 'All fragile resin artworks are packed in multi-layer shockproof bubble wrap to ensure complete protection during all-India courier transit.' }
+                ].map(p => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => setEdit(c => ({ ...c, noticeMessage: p.text }))}
+                    style={{
+                      background: '#fffbeb',
+                      color: '#92400e',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid #fde68a',
+                      cursor: 'pointer'
+                    }}
+                    title={p.text}
+                  >
+                    + {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
