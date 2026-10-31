@@ -208,10 +208,21 @@ export default function AdminLayout({ children }) {
     }
   };
 
+  const assignedCategoryIds = Array.isArray(user?.assignedCategoryIds) ? user.assignedCategoryIds : [];
+  const isCategoryScoped = !isSuperUser && (user?.staffRole === 'CATEGORY_ADMIN' || assignedCategoryIds.length > 0);
+
   // Check if current user is authorized to access the active page
   const pageAuthorization = useMemo(() => {
     if (!user) return { allowed: true };
     if (isSuperUser) return { allowed: true };
+
+    const sub = location.pathname.replace(basePath, '');
+    if (isCategoryScoped && (sub.startsWith('/delivery') || sub.startsWith('/scheduling') || sub.startsWith('/emergency') || sub.startsWith('/banners'))) {
+      return {
+        allowed: false,
+        reason: 'Storewide delivery dispatch, fleet operations, and store schedules are managed globally by store managers.'
+      };
+    }
 
     const req = getRoutePermissionRequirement(location.pathname, basePath);
     if (!req) return { allowed: true };
@@ -233,23 +244,22 @@ export default function AdminLayout({ children }) {
     }
 
     return { allowed: true };
-  }, [user, isSuperUser, location.pathname, basePath]);
+  }, [user, isSuperUser, isCategoryScoped, location.pathname, basePath]);
 
   // Filter visible links according to authorized permissions
   const visibleLinks = useMemo(() => {
     return NAV_LINKS.filter(link => {
       if (isSuperUser) return true;
       if (link.superOnly) return false;
+      // Category Admins are completely isolated from global store operations & delivery fleet
+      if (isCategoryScoped && (link.path === '/delivery' || link.path === '/scheduling' || link.path === '/banners' || link.path === '/emergency')) {
+        return false;
+      }
       if (!link.perm) return true;
       const perms = Array.isArray(link.perm) ? link.perm : [link.perm];
       return perms.some(p => hasPermission(user, p));
     });
-  }, [user, isSuperUser]);
-
-  const adminName = user?.name || 'Administrator';
-  const adminRole = user?.role === 'SUPER_ADMIN' || user?.staffRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
-  const assignedCategoryIds = Array.isArray(user?.assignedCategoryIds) ? user.assignedCategoryIds : [];
-  const isCategoryScoped = !isSuperUser && assignedCategoryIds.length > 0;
+  }, [user, isSuperUser, isCategoryScoped]);
   const adminInitials =
     (user?.name || 'Admin')
       .trim()

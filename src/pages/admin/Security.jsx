@@ -47,6 +47,23 @@ const PERMISSION_PRESETS = [
     }
   },
   {
+    name: '🏷️ Category Admin (Isolated)',
+    badge: 'Category Scoped',
+    perms: {
+      'products.view': true,
+      'products.create': true,
+      'products.edit': true,
+      'products.update_stock': true,
+      'inventory.view': true,
+      'inventory.manage': true,
+      'orders.view': true,
+      'orders.update_status': true,
+      'orders.cancel': true,
+      'reports.view_basic': true,
+      'reports.export': true
+    }
+  },
+  {
     name: 'Order Fulfillment & Packing',
     badge: 'Operations',
     perms: {
@@ -247,14 +264,27 @@ export function AdminSecurity() {
     e.preventDefault();
     setBusy(true);
     try {
+      const isScoped = editStaff.staffRole === 'CATEGORY_ADMIN' || (editStaff.assignedCategoryIds || []).length > 0;
+      let cleanedPerms = { ...(editStaff.permissions || {}) };
+      if (isScoped) {
+        cleanedPerms = Object.fromEntries(
+          Object.entries(cleanedPerms).filter(([k]) =>
+            !k.startsWith('delivery.') &&
+            !k.startsWith('scheduling.') &&
+            !k.startsWith('banners.') &&
+            !k.startsWith('coupons.')
+          )
+        );
+      }
+
       const payload = {
         name: editStaff.name.trim(),
         email: editStaff.email.trim().toLowerCase(),
         mobile: editStaff.mobile ? editStaff.mobile.replace(/\D/g, '') : null,
         staffRole: editStaff.staffRole,
-        permissions: editStaff.permissions || {},
-        assignedVillageIds: editStaff.assignedVillageIds || [],
-        assignedCategoryIds: editStaff.staffRole === 'CATEGORY_ADMIN' || editStaff.staffRole === 'ADMIN'
+        permissions: cleanedPerms,
+        assignedVillageIds: isScoped ? [] : (editStaff.assignedVillageIds || []),
+        assignedCategoryIds: isScoped
           ? (editStaff.assignedCategoryIds || [])
           : [],
         vehicleType: editStaff.vehicleType || null,
@@ -472,7 +502,8 @@ export function AdminSecurity() {
               >
                 <option value="">All Roles ({staffList.length})</option>
                 <option value="SUPER_ADMIN">Super Admin (Platform Owner)</option>
-                <option value="ADMIN">Staff Administrators</option>
+                <option value="ADMIN">Global Staff Administrators</option>
+                <option value="CATEGORY_ADMIN">🏷️ Category Administrators (Isolated)</option>
                 <option value="DELIVERY_PERSON">Delivery Staff</option>
                 <option value="INVENTORY_MANAGER">Inventory Managers</option>
                 <option value="ORDER_MANAGER">Order Managers</option>
@@ -1164,7 +1195,8 @@ export function AdminSecurity() {
                   onChange={e => setEditStaff(curr => ({ ...curr, staffRole: e.target.value }))}
                   className="admin-select-control"
                 >
-                  <option value="ADMIN">Staff Administrator (Granular Role-Based Permissions)</option>
+                  <option value="ADMIN">Global Staff Administrator (Full Store Logistics & Delivery Hub)</option>
+                  <option value="CATEGORY_ADMIN">🏷️ Category Administrator (Locally Isolated - Assigned Category Only)</option>
                   <option value="DELIVERY_PERSON">Delivery Staff (Field Delivery Partner)</option>
                   <option value="INVENTORY_MANAGER">Inventory Manager (Stock & Expiry Specialist)</option>
                   <option value="ORDER_MANAGER">Order Manager (Fulfillment & Packing Specialist)</option>
@@ -1332,9 +1364,25 @@ export function AdminSecurity() {
                 ))}
               </div>
 
+              {/* Category-Scoped Isolation Notice */}
+              {((editStaff?.staffRole === 'CATEGORY_ADMIN') || (editStaff?.assignedCategoryIds || []).length > 0) && (
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                  <ShieldCheck size={16} style={{ color: '#2563eb', flexShrink: 0 }} />
+                  <span>
+                    <b>Locally Isolated Scope Active:</b> This admin will only manage products, inventory, and orders for their assigned category. Storewide delivery fleet, COD settlements, village setups, and store scheduling are completely hidden and disabled.
+                  </span>
+                </div>
+              )}
+
               {/* Grouped Permissions Checkboxes */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
-                {PERMISSION_GROUPS.map(group => {
+                {PERMISSION_GROUPS.filter(group => {
+                  const isScoped = editStaff?.staffRole === 'CATEGORY_ADMIN' || (editStaff?.assignedCategoryIds || []).length > 0;
+                  if (isScoped && (group.name === 'Delivery Hub & Field Riders' || group.name === 'Marketing & Operations')) {
+                    return false;
+                  }
+                  return true;
+                }).map(group => {
                   const groupKeys = group.keys;
                   const allGroupChecked = groupKeys.every(k => Boolean(editStaff?.permissions?.[k]));
 
