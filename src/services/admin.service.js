@@ -270,5 +270,10 @@ export const adminService = {
   getExpenses: params => api.get('/admin/expenses', { params }),
   createExpense: payload => api.post('/admin/expenses', payload),
   updateExpense: (id, payload) => api.patch(`/admin/expenses/${id}`, payload),
-  deleteExpense: id => api.delete(`/admin/expenses/${id}`)
+  deleteExpense: id => api.delete(`/admin/expenses/${id}`),
+
+  // Product Enquiries & Contact Requests
+  getEnquiries: params => api.get(`/admin/enquiries?${new URLSearchParams(params || {})}`),
+  updateEnquiryStatus: (id, payload) => api.patch(`/admin/enquiries/${id}`, payload),
+  deleteEnquiry: id => api.delete(`/admin/enquiries/${id}`)
 };

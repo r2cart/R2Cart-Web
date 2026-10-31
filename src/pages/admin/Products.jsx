@@ -25,7 +25,7 @@ import { parseProductDetails, formatProductDetails } from '../../utils/productDe
 import { compressImage } from '../../utils/imageCompressor';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
-const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:''};
+const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',orderMode:'DIRECT_ORDER'};
 const payload=product=>({
   name:product.name,
   category:product.category,
@@ -42,7 +42,8 @@ const payload=product=>({
   bestSeller:Boolean(product.bestSeller),
   deliveryScope:product.deliveryScope||'LOCAL',
   deliveryLocations:Array.isArray(product.deliveryLocations)?product.deliveryLocations:(product.deliveryLocations?String(product.deliveryLocations).split(',').map(s=>s.trim()).filter(Boolean):[]),
-  shippingFee:product.shippingFee?Number(product.shippingFee):0
+  shippingFee:product.shippingFee?Number(product.shippingFee):0,
+  orderMode:product.orderMode||'DIRECT_ORDER'
 });
 
 
@@ -881,6 +882,17 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
               >
                 {view.deliveryScope === 'PAN_INDIA' ? '🇮🇳 Pan-India' : (view.deliveryScope === 'CUSTOM' ? '📍 Specific Locations' : '🏘️ Local')}
               </span>
+
+              {view.orderMode === 'CONTACT_REQUEST' && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#c2410c', background: '#fff7ed', padding: '2px 7px', borderRadius: '5px', border: '1px solid #fed7aa' }}>
+                  📞 Enquiry Only
+                </span>
+              )}
+              {view.orderMode === 'BOTH' && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#15803d', background: '#f0fdf4', padding: '2px 7px', borderRadius: '5px', border: '1px solid #bbf7d0' }}>
+                  🔀 Order + Enquiry
+                </span>
+              )}
 
               {view.unit && (
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', background: '#ffffff', padding: '2px 7px', borderRadius: '5px', border: '1px solid #e2e8f0' }}>
@@ -2395,6 +2407,101 @@ export function ProductForm(){
         </small>
       </div>
     )}
+   </section>
+
+   {/* Customer Order & Inquiry Mode */}
+   <section style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', background: '#fafaf9', display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+      <div>
+        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>🛒</span> Product Purchase & Inquiry Mode
+        </h4>
+        <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
+          Choose how customers interact with this product: direct purchase, custom enquiry/contact request, or both.
+        </p>
+      </div>
+      <span style={{
+        fontSize: '11px',
+        fontWeight: 700,
+        padding: '3px 8px',
+        borderRadius: '6px',
+        background: form.orderMode === 'CONTACT_REQUEST' ? '#fff7ed' : (form.orderMode === 'BOTH' ? '#f0fdf4' : '#eff6ff'),
+        color: form.orderMode === 'CONTACT_REQUEST' ? '#c2410c' : (form.orderMode === 'BOTH' ? '#15803d' : '#1d4ed8')
+      }}>
+        {form.orderMode === 'CONTACT_REQUEST' ? '📞 Contact / Enquiry Only' : (form.orderMode === 'BOTH' ? '🔀 Direct Order & Enquiry' : '🛒 Direct Order Only')}
+      </span>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+      {/* 1. Direct Order Only */}
+      <label style={{
+        display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
+        border: `2px solid ${!form.orderMode || form.orderMode === 'DIRECT_ORDER' ? '#2563eb' : '#e2e8f0'}`,
+        background: !form.orderMode || form.orderMode === 'DIRECT_ORDER' ? '#eff6ff' : '#fff',
+        transition: 'all 0.15s ease'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="radio"
+            name="orderMode"
+            value="DIRECT_ORDER"
+            checked={!form.orderMode || form.orderMode === 'DIRECT_ORDER'}
+            onChange={() => set('orderMode', 'DIRECT_ORDER')}
+            style={{ accentColor: '#2563eb' }}
+          />
+          <b style={{ fontSize: '13px', color: '#1e293b' }}>🛒 Direct Order Only</b>
+        </div>
+        <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
+          Customer clicks "Add to Cart" and checks out directly online. Standard e-commerce flow.
+        </span>
+      </label>
+
+      {/* 2. Contact Request Only */}
+      <label style={{
+        display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
+        border: `2px solid ${form.orderMode === 'CONTACT_REQUEST' ? '#ea580c' : '#e2e8f0'}`,
+        background: form.orderMode === 'CONTACT_REQUEST' ? '#fff7ed' : '#fff',
+        transition: 'all 0.15s ease'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="radio"
+            name="orderMode"
+            value="CONTACT_REQUEST"
+            checked={form.orderMode === 'CONTACT_REQUEST'}
+            onChange={() => set('orderMode', 'CONTACT_REQUEST')}
+            style={{ accentColor: '#ea580c' }}
+          />
+          <b style={{ fontSize: '13px', color: '#1e293b' }}>📞 Contact / Enquiry Only</b>
+        </div>
+        <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
+          Disables direct checkout. Shows "Contact / Enquire" button for personalized requests, wedding floral frames, quotes, or custom art.
+        </span>
+      </label>
+
+      {/* 3. Both Direct Order & Contact Request */}
+      <label style={{
+        display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
+        border: `2px solid ${form.orderMode === 'BOTH' ? '#16a34a' : '#e2e8f0'}`,
+        background: form.orderMode === 'BOTH' ? '#f0fdf4' : '#fff',
+        transition: 'all 0.15s ease'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="radio"
+            name="orderMode"
+            value="BOTH"
+            checked={form.orderMode === 'BOTH'}
+            onChange={() => set('orderMode', 'BOTH')}
+            style={{ accentColor: '#16a34a' }}
+          />
+          <b style={{ fontSize: '13px', color: '#1e293b' }}>🔀 Both Order & Enquiry</b>
+        </div>
+        <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
+          Customer can either purchase the ready-made item directly OR send a customization inquiry.
+        </span>
+      </label>
+    </div>
    </section>
 
    <div className="form-actions">

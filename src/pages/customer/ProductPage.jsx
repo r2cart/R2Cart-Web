@@ -17,12 +17,14 @@ import {
   ShoppingBag,
   Layers,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  PhoneCall
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Badge, Button, EmptyState, ProductRail, QuantitySelector, money } from '../../components/ui';
 import ProductRating from '../../components/customer/ProductRating';
+import ProductEnquiryModal from '../../components/customer/ProductEnquiryModal';
 import { isProductComingSoon } from '../../config/homeLayout';
 import { packOptions } from '../../utils/products';
 import { parseProductDetails } from '../../utils/productDetails';
@@ -48,6 +50,7 @@ export function ProductPage() {
 
   const [imgIdx, setImgIdx] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
+  const [enquiryModalOpen, setEnquiryModalOpen] = useState(false);
 
   useEffect(() => {
     setImgIdx(0);
@@ -892,10 +895,51 @@ export function ProductPage() {
               )}
 
               {/* Desktop Add to Cart Controls */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
-                <div style={{ minWidth: '130px' }}>
-                  <QuantitySelector id={product.id} />
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+                {product.orderMode === 'CONTACT_REQUEST' ? (
+                  <Button
+                    onClick={() => setEnquiryModalOpen(true)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: '#ea580c',
+                      color: '#fff',
+                      padding: '10px 18px',
+                      borderRadius: '10px',
+                      fontWeight: 700,
+                      fontSize: '13.5px'
+                    }}
+                  >
+                    <PhoneCall size={16} /> Request Custom Quote / Enquire
+                  </Button>
+                ) : (
+                  <>
+                    <div style={{ minWidth: '130px' }}>
+                      <QuantitySelector id={product.id} />
+                    </div>
+                    {product.orderMode === 'BOTH' && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setEnquiryModalOpen(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: '#fff7ed',
+                          color: '#c2410c',
+                          border: '1px solid #fed7aa',
+                          padding: '8px 14px',
+                          borderRadius: '10px',
+                          fontWeight: 700,
+                          fontSize: '12.5px'
+                        }}
+                      >
+                        <PhoneCall size={14} /> Custom Inquiry
+                      </Button>
+                    )}
+                  </>
+                )}
 
                 <Button
                   variant="ghost"
@@ -1207,10 +1251,32 @@ export function ProductPage() {
           </div>
 
           <div style={{ minWidth: '120px' }}>
-            <QuantitySelector id={product.id} />
+            {product.orderMode === 'CONTACT_REQUEST' ? (
+              <Button
+                onClick={() => setEnquiryModalOpen(true)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  background: '#ea580c',
+                  color: '#fff',
+                  fontSize: '12.5px',
+                  fontWeight: 700
+                }}
+              >
+                📞 Enquire Quote
+              </Button>
+            ) : (
+              <QuantitySelector id={product.id} />
+            )}
           </div>
         </div>
       </div>
+
+      <ProductEnquiryModal
+        product={product}
+        isOpen={enquiryModalOpen}
+        onClose={() => setEnquiryModalOpen(false)}
+      />
     </>
   );
 }

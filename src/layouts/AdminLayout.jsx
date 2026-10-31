@@ -14,6 +14,7 @@ import {
   Megaphone,
   Menu,
   Package,
+  PhoneCall,
   Settings,
   ShieldAlert,
   ShieldCheck,
@@ -39,6 +40,7 @@ const NAV_LINKS = [
   { path: '/products', label: 'Products', key: 'productsManage', icon: ShoppingBasket, perm: 'products.view' },
   { path: '/categories', label: 'Categories', key: 'categoriesManage', icon: Tags, perm: ['categories.manage', 'products.view'] },
   { path: '/orders', label: 'Orders', key: 'ordersManage', icon: Package, perm: 'orders.view' },
+  { path: '/enquiries', label: 'Inquiries', key: 'productEnquiries', icon: PhoneCall, perm: ['products.view', 'orders.view'] },
   { path: '/customers', label: 'Customers', key: 'customersManage', icon: Users, perm: 'customers.view_limited' },
   { path: '/delivery', label: 'Delivery Hub', key: 'deliveryHub', icon: Truck, perm: ['delivery.view', 'delivery.assign'] },
   { path: '/inventory', label: 'Smart Inventory', key: 'inventoryManage', icon: Boxes, perm: 'inventory.view' },
@@ -76,6 +78,7 @@ function getRoutePermissionRequirement(pathname, basePath) {
   if (sub.startsWith('/products')) return { perm: 'products.view', label: 'Products Management' };
   if (sub.startsWith('/categories')) return { perm: 'categories.manage', label: 'Categories Management' };
   if (sub.startsWith('/orders')) return { perm: 'orders.view', label: 'Orders Fulfillment' };
+  if (sub.startsWith('/enquiries')) return { perm: ['products.view', 'orders.view'], label: 'Customer Inquiries' };
   if (sub.startsWith('/customers')) return { perm: 'customers.view_limited', label: 'Customer Relations' };
   if (sub.startsWith('/delivery')) return { perm: ['delivery.view', 'delivery.assign'], label: 'Delivery Hub' };
   if (sub.startsWith('/inventory')) return { perm: 'inventory.view', label: 'Smart Inventory' };

@@ -19,3 +19,4 @@ export {AdminSupport} from './Support';
 export {AdminSettings} from './Settings';
 export {AdminRanking} from './HomepageRanking';
 export {AdminAnalytics} from './Analytics';
+export {default as AdminEnquiries} from './Enquiries';
