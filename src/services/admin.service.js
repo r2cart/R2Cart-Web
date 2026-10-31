@@ -41,6 +41,7 @@ export const adminService = {
   createCategory: value => api.post('/admin/categories', value),
   updateCategory: (id, value) => api.patch(`/admin/categories/${id}`, value),
   deleteCategory: id => api.delete(`/admin/categories/${id}`),
+  correctEnglishText: (text, type) => api.post('/admin/ai/correct-text', { text, type }),
   orders: async status => {
     const rows = [];
     let page = 1, result;

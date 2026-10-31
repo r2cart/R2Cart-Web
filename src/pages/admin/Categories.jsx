@@ -1,5 +1,5 @@
 import {useEffect,useState,useRef} from 'react';
-import {Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle} from 'lucide-react';
+import {Camera,Edit2,Eye,FolderTree,Plus,Trash2,Upload,LoaderCircle,Tag,Megaphone,Sparkles} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,StatusBadge} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
@@ -46,9 +46,86 @@ export function AdminCategories(){
  const [viewCategory,setViewCategory]=useState(null);
  const [saving,setSaving]=useState(false);
  const [uploadingImage,setUploadingImage]=useState(false);
+ const [aiLoading,setAiLoading]=useState({});
  const fileInputRef=useRef(null);
  const directUploadInputRef=useRef(null);
  const [categoryForUpload,setCategoryForUpload]=useState(null);
+
+ const clientSideAiEnhance = (rawText, type) => {
+   let corrected = String(rawText || '').trim();
+   const DICT = [
+     [/\b(pan|all)\s*(indai|indiya|indya)\b/gi, 'Pan-India'],
+     [/\bpanindia\b/gi, 'Pan-India'],
+     [/\bdelivry|delvery|delivrey|dilvery|delevery\b/gi, 'delivery'],
+     [/\bavailble|availabe|avalable|avialable\b/gi, 'available'],
+     [/\bshiping|shipin|shippng\b/gi, 'shipping'],
+     [/\bresine|reisn|rasin\b/gi, 'resin'],
+     [/\bcouriar|coureir|curier\b/gi, 'courier'],
+     [/\bprodut|prduct|produc\b/gi, 'product'],
+     [/\bhandcraft|handcrafter|hand made|hand-craft\b/gi, 'handcrafted'],
+     [/\bdecore\b/gi, 'decor'],
+     [/\bgifitng|giftingg\b/gi, 'gifting'],
+     [/\bcustmer|customar|custmr\b/gi, 'customer'],
+     [/\bguarntee|garantee|guarenty\b/gi, 'guarantee'],
+     [/\bdisscount|dicount|discunt\b/gi, 'discount'],
+     [/\borderd|ordred\b/gi, 'ordered'],
+     [/\breceve|recieved\b/gi, 'received'],
+     [/\bbussiness|buisness|busines\b/gi, 'business'],
+     [/\bpincod|pincode|pin code\b/gi, 'pincode'],
+     [/\bnotis|notce\b/gi, 'notice'],
+     [/\bdont\b/gi, "don't"],
+     [/\bcant\b/gi, "can't"],
+     [/\bwont\b/gi, "won't"],
+     [/\bthats\b/gi, "that's"],
+     [/\bits\s+(a|an|the|our|your|my)\b/gi, "it's $1"],
+     [/\bwe\s+is\b/gi, "we are"],
+     [/\bi\b/g, 'I']
+   ];
+   for (const [pattern, repl] of DICT) {
+     corrected = corrected.replace(pattern, repl);
+   }
+   corrected = corrected.replace(/[ \t]+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+   if (type === 'badge') {
+     corrected = corrected.split(' ').map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : '').join(' ');
+   } else if (type === 'title') {
+     const minor = ['and', 'or', 'for', 'to', 'in', 'of', 'at', 'by', 'with', 'the', 'a', 'an'];
+     corrected = corrected.split(' ').map((w, idx) => {
+       const lower = w.toLowerCase();
+       return idx > 0 && minor.includes(lower) ? lower : (w ? w.charAt(0).toUpperCase() + w.slice(1) : '');
+     }).join(' ');
+   } else {
+     corrected = corrected.replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase());
+     if (corrected && !/[.!?]$/.test(corrected)) corrected += '.';
+   }
+   return corrected;
+ };
+
+ const handleAiCorrect = async (fieldName, type) => {
+   const val = edit?.[fieldName] || '';
+   if (!val.trim()) {
+     notify('Please enter some text first to correct with AI', 'info');
+     return;
+   }
+   setAiLoading(prev => ({ ...prev, [fieldName]: true }));
+   try {
+     const res = await adminService.correctEnglishText(val, type);
+     const corrected = res?.data?.corrected || res?.corrected;
+     if (corrected) {
+       setEdit(prev => ({ ...prev, [fieldName]: corrected }));
+       notify('✨ English corrected & polished with AI!', 'success');
+     } else {
+       const fallback = clientSideAiEnhance(val, type);
+       setEdit(prev => ({ ...prev, [fieldName]: fallback }));
+       notify('✨ Corrected with AI Assistant!', 'success');
+     }
+   } catch {
+     const fallback = clientSideAiEnhance(val, type);
+     setEdit(prev => ({ ...prev, [fieldName]: fallback }));
+     notify('✨ Corrected with AI Assistant!', 'success');
+   } finally {
+     setAiLoading(prev => ({ ...prev, [fieldName]: false }));
+   }
+ };
 
  const triggerDirectCategoryUpload=category=>{
   setCategoryForUpload(category);
@@ -139,10 +216,10 @@ export function AdminCategories(){
     position:rawPos,
     status:form.status||'ACTIVE',
     badgeActive: Boolean(edit?.badgeActive),
-    badgeText: edit?.badgeActive ? String(form.badgeText || '').trim() || null : null,
+    badgeText: edit?.badgeActive ? String(edit?.badgeText ?? form.badgeText ?? '').trim() || null : null,
     noticeActive: Boolean(edit?.noticeActive),
-    noticeTitle: edit?.noticeActive ? String(form.noticeTitle || '').trim() || null : null,
-    noticeMessage: edit?.noticeActive ? String(form.noticeMessage || '').trim() || null : null
+    noticeTitle: edit?.noticeActive ? String(edit?.noticeTitle ?? form.noticeTitle ?? '').trim() || null : null,
+    noticeMessage: edit?.noticeActive ? String(edit?.noticeMessage ?? form.noticeMessage ?? '').trim() || null : null
   };
 
   setSaving(true);
@@ -264,7 +341,7 @@ export function AdminCategories(){
    </div>)}
   </div>
 
-  <Modal open={!!edit} onClose={()=>!saving&&setEdit(null)} title={edit?.id?'Edit category':'Add category'}>
+  <Modal open={!!edit} onClose={()=>!saving&&setEdit(null)} title={edit?.id?'Edit category':'Add category'} size="lg">
    <form className="modal-body admin-form" onSubmit={save}>
     <label>Category name<input name="name" required autoFocus defaultValue={edit?.name||''} placeholder="e.g. Frozen Foods"/></label>
     <label>Parent category<select name="parentId" defaultValue={edit?.parentId||''}><option value="">None — main category</option>{list.filter(item=>item.id!==edit?.id&&!item.parentId).map(item=><option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
@@ -336,67 +413,287 @@ export function AdminCategories(){
     </div>
 
     {/* Category Highlight Badge Section */}
-    <div style={{marginTop:'10px',padding:'12px 14px',background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:'10px'}}>
-      <label style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,fontSize:'0.88rem',color:'#0369a1',cursor:'pointer',margin:0}}>
-        <input 
-          type="checkbox" 
-          name="badgeActive" 
-          checked={edit?.badgeActive ?? false} 
-          onChange={e=>setEdit(c=>({...c,badgeActive:e.target.checked}))}
-        />
-        <span>Display Highlight Badge on Category (e.g. Pan India)</span>
-      </label>
+    <div style={{
+      marginTop: '14px',
+      background: '#ffffff',
+      border: edit?.badgeActive ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      boxShadow: edit?.badgeActive ? '0 4px 14px rgba(2, 132, 199, 0.08)' : 'none',
+      transition: 'all 0.2s ease'
+    }}>
+      <div 
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          background: edit?.badgeActive ? '#f0f9ff' : '#f8fafc',
+          borderBottom: edit?.badgeActive ? '1px solid #bae6fd' : 'none',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }} 
+        onClick={() => setEdit(c => ({ ...c, badgeActive: !c?.badgeActive, badgeText: c?.badgeText || 'Pan India' }))}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: edit?.badgeActive ? '#0284c7' : '#e2e8f0',
+            color: edit?.badgeActive ? '#ffffff' : '#64748b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Tag size={16} />
+          </div>
+          <div>
+            <b style={{ fontSize: '0.88rem', color: edit?.badgeActive ? '#0369a1' : '#334155', display: 'block', lineHeight: 1.25 }}>
+              Category Highlight Badge (e.g. Pan India)
+            </b>
+            <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+              Shows an eye-catching tag on this category for all customers
+            </span>
+          </div>
+        </div>
+
+        {/* Toggle Switch */}
+        <div
+          role="switch"
+          aria-checked={edit?.badgeActive}
+          style={{
+            width: '42px',
+            height: '24px',
+            borderRadius: '999px',
+            background: edit?.badgeActive ? '#0284c7' : '#cbd5e1',
+            position: 'relative',
+            transition: 'background 0.2s',
+            padding: '2px',
+            display: 'flex',
+            alignItems: 'center',
+            flexShrink: 0
+          }}
+        >
+          <span style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            background: '#ffffff',
+            transform: edit?.badgeActive ? 'translateX(18px)' : 'translateX(0px)',
+            transition: 'transform 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.25)'
+          }} />
+        </div>
+      </div>
+
       {edit?.badgeActive && (
-        <div style={{marginTop:'8px'}}>
-          <label style={{fontSize:'0.8rem',fontWeight:600,color:'#0284c7',marginBottom:'3px',display:'block'}}>
-            Badge Text
-          </label>
+        <div style={{ padding: '14px 16px', background: '#ffffff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1' }}>
+              Badge Text
+            </span>
+            <button
+              type="button"
+              onClick={() => handleAiCorrect('badgeText', 'badge')}
+              disabled={aiLoading.badgeText}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                border: '1px solid #93c5fd',
+                color: '#1d4ed8',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                padding: '4px 9px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Auto-correct spelling and grammar using AI"
+            >
+              {aiLoading.badgeText ? <LoaderCircle size={12} className="spin" /> : <Sparkles size={12} color="#2563eb" />}
+              <span>{aiLoading.badgeText ? 'Fixing with AI…' : '✨ AI Fix English'}</span>
+            </button>
+          </div>
+
           <input 
             name="badgeText" 
             type="text" 
-            defaultValue={edit?.badgeText || 'Pan India'} 
-            placeholder="e.g. Pan India, Handcrafted, Express"
-            style={{background:'#ffffff',width:'100%'}}
+            value={edit?.badgeText ?? 'Pan India'} 
+            onChange={e => setEdit(c => ({ ...c, badgeText: e.target.value }))} 
+            placeholder="e.g. Pan India, Handcrafted, Express Delivery"
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.85rem'
+            }}
           />
+          <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>Preview:</span>
+            <span style={{ background: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '10.5px', fontWeight: 800 }}>
+              🇮🇳 {edit?.badgeText || 'Pan India'}
+            </span>
+          </div>
         </div>
       )}
     </div>
 
     {/* Category Announcement / Notice Card Section */}
-    <div style={{marginTop:'10px',padding:'12px 14px',background:'#fefce8',border:'1px solid #fef08a',borderRadius:'10px'}}>
-      <label style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,fontSize:'0.88rem',color:'#854d0e',cursor:'pointer',margin:0}}>
-        <input 
-          type="checkbox" 
-          name="noticeActive" 
-          checked={edit?.noticeActive ?? false} 
-          onChange={e=>setEdit(c=>({...c,noticeActive:e.target.checked}))}
-        />
-        <span>Display Notice / Announcement Card to Customers (1-hour interval)</span>
-      </label>
-      {edit?.noticeActive && (
-        <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
+    <div style={{
+      marginTop: '14px',
+      background: '#ffffff',
+      border: edit?.noticeActive ? '1.5px solid #d97706' : '1px solid #e2e8f0',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      boxShadow: edit?.noticeActive ? '0 4px 14px rgba(217, 119, 6, 0.08)' : 'none',
+      transition: 'all 0.2s ease'
+    }}>
+      <div 
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          background: edit?.noticeActive ? '#fffbeb' : '#f8fafc',
+          borderBottom: edit?.noticeActive ? '1px solid #fde68a' : 'none',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }} 
+        onClick={() => setEdit(c => ({ ...c, noticeActive: !c?.noticeActive }))}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: edit?.noticeActive ? '#d97706' : '#e2e8f0',
+            color: edit?.noticeActive ? '#ffffff' : '#64748b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Megaphone size={16} />
+          </div>
           <div>
-            <label style={{fontSize:'0.8rem',fontWeight:600,color:'#a16207',marginBottom:'3px',display:'block'}}>
-              Notice Title
-            </label>
+            <b style={{ fontSize: '0.88rem', color: edit?.noticeActive ? '#92400e' : '#334155', display: 'block', lineHeight: 1.25 }}>
+              Customer Announcement Card (1-Hour Interval)
+            </b>
+            <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+              Shows an alert box when customers open this category
+            </span>
+          </div>
+        </div>
+
+        {/* Toggle Switch */}
+        <div
+          role="switch"
+          aria-checked={edit?.noticeActive}
+          style={{
+            width: '42px',
+            height: '24px',
+            borderRadius: '999px',
+            background: edit?.noticeActive ? '#d97706' : '#cbd5e1',
+            position: 'relative',
+            transition: 'background 0.2s',
+            padding: '2px',
+            display: 'flex',
+            alignItems: 'center',
+            flexShrink: 0
+          }}
+        >
+          <span style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            background: '#ffffff',
+            transform: edit?.noticeActive ? 'translateX(18px)' : 'translateX(0px)',
+            transition: 'transform 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.25)'
+          }} />
+        </div>
+      </div>
+
+      {edit?.noticeActive && (
+        <div style={{ padding: '14px 16px', background: '#ffffff', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400e' }}>
+                Notice Title / Heading
+              </span>
+              <button
+                type="button"
+                onClick={() => handleAiCorrect('noticeTitle', 'title')}
+                disabled={aiLoading.noticeTitle}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: 'linear-gradient(135deg, #fefce8 0%, #fef08a 100%)',
+                  border: '1px solid #fde047',
+                  color: '#854d0e',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+                title="Auto-correct spelling and grammar using AI"
+              >
+                {aiLoading.noticeTitle ? <LoaderCircle size={12} className="spin" /> : <Sparkles size={12} color="#ca8a04" />}
+                <span>{aiLoading.noticeTitle ? 'Fixing with AI…' : '✨ AI Fix English'}</span>
+              </button>
+            </div>
             <input 
               name="noticeTitle" 
               type="text" 
-              defaultValue={edit?.noticeTitle || ''} 
+              value={edit?.noticeTitle ?? ''} 
+              onChange={e => setEdit(c => ({ ...c, noticeTitle: e.target.value }))} 
               placeholder="e.g. Important Notice for Resin Art Customers"
-              style={{background:'#ffffff',width:'100%'}}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
             />
           </div>
+
           <div>
-            <label style={{fontSize:'0.8rem',fontWeight:600,color:'#a16207',marginBottom:'3px',display:'block'}}>
-              Notice Description / Content
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400e' }}>
+                Notice Content / Description
+              </span>
+              <button
+                type="button"
+                onClick={() => handleAiCorrect('noticeMessage', 'message')}
+                disabled={aiLoading.noticeMessage}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: 'linear-gradient(135deg, #fefce8 0%, #fef08a 100%)',
+                  border: '1px solid #fde047',
+                  color: '#854d0e',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+                title="Auto-correct spelling and grammar using AI"
+              >
+                {aiLoading.noticeMessage ? <LoaderCircle size={12} className="spin" /> : <Sparkles size={12} color="#ca8a04" />}
+                <span>{aiLoading.noticeMessage ? 'Fixing with AI…' : '✨ AI Fix English'}</span>
+              </button>
+            </div>
             <textarea 
               name="noticeMessage" 
               rows={3} 
-              defaultValue={edit?.noticeMessage || ''} 
+              value={edit?.noticeMessage ?? ''} 
+              onChange={e => setEdit(c => ({ ...c, noticeMessage: e.target.value }))} 
               placeholder="e.g. We ship handcrafted resin artworks across India! Courier delivery takes 4-7 business days."
-              style={{background:'#ffffff',width:'100%',resize:'vertical',fontFamily:'inherit'}}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'inherit' }}
             />
           </div>
         </div>
