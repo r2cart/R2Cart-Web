@@ -1145,7 +1145,7 @@ export function ProductForm(){
  const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN' || location.pathname.startsWith('/super-admin');
  const assignedCategoryIds = Array.isArray(currentUser?.assignedCategoryIds) ? currentUser.assignedCategoryIds : [];
  const isCategoryScopedAdmin = currentUser?.staffRole === 'CATEGORY_ADMIN' || assignedCategoryIds.length > 0;
- const showSpecialtyControls = isCategoryScopedAdmin || isSuper;
+ const showSpecialtyControls = true; // Available to all admins (Local Admin, Category Admin, Super Admin)
  const basePath = isSuper ? '/super-admin' : '/admin';
  const {notify,refreshProducts,storeSettings,setStoreSettings}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();

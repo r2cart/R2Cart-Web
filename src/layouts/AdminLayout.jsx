@@ -222,10 +222,10 @@ export default function AdminLayout({ children }) {
     if (isSuperUser) return { allowed: true };
 
     const sub = location.pathname.replace(basePath, '');
-    if (isCategoryScoped && (sub.startsWith('/delivery') || sub.startsWith('/scheduling') || sub.startsWith('/emergency') || sub.startsWith('/banners'))) {
+    if (isCategoryScoped && (sub.startsWith('/scheduling') || sub.startsWith('/emergency') || sub.startsWith('/banners'))) {
       return {
         allowed: false,
-        reason: 'Storewide delivery dispatch, fleet operations, and store schedules are managed globally by store managers.'
+        reason: 'Storewide scheduling, banners, and emergency controls are managed by store managers.'
       };
     }
 
@@ -256,12 +256,8 @@ export default function AdminLayout({ children }) {
     return NAV_LINKS.filter(link => {
       if (isSuperUser) return true;
       if (link.superOnly) return false;
-      // Category Admins are completely isolated from global store operations & delivery fleet
-      if (isCategoryScoped && (link.path === '/delivery' || link.path === '/scheduling' || link.path === '/banners' || link.path === '/emergency')) {
-        return false;
-      }
-      // Customer Inquiries & custom order requests are exclusively for locally created / category-scoped admins
-      if (!isCategoryScoped && link.path === '/enquiries') {
+      // Category Admins are isolated from emergency pause, store scheduling & storewide banners
+      if (isCategoryScoped && (link.path === '/scheduling' || link.path === '/banners' || link.path === '/emergency')) {
         return false;
       }
       if (!link.perm) return true;

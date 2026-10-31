@@ -356,6 +356,17 @@ export function AdminOrders() {
                         </a>
                       </div>
                     )}
+                    {order.addressSnapshot && (
+                      <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '5px', maxWidth: '240px', lineHeight: 1.35 }}>
+                        <span style={{ color: '#059669', fontWeight: 700 }}>📍 </span>
+                        <span>{addressText(order.addressSnapshot).line}</span>
+                        {addressText(order.addressSnapshot).cityLine && (
+                          <span style={{ display: 'block', color: '#64748b', fontSize: '10.5px', marginTop: '1px' }}>
+                            {addressText(order.addressSnapshot).cityLine}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span style={{ fontWeight: 700, color: '#0f172a' }}>
