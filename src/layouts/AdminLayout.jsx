@@ -208,6 +208,8 @@ export default function AdminLayout({ children }) {
     }
   };
 
+  const adminName = user?.name || 'Administrator';
+  const adminRole = user?.role === 'SUPER_ADMIN' || user?.staffRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
   const assignedCategoryIds = Array.isArray(user?.assignedCategoryIds) ? user.assignedCategoryIds : [];
   const isCategoryScoped = !isSuperUser && (user?.staffRole === 'CATEGORY_ADMIN' || assignedCategoryIds.length > 0);
 
