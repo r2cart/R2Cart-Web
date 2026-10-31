@@ -733,16 +733,27 @@ export function LocationModal(){
     </Modal>
   );
 }
-export function AddressForm({onSave,onCancel,initial={}}){
-  const {availableLocalities}=useApp();
-  const fields=[
+export function AddressForm({onSave,onCancel,initial={},forcePanIndia=false}){
+  const {availableLocalities,isPanIndiaCart}=useApp();
+  const [isPanIndia,setIsPanIndia]=useState(()=>Boolean(forcePanIndia || isPanIndiaCart || initial.pin || (initial.city && initial.city !== 'Hathua')));
+
+  const localFields=[
     ['name','Full name'],
     ['mobile','Mobile number'],
     ['street','Street / Colony / Ward details'],
     ['landmark','Nearby Landmark (Mandir, School, etc.)'],
     ['area','Village / Area']
   ];
-  const required=['name','mobile','landmark','area'];
+  const panIndiaFields=[
+    ['name','Full name'],
+    ['mobile','Mobile number'],
+    ['street','Flat / House / Street / Colony details'],
+    ['landmark','Nearby Landmark (Optional)'],
+    ['city','City / Town'],
+    ['state','State'],
+    ['pin','6-digit Pincode']
+  ];
+
   const standardTypes=['Home','Work'];
   const initialType=standardTypes.includes(initial.type)?initial.type:initial.type?'Other':'Home';
   const [form,setForm]=useState({
@@ -751,7 +762,9 @@ export function AddressForm({onSave,onCancel,initial={}}){
     street:initial.street||'',
     landmark:initial.landmark||'',
     area:availableLocalities.includes(initial.area)?initial.area:(initial.area||''),
-    city:'Hathua',
+    city:initial.city||(isPanIndia?'':'Hathua'),
+    state:initial.state||(isPanIndia?'':'Bihar'),
+    pin:initial.pin||'',
     type:initialType,
     customType:initialType==='Other'?initial.type:'',
     isDefault:initial.isDefault??true
@@ -759,22 +772,76 @@ export function AddressForm({onSave,onCancel,initial={}}){
 
   const submit=e=>{
     e.preventDefault();
-    if(fields.some(([key])=>!String(form[key]||'').trim()&&required.includes(key)))return;
+    if (isPanIndia) {
+      if (!String(form.name||'').trim() || !String(form.mobile||'').trim() || !String(form.street||'').trim() || !String(form.city||'').trim() || !String(form.state||'').trim() || !String(form.pin||'').trim()) {
+        return;
+      }
+    } else {
+      if (!String(form.name||'').trim() || !String(form.mobile||'').trim() || !String(form.landmark||'').trim() || !String(form.area||'').trim()) {
+        return;
+      }
+    }
     if(form.type==='Other'&&!form.customType?.trim())return;
+
     onSave({
       ...form,
-      house:'',
+      house:String(form.house||'').trim(),
       street:String(form.street||'').trim(),
       landmark:String(form.landmark||'').trim(),
-      area:String(form.area||'').trim(),
-      city:'Hathua',
+      area:isPanIndia ? (String(form.city||'').trim() || 'Pan-India') : String(form.area||'').trim(),
+      city:isPanIndia ? String(form.city||'').trim() : 'Hathua',
+      state:isPanIndia ? String(form.state||'').trim() : 'Bihar',
+      pin:isPanIndia ? String(form.pin||'').trim() : (form.pin||''),
       type:form.type==='Other'?form.customType.trim():form.type,
       isDefault:form.isDefault??true
     });
   };
 
+  const fields = isPanIndia ? panIndiaFields : localFields;
+  const required = isPanIndia ? ['name','mobile','street','city','state','pin'] : ['name','mobile','landmark','area'];
+
   return (
     <form onSubmit={submit} className="address-form" aria-label="Delivery address details">
+      {/* Scope Selector (Local vs Pan-India) */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', background: '#f8fafc', padding: '4px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+        <button
+          type="button"
+          onClick={() => { setIsPanIndia(false); setForm(f => ({ ...f, city: 'Hathua', state: 'Bihar' })); }}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 700,
+            borderRadius: '8px',
+            border: 'none',
+            background: !isPanIndia ? '#10b981' : 'transparent',
+            color: !isPanIndia ? '#ffffff' : '#64748b',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          🏘️ Local Area (Hathua)
+        </button>
+        <button
+          type="button"
+          onClick={() => { setIsPanIndia(true); if (form.city === 'Hathua') setForm(f => ({ ...f, city: '', state: '' })); }}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 700,
+            borderRadius: '8px',
+            border: 'none',
+            background: isPanIndia ? '#0284c7' : 'transparent',
+            color: isPanIndia ? '#ffffff' : '#64748b',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          🇮🇳 Pan-India (All India)
+        </button>
+      </div>
+
       <div className="form-grid">
         {fields.map(([key,label]) => {
           const inputId = `address-${key}`;
@@ -793,13 +860,16 @@ export function AddressForm({onSave,onCancel,initial={}}){
                 <input
                   id={inputId}
                   name={key}
-                  type={key === 'mobile' ? 'tel' : 'text'}
+                  type={key === 'mobile' ? 'tel' : key === 'pin' ? 'number' : 'text'}
                   value={form[key] || ''}
                   onChange={e => setForm({...form, [key]: e.target.value})}
                   placeholder={
                     key === 'landmark' ? 'e.g. Near Shiv Mandir, High School' :
                     key === 'street' ? 'e.g. Ward No. 3, Main Market road' :
                     key === 'name' ? 'Enter your full name' :
+                    key === 'city' ? 'e.g. Patna, Mumbai, Delhi' :
+                    key === 'state' ? 'e.g. Bihar, Uttar Pradesh' :
+                    key === 'pin' ? '6-digit pincode' :
                     key === 'mobile' ? '10-digit mobile number' : undefined
                   }
                   autoComplete={key === 'name' ? 'name' : key === 'mobile' ? 'tel' : key === 'street' ? 'street-address' : undefined}
@@ -813,7 +883,10 @@ export function AddressForm({onSave,onCancel,initial={}}){
       </div>
 
       <p className="service-area-note">
-        {availableLocalities.length ? `Delivery active in Hathua across ${availableLocalities.length} localities.` : 'No delivery locality is active right now.'}
+        {isPanIndia
+          ? '🇮🇳 Standard courier delivery to any verified postal pin code across India.'
+          : (availableLocalities.length ? `Delivery active in Hathua across ${availableLocalities.length} localities.` : 'No delivery locality is active right now.')
+        }
       </p>
 
       <label id="address-type-label">
@@ -851,7 +924,7 @@ export function AddressForm({onSave,onCancel,initial={}}){
 
       <div className="row end gap address-form-actions">
         {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-        <Button type="submit" disabled={!availableLocalities.length}>Save address</Button>
+        <Button type="submit" disabled={!isPanIndia && !availableLocalities.length}>Save address</Button>
       </div>
     </form>
   );

@@ -6,7 +6,7 @@ function getAdminUser() {
   }
 }
 import { hasPermission } from '../../utils/permissions';
-import {useEffect,useState} from 'react';
+import {useEffect,useState,useRef} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
 import {ArrowLeft,Star,Upload,Check,Clock3,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
@@ -1191,6 +1191,74 @@ export function ProductForm(){
  const [showBoxCalc, setShowBoxCalc] = useState(false);
  const [boxTotalCost, setBoxTotalCost] = useState('');
  const [boxPieces, setBoxPieces] = useState('');
+ const [newLocationInput, setNewLocationInput] = useState('');
+ const locationFileInputRef = useRef(null);
+
+ const handleAddLocation = () => {
+   const raw = newLocationInput.trim();
+   if (!raw) return;
+   const parts = raw.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+   const curr = Array.isArray(form.deliveryLocations) ? form.deliveryLocations : (typeof form.deliveryLocations === 'string' ? form.deliveryLocations.split(',').map(s => s.trim()).filter(Boolean) : []);
+   const merged = Array.from(new Set([...curr, ...parts]));
+   set('deliveryLocations', merged);
+   setNewLocationInput('');
+ };
+
+ const handleRemoveLocation = (locToRemove) => {
+   const curr = Array.isArray(form.deliveryLocations) ? form.deliveryLocations : (typeof form.deliveryLocations === 'string' ? form.deliveryLocations.split(',').map(s => s.trim()).filter(Boolean) : []);
+   set('deliveryLocations', curr.filter(l => l !== locToRemove));
+ };
+
+ const handleLocationFileUpload = async (e) => {
+   const file = e.target.files?.[0];
+   if (!file) return;
+   e.target.value = '';
+   try {
+     let extracted = [];
+     if (file.name.endsWith('.csv')) {
+       const text = await file.text();
+       const lines = text.split(/[\r\n]+/);
+       for (const line of lines) {
+         const parts = line.split(/[,;\t]/).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+         for (const p of parts) {
+           if (p && !['pincode', 'pin', 'city', 'state', 'location', 'locations'].includes(p.toLowerCase())) {
+             extracted.push(p);
+           }
+         }
+       }
+     } else {
+       const ExcelJSModule = await import('exceljs');
+       const Workbook = ExcelJSModule.default?.Workbook || ExcelJSModule.Workbook;
+       const wb = new Workbook();
+       await wb.xlsx.load(await file.arrayBuffer());
+       const ws = wb.worksheets[0];
+       if (ws) {
+         ws.eachRow((row) => {
+           row.eachCell((cell) => {
+             const val = String(cell.value || '').trim();
+             if (val && !['pincode', 'pin', 'city', 'state', 'location', 'locations'].includes(val.toLowerCase())) {
+               extracted.push(val);
+             }
+           });
+         });
+       }
+     }
+
+     const cleaned = Array.from(new Set(extracted.map(x => String(x).trim()).filter(Boolean)));
+     if (!cleaned.length) {
+       notify('No valid locations or pincodes found in the file', 'error');
+       return;
+     }
+
+     const currentLocs = Array.isArray(form.deliveryLocations) ? form.deliveryLocations : (typeof form.deliveryLocations === 'string' ? form.deliveryLocations.split(',').map(s => s.trim()).filter(Boolean) : []);
+     const merged = Array.from(new Set([...currentLocs, ...cleaned]));
+     set('deliveryLocations', merged);
+     notify(`Successfully imported ${cleaned.length} delivery locations from ${file.name}!`, 'success');
+   } catch (err) {
+     console.error('File import error:', err);
+     notify('Failed to parse file: ' + err.message, 'error');
+   }
+ };
 
   useEffect(() => {
     let active = true;
@@ -2374,22 +2442,140 @@ export function ProductForm(){
           </label>
         </div>
 
-        {/* Custom Locations Input */}
+        {/* Custom Locations Input with Manual & Excel / CSV Upload */}
         {form.deliveryScope === 'CUSTOM' && (
-          <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-              Allowed Cities / States / Pincodes (Comma separated) *
-            </label>
-            <input
-              type="text"
-              value={Array.isArray(form.deliveryLocations) ? form.deliveryLocations.join(', ') : (form.deliveryLocations || '')}
-              onChange={e => set('deliveryLocations', e.target.value.split(',').map(s => s.trim()))}
-              placeholder="e.g. 110001, Delhi, Mumbai, Bihar, 800001"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-            />
-            <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
-              Customers with addresses matching any of these pincodes, cities, or states will be allowed to order.
-            </small>
+          <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                  Specific Delivery Locations / Pincodes *
+                </label>
+                <small style={{ color: '#64748b', fontSize: '11.5px' }}>
+                  Customers can only order if their delivery pincode, city, or state matches any of these entries.
+                </small>
+              </div>
+
+              {/* Upload Excel / CSV Button */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="file"
+                  ref={locationFileInputRef}
+                  onChange={handleLocationFileUpload}
+                  accept=".xlsx,.xls,.csv"
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => locationFileInputRef.current?.click()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #10b981',
+                    background: '#ecfdf5',
+                    color: '#065f46',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Upload Excel / CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Manual Entry Row */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <input
+                type="text"
+                value={newLocationInput}
+                onChange={e => setNewLocationInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddLocation(); } }}
+                placeholder="Type pincode or city (e.g. 110001, Delhi, Patna) and press Enter"
+                style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+              <button
+                type="button"
+                onClick={handleAddLocation}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#0284c7',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  cursor: 'pointer'
+                }}
+              >
+                + Add
+              </button>
+            </div>
+
+            {/* Location Tags List */}
+            {(() => {
+              const locs = Array.isArray(form.deliveryLocations)
+                ? form.deliveryLocations
+                : (typeof form.deliveryLocations === 'string'
+                  ? form.deliveryLocations.split(',').map(s => s.trim()).filter(Boolean)
+                  : []);
+              return (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
+                      Active Locations ({locs.length})
+                    </span>
+                    {locs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => set('deliveryLocations', [])}
+                        style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+
+                  {locs.length === 0 ? (
+                    <div style={{ padding: '14px', background: '#fff', borderRadius: '8px', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                      No specific locations added yet. Add pincodes manually above or upload an Excel / CSV sheet.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '160px', overflowY: 'auto', padding: '8px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      {locs.map((loc, idx) => (
+                        <span
+                          key={`${loc}-${idx}`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            background: '#f0f9ff',
+                            color: '#0369a1',
+                            border: '1px solid #bae6fd',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600
+                          }}
+                        >
+                          <span>{loc}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLocation(loc)}
+                            style={{ background: 'none', border: 'none', color: '#0369a1', cursor: 'pointer', padding: '0 2px', fontSize: '12px', fontWeight: 800 }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 

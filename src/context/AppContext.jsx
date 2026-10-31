@@ -275,10 +275,73 @@ export function AppProvider({children}){
  },[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
  const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);const isSoon=isProductComingSoon(product,storeSettings);if(quantity>0&&isSoon){notify('This product is coming soon and cannot be ordered yet','error');return false}if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
- const add=id=>{const quantity=(cart[id]||0)+1;if(!canSetQuantity(id,quantity))return;setCart(current=>({...current,[id]:quantity}));syncCart(id,quantity);notify('Added to your basket')};
- const qty=(id,quantity)=>{if(!canSetQuantity(id,quantity))return;setCart(current=>{const next={...current};if(quantity<=0)delete next[id];else next[id]=quantity;return next});syncCart(id,quantity)};
+
+ const checkCartConflict = (targetProduct) => {
+   if (!targetProduct) return false;
+   const isTargetPanIndia = targetProduct.deliveryScope === 'PAN_INDIA' || targetProduct.deliveryScope === 'CUSTOM';
+   const existingItems = products.filter(p => (cart[p.id] || 0) > 0);
+   if (!existingItems.length) return false;
+
+   const hasLocal = existingItems.some(p => p.deliveryScope !== 'PAN_INDIA' && p.deliveryScope !== 'CUSTOM');
+   const hasPanIndia = existingItems.some(p => p.deliveryScope === 'PAN_INDIA' || p.deliveryScope === 'CUSTOM');
+
+   if (isTargetPanIndia && hasLocal) {
+     return {
+       conflict: true,
+       type: 'LOCAL_TO_PAN_INDIA',
+       message: 'Your basket contains local grocery items for express local delivery.\n\nPan-India / courier shipping items must be ordered separately.\n\nWould you like to clear your basket and start a Pan-India order?'
+     };
+   }
+   if (!isTargetPanIndia && hasPanIndia) {
+     return {
+       conflict: true,
+       type: 'PAN_INDIA_TO_LOCAL',
+       message: 'Your basket contains Pan-India courier items.\n\nLocal grocery items must be ordered separately for express local delivery.\n\nWould you like to clear your basket and add this local grocery item?'
+     };
+   }
+   return false;
+ };
+
+ const add=id=>{
+   const targetProduct = products.find(item => item.id === id);
+   const conflict = checkCartConflict(targetProduct);
+   if (conflict) {
+     if (window.confirm(conflict.message)) {
+       if (!canSetQuantity(id, 1)) return;
+       setCart({ [id]: 1 });
+       syncCart(id, 1);
+       notify(conflict.type === 'LOCAL_TO_PAN_INDIA' ? 'Started Pan-India basket' : 'Started local grocery basket');
+     }
+     return;
+   }
+   const quantity=(cart[id]||0)+1;
+   if(!canSetQuantity(id,quantity))return;
+   setCart(current=>({...current,[id]:quantity}));
+   syncCart(id,quantity);
+   notify('Added to your basket');
+ };
+
+ const qty=(id,quantity)=>{
+   if (quantity > 0 && !(cart[id] > 0)) {
+     const targetProduct = products.find(item => item.id === id);
+     const conflict = checkCartConflict(targetProduct);
+     if (conflict) {
+       if (window.confirm(conflict.message)) {
+         if (!canSetQuantity(id, quantity)) return;
+         setCart({ [id]: quantity });
+         syncCart(id, quantity);
+         notify('Basket updated');
+       }
+       return;
+     }
+   }
+   if(!canSetQuantity(id,quantity))return;
+   setCart(current=>{const next={...current};if(quantity<=0)delete next[id];else next[id]=quantity;return next});
+   syncCart(id,quantity);
+ };
  const toggleFavorite=async id=>{const saved=favorites.includes(id);if(!online())return notify('Please sign in to use your wishlist','error');setFavorites(current=>saved?current.filter(value=>value!==id):[...current,id]);try{await(saved?customerService.removeFavorite(id):customerService.addFavorite(id));notify(saved?'Removed from favourites':'Saved to favourites')}catch(error){setFavorites(current=>saved?[...new Set([...current,id])]:current.filter(value=>value!==id));notify(error.message,'error')}};
  const cartItems=useMemo(()=>products.filter(p=>cart[p.id]).map(p=>({...p,qty:cart[p.id]})),[cart,products]);
+ const isPanIndiaCart = useMemo(() => cartItems.some(p => p.deliveryScope === 'PAN_INDIA' || p.deliveryScope === 'CUSTOM'), [cartItems]);
  const subtotal=cartItems.reduce((sum,p)=>sum+p.price*p.qty,0),mrpTotal=cartItems.reduce((sum,p)=>sum+p.mrp*p.qty,0);
  const deliveryConfig=useMemo(()=>({minimumOrder:Number(storeSettings?.minimumOrder||0),deliveryFee:Number(storeSettings?.deliveryFee||0),freeDeliveryThreshold:Number(storeSettings?.freeDeliveryThreshold||0),estimatedDelivery:storeSettings?.estimatedDelivery||'15–20 mins'}),[storeSettings]);
  const availableLocalities=useMemo(()=>{
@@ -423,6 +486,6 @@ export function AppProvider({children}){
   return deliveryConfig;
  },[activeAddress,deliveryRulesFor,deliveryConfig]);
 
- return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,addressesLoaded,activeAddress,setActiveAddress,activeDeliveryRules,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,setStoreSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
+ return <Ctx.Provider value={{cart,setCart,add,qty,cartItems,isPanIndiaCart,subtotal,mrpTotal,favorites,toggleFavorite,user,setUser,logout,location,setLocation,addressList,setAddressList,addressesLoaded,activeAddress,setActiveAddress,activeDeliveryRules,orderList,setOrderList,refreshOrders,categories,refreshCategories,products,refreshProducts,banners,refreshBanners,storeSettings,setStoreSettings,deliveryZones,deliveryConfig,availableLocalities,deliveryRulesFor,refreshDelivery,catalogErrors,toast,notify,locationOpen,setLocationOpen,cartOpen,setCartOpen,authModalOpen,setAuthModalOpen,authModalReason,openAuthModal,closeAuthModal}}>{children}</Ctx.Provider>
 }
 export const useApp=()=>useContext(Ctx);

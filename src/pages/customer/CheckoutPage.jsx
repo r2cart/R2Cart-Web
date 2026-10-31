@@ -144,7 +144,8 @@ export function CheckoutPage() {
     categories,
     products,
     add,
-    qty
+    qty,
+    isPanIndiaCart
   } = useApp();
 
   const emergencyPause = storeSettings?.policies?.emergencyPause;
@@ -388,7 +389,29 @@ export function CheckoutPage() {
   }, [subtotal]);
 
   const selectedAddress = addressList.find((item) => item.id === selected) || activeAddress;
-  const rules = (selectedAddress?.area ? deliveryRulesFor(selectedAddress.area) : null) || activeDeliveryRules || deliveryConfig;
+  const isPanIndiaAddress = Boolean(selectedAddress?.pin || (selectedAddress?.city && selectedAddress?.city !== 'Hathua'));
+  const maxShippingFee = useMemo(() => cartItems.reduce((acc, itm) => Math.max(acc, Number(itm.shippingFee) || 0), 0), [cartItems]);
+
+  const rules = useMemo(() => {
+    if (isPanIndiaCart || isPanIndiaAddress) {
+      return {
+        matchType: 'COURIER_PAN_INDIA',
+        villageId: null,
+        villageName: `${selectedAddress?.city || selectedAddress?.state || 'India'} (Courier Delivery)`,
+        zoneId: null,
+        zoneName: 'All-India Shipping',
+        minimumOrder: 0,
+        deliveryFee: maxShippingFee,
+        freeDeliveryThreshold: 0,
+        estimatedDelivery: '3–7 Business Days (Courier Delivery)',
+        schedule: null,
+        allowCod: true,
+        allowScheduled: false,
+        sources: {}
+      };
+    }
+    return (selectedAddress?.area ? deliveryRulesFor(selectedAddress.area) : null) || activeDeliveryRules || deliveryConfig;
+  }, [isPanIndiaCart, isPanIndiaAddress, maxShippingFee, selectedAddress, deliveryRulesFor, activeDeliveryRules, deliveryConfig]);
 
   const affectedVillageIds = useMemo(() => {
     const list = storeSettings?.emergencySettings?.affectedVillageIds ||
@@ -1951,7 +1974,7 @@ export function CheckoutPage() {
         size="location-modal"
       >
         <div className="modal-body">
-          <AddressForm onCancel={() => setAddressModal(false)} onSave={saveAddress} />
+          <AddressForm onCancel={() => setAddressModal(false)} onSave={saveAddress} forcePanIndia={isPanIndiaCart} />
         </div>
       </Modal>
     </>

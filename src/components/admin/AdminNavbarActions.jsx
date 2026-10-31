@@ -35,6 +35,7 @@ export default function AdminNavbarActions(){
   const nextNotices=value?.notifications||[];
   const prevIds=new Set(prevNoticesRef.current.map(n=>n.id));
   const newOrderNotices=nextNotices.filter(n=>n.id.startsWith('order-')&&!prevIds.has(n.id));
+  const newEnquiryNotices=nextNotices.filter(n=>n.id.startsWith('enquiry-')&&!prevIds.has(n.id));
   if(prevNoticesRef.current.length>0&&newOrderNotices.length>0){
    const latest=newOrderNotices[0];
    playNotificationSound();
@@ -51,6 +52,25 @@ export default function AdminNavbarActions(){
      total:'',
      itemsCount:1,
      url:latest.path||'/admin/orders',
+    }
+   }));
+  }
+  if(prevNoticesRef.current.length>0&&newEnquiryNotices.length>0){
+   const latest=newEnquiryNotices[0];
+   playNotificationSound();
+   triggerSystemNotification({
+    title:'📞 New Customer Inquiry! · R2Cart',
+    body:`${latest.title} · ${latest.text}`,
+    url:latest.path||'/admin/enquiries',
+    tag:latest.id,
+   });
+   window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
+    detail:{
+     orderNumber:latest.title,
+     customerName:latest.text,
+     total:'Custom Inquiry',
+     itemsCount:1,
+     url:latest.path||'/admin/enquiries',
     }
    }));
   }

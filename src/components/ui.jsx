@@ -1,9 +1,10 @@
-import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Clock,Heart,Minus,PackageOpen,Plus,Search,SearchX,ShoppingBag,Sparkles,Star,Trash2,X,Zap} from 'lucide-react';
+import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Clock,Globe,Heart,MapPin,Minus,PackageOpen,PhoneCall,Plus,Search,SearchX,ShoppingBag,Sparkles,Star,Trash2,X,Zap} from 'lucide-react';
 import {Link} from 'react-router-dom'; import {useApp} from '../context/AppContext'; import {useLanguage} from '../context/LanguageContext';
 import {useState, useEffect} from 'react';
 import {createPortal} from 'react-dom';
 import {packOptions} from '../utils/products';
 import {isProductComingSoon} from '../config/homeLayout';
+import ProductEnquiryModal from './customer/ProductEnquiryModal';
 export const money=n=>`₹${Number(n).toLocaleString('en-IN')}`;
 export function Button({children,variant='primary',className='',...p}){return <button className={`btn btn-${variant} ${className}`} {...p}>{children}</button>}
 export function Badge({children,tone='green'}){return <span className={`badge badge-${tone}`}>{children}</span>}
@@ -203,6 +204,7 @@ function BaseProductCard({product,packSelector}){
  const gallery=(product.images&&product.images.length>0)?product.images:(product.image?[product.image]:[]);
  const [imgIdx,setImgIdx]=useState(0);
  const [touchStartX,setTouchStartX]=useState(null);
+ const [enquiryOpen,setEnquiryOpen]=useState(false);
 
  useEffect(()=>{setImgIdx(0);},[product.id]);
 
@@ -317,7 +319,22 @@ function BaseProductCard({product,packSelector}){
   </div>
   <div className="product-copy">
     <div className="product-badge-row">
-      <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
+      {product.deliveryScope === 'PAN_INDIA' ? (
+        <span className="delivery-pill" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          <Globe size={10}/> Pan-India
+        </span>
+      ) : product.deliveryScope === 'CUSTOM' ? (
+        <span className="delivery-pill" style={{ background: '#fdf4ff', color: '#86198f', border: '1px solid #f5d0fe' }}>
+          <MapPin size={10}/> Custom Scope
+        </span>
+      ) : (
+        <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
+      )}
+      {product.orderMode === 'CONTACT_REQUEST' && (
+        <span className="delivery-pill" style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+          <PhoneCall size={9}/> Custom Quote
+        </span>
+      )}
       {product.ratingCount > 0 && (
         <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`}>
           <Star size={10} fill="#059669" color="#059669" />
@@ -348,9 +365,71 @@ function BaseProductCard({product,packSelector}){
     )}
     <div className="product-foot">
       <div><strong>{money(product.price)}</strong>{product.mrp>product.price&&<del>{money(product.mrp)}</del>}</div>
-      <QuantitySelector id={product.id} small product={product}/>
+      {product.orderMode === 'CONTACT_REQUEST' ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setEnquiryOpen(true);
+          }}
+          className="btn btn-outline"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            fontSize: '11.5px',
+            fontWeight: 700,
+            color: '#059669',
+            borderColor: '#10b981',
+            background: '#ecfdf5',
+            padding: '5px 10px',
+            borderRadius: '7px',
+            cursor: 'pointer'
+          }}
+        >
+          <PhoneCall size={12} />
+          <span>Enquire</span>
+        </button>
+      ) : product.orderMode === 'BOTH' ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setEnquiryOpen(true);
+            }}
+            title="Request Custom Quote / Enquire"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '30px',
+              height: '30px',
+              borderRadius: '7px',
+              border: '1px solid #10b981',
+              background: '#ecfdf5',
+              color: '#059669',
+              cursor: 'pointer'
+            }}
+          >
+            <PhoneCall size={13} />
+          </button>
+          <QuantitySelector id={product.id} small product={product} />
+        </div>
+      ) : (
+        <QuantitySelector id={product.id} small product={product} />
+      )}
     </div>
   </div>
+  {enquiryOpen && (
+    <ProductEnquiryModal
+      product={product}
+      isOpen={enquiryOpen}
+      onClose={() => setEnquiryOpen(false)}
+    />
+  )}
  </article>;
 }
 
