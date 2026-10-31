@@ -274,32 +274,35 @@ export function HomePage(){
              to={`/category/${category.slug}`} 
              key={category.slug}
              className="category-card-item"
+             style={{ position: 'relative', overflow: 'visible' }}
              title={isCatSoon ? `${tCat(category.name)} (Coming Soon)` : `Browse ${tCat(category.name)}`}
             >
+             {category.badgeActive && category.badgeText && (
+               <span
+                 style={{
+                   position: 'absolute',
+                   top: '-9px',
+                   left: '50%',
+                   transform: 'translateX(-50%)',
+                   background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                   color: '#ffffff',
+                   fontSize: '9.5px',
+                   fontWeight: 800,
+                   padding: '2.5px 8px',
+                   borderRadius: '999px',
+                   whiteSpace: 'nowrap',
+                   boxShadow: '0 3px 8px rgba(2, 132, 199, 0.4)',
+                   zIndex: 10,
+                   lineHeight: 1.15,
+                   border: '1.5px solid #ffffff',
+                   pointerEvents: 'none',
+                   letterSpacing: '0.2px'
+                 }}
+               >
+                 {category.badgeText}
+               </span>
+             )}
              <div className="category-thumb-wrap" style={{background:category.color, position:'relative'}}>
-              {category.badgeActive && category.badgeText && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: '-6px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                    color: '#ffffff',
-                    fontSize: '9.5px',
-                    fontWeight: 800,
-                    padding: '2px 7px',
-                    borderRadius: '999px',
-                    whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.35)',
-                    zIndex: 3,
-                    lineHeight: 1.1,
-                    border: '1.5px solid #ffffff'
-                  }}
-                >
-                  {category.badgeText}
-                </span>
-              )}
               {isCatSoon && <span className="cat-soon-badge">SOON</span>}
               <img 
                src={category.image} 
