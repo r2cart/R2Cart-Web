@@ -90,6 +90,7 @@ const staffBlank = {
   vehicleType: 'Bike',
   vehicleNumber: '',
   assignedVillageIds: [],
+  assignedCategoryIds: [],
   permissions: {},
   isStaffActive: true
 };
@@ -99,6 +100,7 @@ let cachedAuditLogs = null;
 let cachedAuditPagination = null;
 let cachedLogins = null;
 let cachedVillagesForStaff = null;
+let cachedCategoriesList = null;
 let lastSecurityFetch = 0;
 
 function SecuritySkeleton() {
@@ -162,6 +164,7 @@ export function AdminSecurity() {
   const [searchStaff, setSearchStaff] = useState('');
   const [staffRoleFilter, setStaffRoleFilter] = useState('');
   const [villagesList, setVillagesList] = useState(() => cachedVillagesForStaff || []);
+  const [categoriesList, setCategoriesList] = useState(() => cachedCategoriesList || []);
   const [editStaff, setEditStaff] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [removeStaff, setRemoveStaff] = useState(null);
@@ -195,7 +198,7 @@ export function AdminSecurity() {
   const loadData = async (auditPage = 1, silent = false) => {
     if (!silent && !cachedStaff) setLoading(true);
     try {
-      const [sData, aData, lData, vData] = await Promise.all([
+      const [sData, aData, lData, vData, cData] = await Promise.all([
         adminService.getStaff(),
         adminService.getAuditLogs({
           page: auditPage,
@@ -204,13 +207,15 @@ export function AdminSecurity() {
           search: searchAudit
         }),
         adminService.getLoginHistory({ limit: 50 }),
-        adminService.getVillages().catch(() => [])
+        adminService.getVillages().catch(() => []),
+        adminService.categories().catch(() => [])
       ]);
       cachedStaff = sData || [];
       cachedAuditLogs = aData.logs || [];
       cachedAuditPagination = aData.pagination || { page: 1, limit: 50, total: 0, pages: 1 };
       cachedLogins = lData.logins || [];
       cachedVillagesForStaff = vData || [];
+      cachedCategoriesList = Array.isArray(cData) ? cData : (cData?.categories || []);
       lastSecurityFetch = Date.now();
 
       setStaffList(cachedStaff);
@@ -218,6 +223,7 @@ export function AdminSecurity() {
       setAuditPagination(cachedAuditPagination);
       setLogins(cachedLogins);
       setVillagesList(cachedVillagesForStaff);
+      setCategoriesList(cachedCategoriesList);
     } catch (err) {
       if (!cachedStaff) notify(err.message, 'error');
     } finally {
@@ -248,6 +254,9 @@ export function AdminSecurity() {
         staffRole: editStaff.staffRole,
         permissions: editStaff.permissions || {},
         assignedVillageIds: editStaff.assignedVillageIds || [],
+        assignedCategoryIds: editStaff.staffRole === 'CATEGORY_ADMIN' || editStaff.staffRole === 'ADMIN'
+          ? (editStaff.assignedCategoryIds || [])
+          : [],
         vehicleType: editStaff.vehicleType || null,
         vehicleNumber: editStaff.vehicleNumber ? editStaff.vehicleNumber.trim() : null,
         dutyStatus: editStaff.dutyStatus || 'OFF_DUTY',
@@ -565,6 +574,23 @@ export function AdminSecurity() {
                                   <span className={`dot-indicator ${member.dutyStatus === 'ON_DUTY' ? 'green' : 'gray'}`} />
                                   {member.dutyStatus === 'ON_DUTY' ? 'On Duty' : member.dutyStatus === 'ON_BREAK' ? 'On Break' : 'Off Duty'}
                                 </span>
+                              )}
+                              {/* Category assignment badges */}
+                              {!isSuper && Array.isArray(member.assignedCategoryIds) && member.assignedCategoryIds.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '2px' }}>
+                                  {member.assignedCategoryIds.map(catId => {
+                                    const cat = categoriesList.find(c => c.id === catId);
+                                    return cat ? (
+                                      <span key={catId} style={{
+                                        fontSize: '10px', fontWeight: 700, padding: '1px 6px',
+                                        borderRadius: '4px', background: '#ede9fe', color: '#6d28d9',
+                                        border: '1px solid #ddd6fe', whiteSpace: 'nowrap'
+                                      }}>
+                                        🏷️ {cat.name}
+                                      </span>
+                                    ) : null;
+                                  })}
+                                </div>
                               )}
                             </div>
                           </td>
@@ -1148,6 +1174,60 @@ export function AdminSecurity() {
                 </select>
               </label>
             )}
+
+          {/* Category Assignment (for Admin/non-delivery roles) */}
+          {editStaff?.staffRole !== 'SUPER_ADMIN' && editStaff?.staffRole !== 'DELIVERY_PERSON' && categoriesList.length > 0 && (
+            <div style={{ background: '#f5f3ff', padding: '14px', borderRadius: '10px', border: '1px solid #ddd6fe', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <b style={{ fontSize: '13px', color: '#5b21b6' }}>🏷️ Category Assignment (Optional)</b>
+                <p style={{ fontSize: '11.5px', color: '#6d28d9', margin: '3px 0 0' }}>
+                  Restrict this staff account to specific categories only. Leave blank to grant access to all categories (based on permissions).
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {categoriesList.map(cat => {
+                  const isChecked = (editStaff?.assignedCategoryIds || []).includes(cat.id);
+                  return (
+                    <label
+                      key={cat.id}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        padding: '5px 10px', borderRadius: '6px', cursor: 'pointer',
+                        background: isChecked ? '#ede9fe' : '#fff',
+                        border: `1px solid ${isChecked ? '#a78bfa' : '#e2e8f0'}`,
+                        fontSize: '12.5px', fontWeight: isChecked ? 700 : 500,
+                        color: isChecked ? '#5b21b6' : '#374151',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={e => {
+                          const current = editStaff?.assignedCategoryIds || [];
+                          const next = e.target.checked
+                            ? [...current, cat.id]
+                            : current.filter(id => id !== cat.id);
+                          setEditStaff(c => ({ ...c, assignedCategoryIds: next }));
+                        }}
+                        style={{ accentColor: '#7c3aed' }}
+                      />
+                      {cat.name}
+                    </label>
+                  );
+                })}
+              </div>
+              {(editStaff?.assignedCategoryIds || []).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setEditStaff(c => ({ ...c, assignedCategoryIds: [] }))}
+                  style={{ alignSelf: 'flex-start', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', color: '#ef4444', fontWeight: 600 }}
+                >
+                  Clear Category Restrictions
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Delivery Staff Specific Configuration */}
           {editStaff?.staffRole === 'DELIVERY_PERSON' && (

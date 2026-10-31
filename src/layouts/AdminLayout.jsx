@@ -248,6 +248,8 @@ export default function AdminLayout({ children }) {
 
   const adminName = user?.name || 'Administrator';
   const adminRole = user?.role === 'SUPER_ADMIN' || user?.staffRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
+  const assignedCategoryIds = Array.isArray(user?.assignedCategoryIds) ? user.assignedCategoryIds : [];
+  const isCategoryScoped = !isSuperUser && assignedCategoryIds.length > 0;
   const adminInitials =
     (user?.name || 'Admin')
       .trim()
@@ -269,7 +271,11 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
         <div className="workspace-label">
-          {adminRole === 'SUPER_ADMIN' ? (lang === 'hi' ? '★ सुपर एडमिन वर्कस्पेस' : 'SUPER ADMIN WORKSPACE') : (lang === 'hi' ? 'स्टाफ एडमिन वर्कस्पेस' : 'RESTRICTED ADMIN WORKSPACE')}
+          {adminRole === 'SUPER_ADMIN'
+            ? (lang === 'hi' ? '★ सुपर एडमिन वर्कस्पेस' : 'SUPER ADMIN WORKSPACE')
+            : isCategoryScoped
+              ? `🏷️ CATEGORY WORKSPACE`
+              : (lang === 'hi' ? 'स्टाफ एडमिन वर्कस्पेस' : 'RESTRICTED ADMIN WORKSPACE')}
         </div>
         <nav>
           {visibleLinks.map(({ path: subPath, label, key, icon: Icon }) => (
@@ -289,11 +295,11 @@ export default function AdminLayout({ children }) {
             <b>{adminName}</b>
             <small
               style={{
-                color: adminRole === 'SUPER_ADMIN' ? '#f87171' : '#89a494',
+                color: adminRole === 'SUPER_ADMIN' ? '#f87171' : isCategoryScoped ? '#7c3aed' : '#89a494',
                 fontWeight: adminRole === 'SUPER_ADMIN' ? 700 : 400
               }}
             >
-              {adminRole === 'SUPER_ADMIN' ? '★ Super Administrator' : 'Staff Administrator'}
+              {adminRole === 'SUPER_ADMIN' ? '★ Super Administrator' : isCategoryScoped ? '🏷️ Category Admin' : 'Staff Administrator'}
             </small>
           </span>
           <button
@@ -424,6 +430,10 @@ export default function AdminLayout({ children }) {
                 {adminRole === 'SUPER_ADMIN' ? (
                   <span style={{ fontSize: '10px', fontWeight: 800, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', padding: '1px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>
                     SUPER ADMIN
+                  </span>
+                ) : isCategoryScoped ? (
+                  <span style={{ fontSize: '10px', fontWeight: 800, background: '#ede9fe', color: '#6d28d9', border: '1px solid #ddd6fe', padding: '1px 6px', borderRadius: '4px', letterSpacing: '0.5px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    🏷️ CATEGORY ADMIN
                   </span>
                 ) : (
                   <span style={{ fontSize: '10px', fontWeight: 700, background: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb', padding: '1px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>
