@@ -911,7 +911,7 @@ export function ProductPage() {
                       fontSize: '13.5px'
                     }}
                   >
-                    <PhoneCall size={16} /> Request Custom Quote / Enquire
+                    <PhoneCall size={16} /> Request for Call
                   </Button>
                 ) : (
                   <>
@@ -935,7 +935,7 @@ export function ProductPage() {
                           fontSize: '12.5px'
                         }}
                       >
-                        <PhoneCall size={14} /> Custom Inquiry
+                        <PhoneCall size={14} /> Request for Call
                       </Button>
                     )}
                   </>
@@ -1263,7 +1263,7 @@ export function ProductPage() {
                   fontWeight: 700
                 }}
               >
-                📞 Enquire Quote
+                📞 Request for Call
               </Button>
             ) : (
               <QuantitySelector id={product.id} />
