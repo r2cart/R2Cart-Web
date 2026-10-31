@@ -610,10 +610,10 @@ export function AdminCategories(){
           </div>
           <div>
             <b style={{ fontSize: '0.88rem', color: edit?.noticeActive ? '#92400e' : '#334155', display: 'block', lineHeight: 1.25 }}>
-              Customer Announcement Card (1-Hour Interval)
+              Customer Notice Banner (Always Visible on Category Page)
             </b>
             <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
-              Shows an alert box when customers open this category
+              Prominently displayed whenever customers open this category
             </span>
           </div>
         </div>

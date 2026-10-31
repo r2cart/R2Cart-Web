@@ -53,19 +53,11 @@ export function CategoryPage(){
 
  useEffect(()=>{
   if(active?.noticeActive && (active.noticeTitle || active.noticeMessage)){
-   const storageKey = `r2c_cat_notice_${active.id}`;
-   const lastSeen = Number(localStorage.getItem(storageKey)) || 0;
-   const ONE_HOUR = 60 * 60 * 1000;
-   if(Date.now() - lastSeen > ONE_HOUR){
-    setShowNotice(true);
-    localStorage.setItem(storageKey, Date.now().toString());
-   } else {
-    setShowNotice(false);
-   }
+   setShowNotice(true);
   } else {
    setShowNotice(false);
   }
- },[active?.id, active?.noticeActive, active?.noticeTitle, active?.noticeMessage]);
+ },[active?.id, active?.noticeActive, active?.noticeTitle, active?.noticeMessage, slug]);
 
  if(!active)return null;
  let raw=products.filter(product=>product.category===active.slug||product.category?.slug===active.slug||product.categoryId===active.id);
