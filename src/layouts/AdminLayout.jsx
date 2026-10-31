@@ -260,6 +260,10 @@ export default function AdminLayout({ children }) {
       if (isCategoryScoped && (link.path === '/delivery' || link.path === '/scheduling' || link.path === '/banners' || link.path === '/emergency')) {
         return false;
       }
+      // Customer Inquiries & custom order requests are exclusively for locally created / category-scoped admins
+      if (!isCategoryScoped && link.path === '/enquiries') {
+        return false;
+      }
       if (!link.perm) return true;
       const perms = Array.isArray(link.perm) ? link.perm : [link.perm];
       return perms.some(p => hasPermission(user, p));

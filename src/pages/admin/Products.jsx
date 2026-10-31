@@ -1143,6 +1143,8 @@ export function ProductForm(){
  const routeProduct = location.state?.product;
  const currentUser = getAdminUser();
  const isSuper = currentUser?.role === 'SUPER_ADMIN' || currentUser?.staffRole === 'SUPER_ADMIN' || location.pathname.startsWith('/super-admin');
+ const assignedCategoryIds = Array.isArray(currentUser?.assignedCategoryIds) ? currentUser.assignedCategoryIds : [];
+ const isCategoryScopedAdmin = currentUser?.staffRole === 'CATEGORY_ADMIN' || assignedCategoryIds.length > 0;
  const basePath = isSuper ? '/super-admin' : '/admin';
  const {notify,refreshProducts,storeSettings,setStoreSettings}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();
@@ -2264,245 +2266,250 @@ export function ProductForm(){
     </div>
    </section>
 
-   {/* Delivery & Shipping Scope Section */}
-   <section className="admin-card">
-    <div style={{ marginBottom: '14px' }}>
-      <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span>🚚 Delivery & Shipping Scope</span>
-        <span style={{
-          fontSize: '11px',
-          fontWeight: 700,
-          padding: '2px 8px',
-          borderRadius: '12px',
-          background: form.deliveryScope === 'PAN_INDIA' ? '#ede9fe' : (form.deliveryScope === 'CUSTOM' ? '#e0f2fe' : '#f1f5f9'),
-          color: form.deliveryScope === 'PAN_INDIA' ? '#6d28d9' : (form.deliveryScope === 'CUSTOM' ? '#0369a1' : '#475569')
-        }}>
-          {form.deliveryScope === 'PAN_INDIA' ? '🇮🇳 Pan-India' : (form.deliveryScope === 'CUSTOM' ? '📍 Specific Locations' : '🏘️ Local Area Only')}
-        </span>
-      </h3>
-      <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-        Configure where this product can be ordered from. Local grocery items are limited to local serviceable villages, while crafts, gifts, and dry items can be delivered pan-India.
-      </p>
-    </div>
-
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-      {/* Option 1: Local */}
-      <label style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '10px',
-        padding: '12px 14px',
-        borderRadius: '10px',
-        border: `2px solid ${!form.deliveryScope || form.deliveryScope === 'LOCAL' ? '#10b981' : '#e2e8f0'}`,
-        background: !form.deliveryScope || form.deliveryScope === 'LOCAL' ? '#f0fdf4' : '#fff',
-        cursor: 'pointer'
-      }}>
-        <input
-          type="radio"
-          name="deliveryScope"
-          value="LOCAL"
-          checked={!form.deliveryScope || form.deliveryScope === 'LOCAL'}
-          onChange={() => set('deliveryScope', 'LOCAL')}
-          style={{ marginTop: '2px' }}
-        />
-        <div>
-          <b style={{ fontSize: '13px', color: '#0f172a' }}>🏘️ Local Area Only</b>
-          <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-            Deliverable only in standard serviceable villages / delivery areas (Instant & Scheduled delivery).
+   {/* Delivery & Shipping Scope & Customer Inquiry Mode (Available exclusively to Category Scoped Admins) */}
+   {isCategoryScopedAdmin && (
+     <>
+       {/* Delivery & Shipping Scope Section */}
+       <section className="admin-card">
+        <div style={{ marginBottom: '14px' }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>🚚 Delivery & Shipping Scope</span>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '12px',
+              background: form.deliveryScope === 'PAN_INDIA' ? '#ede9fe' : (form.deliveryScope === 'CUSTOM' ? '#e0f2fe' : '#f1f5f9'),
+              color: form.deliveryScope === 'PAN_INDIA' ? '#6d28d9' : (form.deliveryScope === 'CUSTOM' ? '#0369a1' : '#475569')
+            }}>
+              {form.deliveryScope === 'PAN_INDIA' ? '🇮🇳 Pan-India' : (form.deliveryScope === 'CUSTOM' ? '📍 Specific Locations' : '🏘️ Local Area Only')}
+            </span>
+          </h3>
+          <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+            Configure where this product can be ordered from. Local grocery items are limited to local serviceable villages, while crafts, gifts, and dry items can be delivered pan-India.
           </p>
         </div>
-      </label>
 
-      {/* Option 2: Pan-India */}
-      <label style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '10px',
-        padding: '12px 14px',
-        borderRadius: '10px',
-        border: `2px solid ${form.deliveryScope === 'PAN_INDIA' ? '#8b5cf6' : '#e2e8f0'}`,
-        background: form.deliveryScope === 'PAN_INDIA' ? '#f5f3ff' : '#fff',
-        cursor: 'pointer'
-      }}>
-        <input
-          type="radio"
-          name="deliveryScope"
-          value="PAN_INDIA"
-          checked={form.deliveryScope === 'PAN_INDIA'}
-          onChange={() => set('deliveryScope', 'PAN_INDIA')}
-          style={{ marginTop: '2px' }}
-        />
-        <div>
-          <b style={{ fontSize: '13px', color: '#6d28d9' }}>🇮🇳 Pan-India (All Over India)</b>
-          <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-            Deliverable to any pin code across India via courier shipment.
-          </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+          {/* Option 1: Local */}
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            border: `2px solid ${!form.deliveryScope || form.deliveryScope === 'LOCAL' ? '#10b981' : '#e2e8f0'}`,
+            background: !form.deliveryScope || form.deliveryScope === 'LOCAL' ? '#f0fdf4' : '#fff',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="radio"
+              name="deliveryScope"
+              value="LOCAL"
+              checked={!form.deliveryScope || form.deliveryScope === 'LOCAL'}
+              onChange={() => set('deliveryScope', 'LOCAL')}
+              style={{ marginTop: '2px' }}
+            />
+            <div>
+              <b style={{ fontSize: '13px', color: '#0f172a' }}>🏘️ Local Area Only</b>
+              <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                Deliverable only in standard serviceable villages / delivery areas (Instant & Scheduled delivery).
+              </p>
+            </div>
+          </label>
+
+          {/* Option 2: Pan-India */}
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            border: `2px solid ${form.deliveryScope === 'PAN_INDIA' ? '#8b5cf6' : '#e2e8f0'}`,
+            background: form.deliveryScope === 'PAN_INDIA' ? '#f5f3ff' : '#fff',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="radio"
+              name="deliveryScope"
+              value="PAN_INDIA"
+              checked={form.deliveryScope === 'PAN_INDIA'}
+              onChange={() => set('deliveryScope', 'PAN_INDIA')}
+              style={{ marginTop: '2px' }}
+            />
+            <div>
+              <b style={{ fontSize: '13px', color: '#6d28d9' }}>🇮🇳 Pan-India (All Over India)</b>
+              <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                Deliverable to any pin code across India via courier shipment.
+              </p>
+            </div>
+          </label>
+
+          {/* Option 3: Custom Locations */}
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            border: `2px solid ${form.deliveryScope === 'CUSTOM' ? '#0284c7' : '#e2e8f0'}`,
+            background: form.deliveryScope === 'CUSTOM' ? '#f0f9ff' : '#fff',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="radio"
+              name="deliveryScope"
+              value="CUSTOM"
+              checked={form.deliveryScope === 'CUSTOM'}
+              onChange={() => set('deliveryScope', 'CUSTOM')}
+              style={{ marginTop: '2px' }}
+            />
+            <div>
+              <b style={{ fontSize: '13px', color: '#0369a1' }}>📍 Specific Locations</b>
+              <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                Deliverable only to selected cities, states, or pin codes.
+              </p>
+            </div>
+          </label>
         </div>
-      </label>
 
-      {/* Option 3: Custom Locations */}
-      <label style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '10px',
-        padding: '12px 14px',
-        borderRadius: '10px',
-        border: `2px solid ${form.deliveryScope === 'CUSTOM' ? '#0284c7' : '#e2e8f0'}`,
-        background: form.deliveryScope === 'CUSTOM' ? '#f0f9ff' : '#fff',
-        cursor: 'pointer'
-      }}>
-        <input
-          type="radio"
-          name="deliveryScope"
-          value="CUSTOM"
-          checked={form.deliveryScope === 'CUSTOM'}
-          onChange={() => set('deliveryScope', 'CUSTOM')}
-          style={{ marginTop: '2px' }}
-        />
-        <div>
-          <b style={{ fontSize: '13px', color: '#0369a1' }}>📍 Specific Locations</b>
-          <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-            Deliverable only to selected cities, states, or pin codes.
-          </p>
+        {/* Custom Locations Input */}
+        {form.deliveryScope === 'CUSTOM' && (
+          <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+              Allowed Cities / States / Pincodes (Comma separated) *
+            </label>
+            <input
+              type="text"
+              value={Array.isArray(form.deliveryLocations) ? form.deliveryLocations.join(', ') : (form.deliveryLocations || '')}
+              onChange={e => set('deliveryLocations', e.target.value.split(',').map(s => s.trim()))}
+              placeholder="e.g. 110001, Delhi, Mumbai, Bihar, 800001"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+            />
+            <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
+              Customers with addresses matching any of these pincodes, cities, or states will be allowed to order.
+            </small>
+          </div>
+        )}
+
+        {/* Shipping / Courier Fee Field (Optional) */}
+        {(form.deliveryScope === 'PAN_INDIA' || form.deliveryScope === 'CUSTOM') && (
+          <div style={{ maxWidth: '300px' }}>
+            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+              Extra Courier / Shipping Fee (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.shippingFee ?? ''}
+              onChange={e => set('shippingFee', e.target.value)}
+              placeholder="0 for free shipping, or e.g. 50"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+            />
+            <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
+              Leave 0 or blank for free delivery, or enter courier shipping charge.
+            </small>
+          </div>
+        )}
+       </section>
+
+       {/* Customer Order & Inquiry Mode */}
+       <section style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', background: '#fafaf9', display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🛒</span> Product Purchase & Inquiry Mode
+            </h4>
+            <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
+              Choose how customers interact with this product: direct purchase, custom enquiry/contact request, or both.
+            </p>
+          </div>
+          <span style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            padding: '3px 8px',
+            borderRadius: '6px',
+            background: form.orderMode === 'CONTACT_REQUEST' ? '#fff7ed' : (form.orderMode === 'BOTH' ? '#f0fdf4' : '#eff6ff'),
+            color: form.orderMode === 'CONTACT_REQUEST' ? '#c2410c' : (form.orderMode === 'BOTH' ? '#15803d' : '#1d4ed8')
+          }}>
+            {form.orderMode === 'CONTACT_REQUEST' ? '📞 Contact / Enquiry Only' : (form.orderMode === 'BOTH' ? '🔀 Direct Order & Enquiry' : '🛒 Direct Order Only')}
+          </span>
         </div>
-      </label>
-    </div>
 
-    {/* Custom Locations Input */}
-    {form.deliveryScope === 'CUSTOM' && (
-      <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-          Allowed Cities / States / Pincodes (Comma separated) *
-        </label>
-        <input
-          type="text"
-          value={Array.isArray(form.deliveryLocations) ? form.deliveryLocations.join(', ') : (form.deliveryLocations || '')}
-          onChange={e => set('deliveryLocations', e.target.value.split(',').map(s => s.trim()))}
-          placeholder="e.g. 110001, Delhi, Mumbai, Bihar, 800001"
-          style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-        />
-        <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
-          Customers with addresses matching any of these pincodes, cities, or states will be allowed to order.
-        </small>
-      </div>
-    )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+          {/* 1. Direct Order Only */}
+          <label style={{
+            display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
+            border: `2px solid ${!form.orderMode || form.orderMode === 'DIRECT_ORDER' ? '#2563eb' : '#e2e8f0'}`,
+            background: !form.orderMode || form.orderMode === 'DIRECT_ORDER' ? '#eff6ff' : '#fff',
+            transition: 'all 0.15s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="radio"
+                name="orderMode"
+                value="DIRECT_ORDER"
+                checked={!form.orderMode || form.orderMode === 'DIRECT_ORDER'}
+                onChange={() => set('orderMode', 'DIRECT_ORDER')}
+                style={{ accentColor: '#2563eb' }}
+              />
+              <b style={{ fontSize: '13px', color: '#1e293b' }}>🛒 Direct Order Only</b>
+            </div>
+            <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
+              Customer clicks "Add to Cart" and checks out directly online. Standard e-commerce flow.
+            </span>
+          </label>
 
-    {/* Shipping / Courier Fee Field (Optional) */}
-    {(form.deliveryScope === 'PAN_INDIA' || form.deliveryScope === 'CUSTOM') && (
-      <div style={{ maxWidth: '300px' }}>
-        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-          Extra Courier / Shipping Fee (₹)
-        </label>
-        <input
-          type="number"
-          min="0"
-          step="1"
-          value={form.shippingFee ?? ''}
-          onChange={e => set('shippingFee', e.target.value)}
-          placeholder="0 for free shipping, or e.g. 50"
-          style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-        />
-        <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
-          Leave 0 or blank for free delivery, or enter courier shipping charge.
-        </small>
-      </div>
-    )}
-   </section>
+          {/* 2. Contact Request Only */}
+          <label style={{
+            display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
+            border: `2px solid ${form.orderMode === 'CONTACT_REQUEST' ? '#ea580c' : '#e2e8f0'}`,
+            background: form.orderMode === 'CONTACT_REQUEST' ? '#fff7ed' : '#fff',
+            transition: 'all 0.15s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="radio"
+                name="orderMode"
+                value="CONTACT_REQUEST"
+                checked={form.orderMode === 'CONTACT_REQUEST'}
+                onChange={() => set('orderMode', 'CONTACT_REQUEST')}
+                style={{ accentColor: '#ea580c' }}
+              />
+              <b style={{ fontSize: '13px', color: '#1e293b' }}>📞 Contact / Enquiry Only</b>
+            </div>
+            <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
+              Disables direct checkout. Shows "Contact / Enquire" button for personalized requests, wedding floral frames, quotes, or custom art.
+            </span>
+          </label>
 
-   {/* Customer Order & Inquiry Mode */}
-   <section style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', background: '#fafaf9', display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-      <div>
-        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>🛒</span> Product Purchase & Inquiry Mode
-        </h4>
-        <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
-          Choose how customers interact with this product: direct purchase, custom enquiry/contact request, or both.
-        </p>
-      </div>
-      <span style={{
-        fontSize: '11px',
-        fontWeight: 700,
-        padding: '3px 8px',
-        borderRadius: '6px',
-        background: form.orderMode === 'CONTACT_REQUEST' ? '#fff7ed' : (form.orderMode === 'BOTH' ? '#f0fdf4' : '#eff6ff'),
-        color: form.orderMode === 'CONTACT_REQUEST' ? '#c2410c' : (form.orderMode === 'BOTH' ? '#15803d' : '#1d4ed8')
-      }}>
-        {form.orderMode === 'CONTACT_REQUEST' ? '📞 Contact / Enquiry Only' : (form.orderMode === 'BOTH' ? '🔀 Direct Order & Enquiry' : '🛒 Direct Order Only')}
-      </span>
-    </div>
-
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
-      {/* 1. Direct Order Only */}
-      <label style={{
-        display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
-        border: `2px solid ${!form.orderMode || form.orderMode === 'DIRECT_ORDER' ? '#2563eb' : '#e2e8f0'}`,
-        background: !form.orderMode || form.orderMode === 'DIRECT_ORDER' ? '#eff6ff' : '#fff',
-        transition: 'all 0.15s ease'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <input
-            type="radio"
-            name="orderMode"
-            value="DIRECT_ORDER"
-            checked={!form.orderMode || form.orderMode === 'DIRECT_ORDER'}
-            onChange={() => set('orderMode', 'DIRECT_ORDER')}
-            style={{ accentColor: '#2563eb' }}
-          />
-          <b style={{ fontSize: '13px', color: '#1e293b' }}>🛒 Direct Order Only</b>
+          {/* 3. Both Direct Order & Contact Request */}
+          <label style={{
+            display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
+            border: `2px solid ${form.orderMode === 'BOTH' ? '#16a34a' : '#e2e8f0'}`,
+            background: form.orderMode === 'BOTH' ? '#f0fdf4' : '#fff',
+            transition: 'all 0.15s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="radio"
+                name="orderMode"
+                value="BOTH"
+                checked={form.orderMode === 'BOTH'}
+                onChange={() => set('orderMode', 'BOTH')}
+                style={{ accentColor: '#16a34a' }}
+              />
+              <b style={{ fontSize: '13px', color: '#1e293b' }}>🔀 Both Order & Enquiry</b>
+            </div>
+            <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
+              Customer can either purchase the ready-made item directly OR send a customization inquiry.
+            </span>
+          </label>
         </div>
-        <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
-          Customer clicks "Add to Cart" and checks out directly online. Standard e-commerce flow.
-        </span>
-      </label>
-
-      {/* 2. Contact Request Only */}
-      <label style={{
-        display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
-        border: `2px solid ${form.orderMode === 'CONTACT_REQUEST' ? '#ea580c' : '#e2e8f0'}`,
-        background: form.orderMode === 'CONTACT_REQUEST' ? '#fff7ed' : '#fff',
-        transition: 'all 0.15s ease'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <input
-            type="radio"
-            name="orderMode"
-            value="CONTACT_REQUEST"
-            checked={form.orderMode === 'CONTACT_REQUEST'}
-            onChange={() => set('orderMode', 'CONTACT_REQUEST')}
-            style={{ accentColor: '#ea580c' }}
-          />
-          <b style={{ fontSize: '13px', color: '#1e293b' }}>📞 Contact / Enquiry Only</b>
-        </div>
-        <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
-          Disables direct checkout. Shows "Contact / Enquire" button for personalized requests, wedding floral frames, quotes, or custom art.
-        </span>
-      </label>
-
-      {/* 3. Both Direct Order & Contact Request */}
-      <label style={{
-        display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', borderRadius: '8px', cursor: 'pointer',
-        border: `2px solid ${form.orderMode === 'BOTH' ? '#16a34a' : '#e2e8f0'}`,
-        background: form.orderMode === 'BOTH' ? '#f0fdf4' : '#fff',
-        transition: 'all 0.15s ease'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <input
-            type="radio"
-            name="orderMode"
-            value="BOTH"
-            checked={form.orderMode === 'BOTH'}
-            onChange={() => set('orderMode', 'BOTH')}
-            style={{ accentColor: '#16a34a' }}
-          />
-          <b style={{ fontSize: '13px', color: '#1e293b' }}>🔀 Both Order & Enquiry</b>
-        </div>
-        <span style={{ fontSize: '11.5px', color: '#64748b', paddingLeft: '24px' }}>
-          Customer can either purchase the ready-made item directly OR send a customization inquiry.
-        </span>
-      </label>
-    </div>
-   </section>
+       </section>
+     </>
+   )}
 
    <div className="form-actions">
      <Button type="button" variant="ghost" disabled={saving} onClick={()=>nav(`${basePath}/products`)}>Cancel</Button>
