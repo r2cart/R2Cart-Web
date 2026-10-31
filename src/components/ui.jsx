@@ -319,22 +319,7 @@ function BaseProductCard({product,packSelector}){
   </div>
   <div className="product-copy">
     <div className="product-badge-row">
-      {product.deliveryScope === 'PAN_INDIA' ? (
-        <span className="delivery-pill" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-          <Globe size={10}/> Pan-India
-        </span>
-      ) : product.deliveryScope === 'CUSTOM' ? (
-        <span className="delivery-pill" style={{ background: '#fdf4ff', color: '#86198f', border: '1px solid #f5d0fe' }}>
-          <MapPin size={10}/> Custom Scope
-        </span>
-      ) : (
-        <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
-      )}
-      {product.orderMode === 'CONTACT_REQUEST' && (
-        <span className="delivery-pill" style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
-          <PhoneCall size={9}/> Custom Quote
-        </span>
-      )}
+      <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
       {product.ratingCount > 0 && (
         <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`}>
           <Star size={10} fill="#059669" color="#059669" />
