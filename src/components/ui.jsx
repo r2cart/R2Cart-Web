@@ -373,26 +373,39 @@ function BaseProductCard({product,packSelector}){
             e.stopPropagation();
             setEnquiryOpen(true);
           }}
-          className="btn btn-outline"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '5px',
-            fontSize: '11.5px',
+            justifyContent: 'center',
+            gap: '4px',
+            height: '28px',
+            minWidth: '66px',
+            padding: '0 9px',
+            fontSize: '11px',
             fontWeight: 700,
             color: '#059669',
-            borderColor: '#10b981',
+            border: '1.5px solid #10b981',
             background: '#ecfdf5',
-            padding: '5px 10px',
-            borderRadius: '7px',
-            cursor: 'pointer'
+            borderRadius: '8px',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            lineHeight: 1,
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#10b981';
+            e.currentTarget.style.color = '#ffffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#ecfdf5';
+            e.currentTarget.style.color = '#059669';
           }}
         >
-          <PhoneCall size={12} />
+          <PhoneCall size={11} strokeWidth={2.2} />
           <span>Enquire</span>
         </button>
       ) : product.orderMode === 'BOTH' ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <button
             type="button"
             onClick={(e) => {
@@ -405,16 +418,25 @@ function BaseProductCard({product,packSelector}){
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '30px',
-              height: '30px',
-              borderRadius: '7px',
-              border: '1px solid #10b981',
+              width: '28px',
+              height: '28px',
+              borderRadius: '8px',
+              border: '1.5px solid #10b981',
               background: '#ecfdf5',
               color: '#059669',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#10b981';
+              e.currentTarget.style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#ecfdf5';
+              e.currentTarget.style.color = '#059669';
             }}
           >
-            <PhoneCall size={13} />
+            <PhoneCall size={12} strokeWidth={2.2} />
           </button>
           <QuantitySelector id={product.id} small product={product} />
         </div>
