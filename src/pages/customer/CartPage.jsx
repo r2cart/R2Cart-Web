@@ -197,6 +197,14 @@ export function CartPage() {
     if (comingSoonItem) {
       return notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket to proceed.`, 'error');
     }
+    const underMinQtyItem = cartItems.find((p) => Number(p.minOrderQty) > 1 && p.qty < Number(p.minOrderQty));
+    if (underMinQtyItem) {
+      const needed = Number(underMinQtyItem.minOrderQty) - underMinQtyItem.qty;
+      return notify(
+        `"${underMinQtyItem.name}" requires minimum ${underMinQtyItem.minOrderQty} units to order. Please add ${needed} more unit${needed > 1 ? 's' : ''}.`,
+        'error'
+      );
+    }
     const outOfStockItem = cartItems.find((p) => p.stock < p.qty);
     if (outOfStockItem) {
       return notify(
@@ -999,6 +1007,12 @@ export function CartPage() {
                         {Boolean(isProductComingSoon(product, storeSettings)) && (
                           <span style={{ fontSize: '11px', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '2px 7px', borderRadius: '5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
                             <Clock3 size={12} /> Coming Soon · Remove to checkout
+                          </span>
+                        )}
+
+                        {Number(product.minOrderQty) > 1 && product.qty < Number(product.minOrderQty) && (
+                          <span style={{ fontSize: '11px', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', padding: '2px 7px', borderRadius: '5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                            <AlertCircle size={12} /> Minimum {product.minOrderQty} units required (Add {Number(product.minOrderQty) - product.qty} more to order)
                           </span>
                         )}
 

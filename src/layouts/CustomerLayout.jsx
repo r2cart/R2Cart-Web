@@ -1360,6 +1360,11 @@ export function CartDrawer() {
                             Soon · Remove
                           </span>
                         )}
+                        {Number(product.minOrderQty) > 1 && product.qty < Number(product.minOrderQty) && (
+                          <span style={{ fontSize: '10px', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, display: 'inline-block', marginTop: '2px' }}>
+                            ⚠️ Add {Number(product.minOrderQty) - product.qty} more (Min: {product.minOrderQty})
+                          </span>
+                        )}
                         <div style={{ marginTop: '2px' }}>
                           <ItemPrice product={product} />
                         </div>
@@ -1477,6 +1482,13 @@ export function CartDrawer() {
                 const comingSoonItem = cartItems.find((p) => isProductComingSoon(p, storeSettings));
                 if (comingSoonItem) {
                   notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket.`, 'error');
+                  return;
+                }
+                const underMinItem = cartItems.find((p) => Number(p.minOrderQty) > 1 && p.qty < Number(p.minOrderQty));
+                if (underMinItem) {
+                  const needed = Number(underMinItem.minOrderQty) - underMinItem.qty;
+                  notify(`"${underMinItem.name}" requires minimum ${underMinItem.minOrderQty} units to order. Please add ${needed} more unit${needed > 1 ? 's' : ''}.`, 'error');
+                  return;
                 }
                 setCartOpen(false);
                 nav('/cart');

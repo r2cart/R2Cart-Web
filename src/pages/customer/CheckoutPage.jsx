@@ -680,6 +680,15 @@ export function CheckoutPage() {
       return notify(`"${comingSoonItem.name}" is coming soon and cannot be ordered. Please remove it from your basket.`, 'error');
     }
 
+    const underMinQtyItem = cartItems.find((p) => Number(p.minOrderQty) > 1 && p.qty < Number(p.minOrderQty));
+    if (underMinQtyItem) {
+      const needed = Number(underMinQtyItem.minOrderQty) - underMinQtyItem.qty;
+      return notify(
+        `"${underMinQtyItem.name}" requires minimum ${underMinQtyItem.minOrderQty} units to place order. Please add ${needed} more unit${needed > 1 ? 's' : ''}.`,
+        'error'
+      );
+    }
+
     const combinedInstruction = [...selectedInstructions, customNote].filter(Boolean).join('. ');
 
     setPlacing(true);
