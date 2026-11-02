@@ -518,8 +518,9 @@ export function generateDetailedSpecifications(productName = '', category = '', 
     allergens = 'Free from common allergens unless stated on packaging.';
   }
 
+  const brandLead = (brand && !name.toLowerCase().startsWith(brand.toLowerCase())) ? `${brand} ` : '';
   return {
-    summary: `${name} by ${brand}. Fresh, reliable and authentic quality essentials delivered in 10–20 minutes to your doorstep.`,
+    summary: `${brandLead}${name}. Premium quality essential carefully selected and packaged to deliver dependable freshness, natural goodness, and authentic taste for your daily household needs.`,
     brand,
     productType,
     dietaryPreference,
@@ -577,6 +578,7 @@ export function parseProductDetails(rawDescription, product = null) {
       return {
         ...empty,
         ...parsed,
+        summary: String(parsed.summary || parsed.description || '').trim(),
         nutrition: {
           ...empty.nutrition,
           ...(parsed.nutrition || {})
@@ -630,8 +632,8 @@ export function parseProductDetails(rawDescription, product = null) {
     result.summary = genericLines.join('\n');
   }
 
-  // 3. Fallback Auto-Inference if no brand or features (e.g. from product object)
-  if (!result.brand && product && product.name) {
+  // 3. Fallback Auto-Inference ONLY if no description or specifications exist at all
+  if (!trimmed && product && product.name) {
     const autoSpecs = generateDetailedSpecifications(
       product.name,
       product.categorySlug || product.category || '',
@@ -640,7 +642,7 @@ export function parseProductDetails(rawDescription, product = null) {
     );
     return {
       ...autoSpecs,
-      summary: result.summary || autoSpecs.summary
+      summary: autoSpecs.summary || ''
     };
   }
 
@@ -648,38 +650,48 @@ export function parseProductDetails(rawDescription, product = null) {
 }
 
 export function formatProductDetails(details) {
-  const hasSpecs = details.brand ||
+  if (!details || typeof details !== 'object') return '';
+
+  const summary = String(details.summary || '').trim();
+  const hasAnySpec = Boolean(
+    details.brand ||
     details.productType ||
     details.dietaryPreference ||
     details.flavour ||
     details.itemForm ||
+    details.weight ||
+    details.packagingType ||
+    details.shelfLife ||
     details.ingredients ||
     details.allergens ||
     details.storage ||
-    (details.keyFeatures && details.keyFeatures.length > 0) ||
-    Object.values(details.nutrition || {}).some(v => v && v !== 'Per 100g');
+    (Array.isArray(details.keyFeatures) && details.keyFeatures.filter(Boolean).length > 0) ||
+    Object.entries(details.nutrition || {}).some(([k, v]) => k !== 'serving' && Boolean(v))
+  );
 
-  if (!hasSpecs) {
-    return details.summary || '';
+  // If completely empty, return empty string
+  if (!hasAnySpec && !summary) {
+    return '';
   }
 
+  // Always return structured JSON so specifications and dietaryPreference are preserved and never lost
   return JSON.stringify({
-    summary: details.summary || '',
-    brand: details.brand || '',
-    productType: details.productType || '',
-    dietaryPreference: details.dietaryPreference || '',
-    flavour: details.flavour || '',
-    itemForm: details.itemForm || '',
-    weight: details.weight || '',
-    itemIncluded: details.itemIncluded || '',
-    packagingType: details.packagingType || '',
-    countryOfOrigin: details.countryOfOrigin || 'India',
-    shelfLife: details.shelfLife || '',
-    keyFeatures: details.keyFeatures || [],
-    ingredients: details.ingredients || '',
-    allergens: details.allergens || '',
-    storage: details.storage || '',
+    summary: summary,
+    brand: String(details.brand || '').trim(),
+    productType: String(details.productType || '').trim(),
+    dietaryPreference: String(details.dietaryPreference || '').trim(),
+    flavour: String(details.flavour || '').trim(),
+    itemForm: String(details.itemForm || '').trim(),
+    weight: String(details.weight || '').trim(),
+    itemIncluded: String(details.itemIncluded || '').trim(),
+    packagingType: String(details.packagingType || '').trim(),
+    countryOfOrigin: String(details.countryOfOrigin || 'India').trim(),
+    shelfLife: String(details.shelfLife || '').trim(),
+    keyFeatures: Array.isArray(details.keyFeatures) ? details.keyFeatures.filter(Boolean) : [],
+    ingredients: String(details.ingredients || '').trim(),
+    allergens: String(details.allergens || '').trim(),
+    storage: String(details.storage || '').trim(),
     nutrition: details.nutrition || {},
-    customSpecs: details.customSpecs || []
+    customSpecs: Array.isArray(details.customSpecs) ? details.customSpecs : []
   });
 }

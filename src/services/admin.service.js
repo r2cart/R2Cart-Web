@@ -42,6 +42,7 @@ export const adminService = {
   updateCategory: (id, value) => api.patch(`/admin/categories/${id}`, value),
   deleteCategory: id => api.delete(`/admin/categories/${id}`),
   correctEnglishText: (text, type) => api.post('/admin/ai/correct-text', { text, type }),
+  generateProductDetails: data => api.post('/admin/ai/generate-product-details', data),
   orders: async status => {
     const rows = [];
     let page = 1, result;

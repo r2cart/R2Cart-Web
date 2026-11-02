@@ -276,8 +276,32 @@ export function AppProvider({children}){
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
  const canSetQuantity=(id,quantity)=>{const product=products.find(item=>item.id===id);const isSoon=isProductComingSoon(product,storeSettings);if(quantity>0&&isSoon){notify('This product is coming soon and cannot be ordered yet','error');return false}if(quantity>0&&(!product||product.status?.toUpperCase()==='INACTIVE'||quantity>Number(product.stock))){notify('This pack does not have enough available stock','error');return false}return true};
 
- const add=id=>{const quantity=(cart[id]||0)+1;if(!canSetQuantity(id,quantity))return;setCart(current=>({...current,[id]:quantity}));syncCart(id,quantity);notify('Added to your basket')};
- const qty=(id,quantity)=>{if(!canSetQuantity(id,quantity))return;setCart(current=>{const next={...current};if(quantity<=0)delete next[id];else next[id]=quantity;return next});syncCart(id,quantity)};
+ const add=id=>{
+  const product=products.find(item=>item.id===id);
+  const minQty=Math.max(1, Number(product?.minOrderQty || 1));
+  const currentQty=cart[id]||0;
+  const quantity=currentQty===0?minQty:currentQty+1;
+  if(!canSetQuantity(id,quantity))return;
+  setCart(current=>({...current,[id]:quantity}));
+  syncCart(id,quantity);
+  notify(minQty>1&&currentQty===0?`Added minimum ${minQty} units to basket`:'Added to your basket');
+ };
+ const qty=(id,quantity)=>{
+  const product=products.find(item=>item.id===id);
+  const minQty=Math.max(1, Number(product?.minOrderQty || 1));
+  let effectiveQty=quantity;
+  if(effectiveQty>0&&effectiveQty<minQty){
+   effectiveQty=0;
+  }
+  if(!canSetQuantity(id,effectiveQty))return;
+  setCart(current=>{
+   const next={...current};
+   if(effectiveQty<=0)delete next[id];
+   else next[id]=effectiveQty;
+   return next;
+  });
+  syncCart(id,effectiveQty);
+ };
  const clearCart=async()=>{setCart({});storage.set('cart',{});if(online()){try{await customerService.clearCart()}catch{}}notify('Basket cleared')};
  const removeFromCart=id=>{qty(id,0);notify('Item removed from basket')};
  const toggleFavorite=async id=>{const saved=favorites.includes(id);if(!online())return notify('Please sign in to use your wishlist','error');setFavorites(current=>saved?current.filter(value=>value!==id):[...current,id]);try{await(saved?customerService.removeFavorite(id):customerService.addFavorite(id));notify(saved?'Removed from favourites':'Saved to favourites')}catch(error){setFavorites(current=>saved?[...new Set([...current,id])]:current.filter(value=>value!==id));notify(error.message,'error')}};

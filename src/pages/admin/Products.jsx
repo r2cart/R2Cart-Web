@@ -25,7 +25,7 @@ import { parseProductDetails, formatProductDetails } from '../../utils/productDe
 import { compressImage } from '../../utils/imageCompressor';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
-const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',orderMode:'DIRECT_ORDER'};
+const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',minOrderQty:1,sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',orderMode:'DIRECT_ORDER'};
 const payload=product=>({
   name:product.name,
   category:product.category,
@@ -35,6 +35,7 @@ const payload=product=>({
   costPrice:product.costPrice!==''&&product.costPrice!==undefined&&product.costPrice!==null?Number(product.costPrice):0,
   stock:Number(product.stock),
   ...(product.lowStockThreshold!==''&&{lowStockThreshold:Number(product.lowStockThreshold)}),
+  minOrderQty:Math.max(1, parseInt(product.minOrderQty, 10) || 1),
   description:product.description,
   image:product.image||'',
   status:product.status==='Active'?'ACTIVE':product.status,
@@ -944,10 +945,11 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
                 padding: '10px 12px',
                 fontSize: '12.5px',
                 color: '#334155',
-                lineHeight: 1.5
+                lineHeight: 1.5,
+                whiteSpace: 'pre-line'
               }}
             >
-              {view.description}
+              {parseProductDetails(view.description).summary || (view.description && !view.description.trim().startsWith('{') ? view.description : 'Product specifications and highlights configured')}
             </div>
           </div>
         )}
@@ -1152,15 +1154,20 @@ export function ProductForm(){
  const [isComingSoon, setIsComingSoon] = useState(() => {
    return isProductComingSoon(routeProduct || (id ? { id } : null), storeSettings);
  });
- const [form,setForm]=useState(() => ({
-   ...emptyProduct,
-   ...(routeProduct ? {
-     ...routeProduct,
-     mrp: routeProduct.mrp !== undefined ? String(routeProduct.mrp) : '',
-     price: routeProduct.price !== undefined ? String(routeProduct.price) : '',
-     stock: routeProduct.stock !== undefined ? String(routeProduct.stock) : ''
-   } : {})
- }));
+ const [form,setForm]=useState(() => {
+   const initDetails = parseProductDetails(routeProduct?.description || '');
+   const cleanDesc = initDetails.summary || (routeProduct?.description && !routeProduct.description.trim().startsWith('{') ? routeProduct.description : '');
+   return {
+     ...emptyProduct,
+     ...(routeProduct ? {
+       ...routeProduct,
+       description: cleanDesc,
+       mrp: routeProduct.mrp !== undefined ? String(routeProduct.mrp) : '',
+       price: routeProduct.price !== undefined ? String(routeProduct.price) : '',
+       stock: routeProduct.stock !== undefined ? String(routeProduct.stock) : ''
+     } : {})
+   };
+ });
  const [loading,setLoading]=useState(Boolean(id && !routeProduct));
  const [saving,setSaving]=useState(false);
  const [imageList, setImageList] = useState(() => {
@@ -1283,8 +1290,10 @@ export function ProductForm(){
         if (!active) return;
         const cachedHi = getCachedHindi(product.name);
         let nameHi = product.nameHi || cachedHi || '';
-        setForm({ ...emptyProduct, ...product, ...(nameHi ? { nameHi } : {}) });
-        setDetails(parseProductDetails(product.description));
+        const parsedDesc = parseProductDetails(product.description || '');
+        const cleanDesc = parsedDesc.summary || (product.description && !product.description.trim().startsWith('{') ? product.description : '');
+        setForm({ ...emptyProduct, ...product, description: cleanDesc, ...(nameHi ? { nameHi } : {}) });
+        setDetails(parsedDesc);
         setIsComingSoon(isProductComingSoon(product, storeSettings));
         if (!nameHi && product.name) {
           try {
@@ -1543,15 +1552,39 @@ export function ProductForm(){
     notify(`Image cropped at ${Math.round((savedConfig?.zoom || 1) * 100)}% zoom`);
   };
  const [genIndex, setGenIndex] = useState(0);
+ const [generatingDesc, setGeneratingDesc] = useState(false);
 
- const handleGenerateDescription = () => {
+ const handleGenerateDescription = async () => {
    if (!form.name || !form.name.trim()) {
      return notify('Please enter the Product Name first to generate description', 'error');
    }
-   const generated = generateProductDescription(form.name, form.category, genIndex);
-   set('description', generated);
-   setGenIndex((prev) => prev + 1);
-   notify('✨ Product description generated successfully');
+   setGeneratingDesc(true);
+   try {
+     const res = await adminService.generateProductDetails({
+       name: form.name.trim(),
+       category: form.category,
+       unit: form.unit,
+       brand: details?.brand || ''
+     });
+     const generated = res?.description || generateProductDescription(form.name, form.category, genIndex);
+     set('description', generated);
+     setDetails(prev => ({
+       ...prev,
+       summary: generated,
+       ...(res?.brand && !prev.brand ? { brand: res.brand } : {}),
+       ...(res?.dietaryPreference !== undefined && !prev.dietaryPreference ? { dietaryPreference: res.dietaryPreference } : {})
+     }));
+     setGenIndex((prev) => prev + 1);
+     notify('✨ High-power description generated successfully');
+   } catch {
+     const generated = generateProductDescription(form.name, form.category, genIndex);
+     set('description', generated);
+     setDetails(prev => ({ ...prev, summary: generated }));
+     setGenIndex((prev) => prev + 1);
+     notify('✨ Product description generated');
+   } finally {
+     setGeneratingDesc(false);
+   }
  };
 
  const save = async event => {
@@ -1599,7 +1632,10 @@ export function ProductForm(){
         throw new Error('At least 1 product image is required (Slot 1: Cover image)');
       }
 
-      const finalDesc = formatProductDetails(details) || form.description;
+      const finalSummary = (form.description !== undefined && form.description !== null)
+        ? form.description.trim()
+        : (details.summary || '').trim();
+      const finalDesc = formatProductDetails({ ...details, summary: finalSummary }) || finalSummary || '';
       let next = { ...form, description: finalDesc, image: finalUrls[0], images: finalUrls };
       if (next.name && next.nameHi) {
         try {
@@ -2015,13 +2051,14 @@ export function ProductForm(){
       <div className="full" style={{ gridColumn: '1 / -1' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
           <label style={{ margin: 0, fontSize: '12px', fontWeight: 700 }}>
-            Description *
+            Description <span style={{ color: '#64748b', fontWeight: 400, fontSize: '11px' }}>(Optional)</span>
           </label>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button
               type="button"
               onClick={handleGenerateDescription}
+              disabled={generatingDesc}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -2033,19 +2070,23 @@ export function ProductForm(){
                 borderRadius: '8px',
                 fontSize: '11.5px',
                 fontWeight: 700,
-                cursor: 'pointer',
+                cursor: generatingDesc ? 'not-allowed' : 'pointer',
+                opacity: generatingDesc ? 0.75 : 1,
                 transition: 'all 0.15s ease'
               }}
-              title="Generate description based on product name and category"
+              title="Generate high-power description based on product name and category"
             >
               <Sparkles size={13} color="#059669" />
-              <span>{form.description ? '✨ Re-generate Description' : '✨ Auto-Generate Description'}</span>
+              <span>{generatingDesc ? 'Generating…' : (form.description ? '✨ Re-generate Description' : '✨ Auto-Generate Description')}</span>
             </button>
 
             {form.description && (
               <button
                 type="button"
-                onClick={() => set('description', '')}
+                onClick={() => {
+                  set('description', '');
+                  setDetails(prev => ({ ...prev, summary: '' }));
+                }}
                 style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', cursor: 'pointer' }}
                 title="Clear text to enter manually"
               >
@@ -2056,11 +2097,14 @@ export function ProductForm(){
         </div>
 
         <textarea
-          required
           rows={3}
-          value={form.description}
+          value={form.description || ''}
           placeholder="Enter description manually or click '✨ Auto-Generate Description'..."
-          onChange={(event) => set('description', event.target.value)}
+          onChange={(event) => {
+            const val = event.target.value;
+            set('description', val);
+            setDetails(prev => ({ ...prev, summary: val }));
+          }}
           style={{
             width: '100%',
             padding: '10px 12px',
@@ -2086,6 +2130,10 @@ export function ProductForm(){
      category={form.category}
      unit={form.unit}
      image={imageList[0]?.preview || imageList[0]?.url || form.image}
+     onDescriptionChange={(desc) => {
+       set('description', desc);
+       setDetails(prev => ({ ...prev, summary: desc }));
+     }}
    />
 
    <section className="admin-card">
@@ -2227,6 +2275,23 @@ export function ProductForm(){
         />
       </label>
       {field('stock','Stock *','number')}
+      <label>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Min Order Qty</span>
+          <span style={{ fontSize: '10px', color: '#059669', fontWeight: 700 }}>Min to Cart</span>
+        </div>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          placeholder="1"
+          value={form.minOrderQty ?? 1}
+          onChange={e => set('minOrderQty', Math.max(1, parseInt(e.target.value, 10) || 1))}
+        />
+        <small style={{ color: '#64748b', fontSize: '10.5px', marginTop: '2px', display: 'block' }}>
+          Minimum units a customer must add (Default: 1)
+        </small>
+      </label>
       <label>Status<select value={form.status} onChange={event=>set('status',event.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
       <label className="check-line"><input type="checkbox" checked={form.featured} onChange={event=>set('featured',event.target.checked)}/> Featured product</label>
       <label className="check-line"><input type="checkbox" checked={form.bestSeller} onChange={event=>set('bestSeller',event.target.checked)}/> Best seller</label>

@@ -1,16 +1,45 @@
 import React, { useState } from 'react';
-import { Sparkles, Check, AlertCircle, Info, Plus, Trash2, Heart, Wand2 } from 'lucide-react';
+import { Sparkles, Check, AlertCircle, Info, Plus, Trash2, Heart, Wand2, Loader2, Tag } from 'lucide-react';
 import { generateDetailedSpecifications } from '../../utils/productDetails';
+import { adminService } from '../../services/admin.service';
 
 export default function ProductSpecificationsEditor({
-  details,
+  details = {},
   onChange,
   productName = '',
   category = '',
   unit = '',
-  image = ''
+  image = '',
+  onDescriptionChange
 }) {
   const [selectedPreset, setSelectedPreset] = useState('');
+  const [generating, setGenerating] = useState(false);
+
+  const normalizeDietPreset = (raw) => {
+    if (!raw) return '';
+    const l = String(raw).trim().toLowerCase();
+    if (l === 'veg' || l === 'vegetarian' || l.includes('vegetarian')) return 'Veg';
+    if (l === 'non-veg' || l === 'non-vegetarian' || l.includes('non-veg')) return 'Non-Veg';
+    if (l === 'vegan' || l.includes('vegan')) return 'Vegan';
+    if (l === 'eggless' || l.includes('eggless')) return 'Eggless';
+    if (l === 'organic' || l.includes('organic')) return 'Organic';
+    if (l === 'jain' || l.includes('jain')) return 'Jain';
+    if (l === 'gluten-free' || l.includes('gluten')) return 'Gluten-Free';
+    if (l === 'sugar-free' || l.includes('sugar')) return 'Sugar-Free';
+    if (l === 'keto' || l.includes('keto')) return 'Keto';
+    if (l === 'ayurvedic' || l.includes('ayurvedic') || l.includes('herbal')) return 'Ayurvedic';
+    return '__custom__';
+  };
+
+  const [isCustomDiet, setIsCustomDiet] = useState(() => {
+    const val = details.dietaryPreference || '';
+    return Boolean(val && normalizeDietPreset(val) === '__custom__');
+  });
+
+  React.useEffect(() => {
+    const val = details.dietaryPreference || '';
+    setIsCustomDiet(Boolean(val && normalizeDietPreset(val) === '__custom__'));
+  }, [details.dietaryPreference]);
 
   const update = (key, value) => {
     onChange(prev => ({
@@ -44,11 +73,70 @@ export default function ProductSpecificationsEditor({
     update('keyFeatures', next);
   };
 
-  // Smart Auto-Generate based on this exact product's name, category & unit
-  const handleAutoGenerate = (presetOverrideName = null) => {
+  // Smart High-Power Auto-Generate using Backend AI & Semantic Knowledge Engine
+  const handleAutoGenerate = async (presetOverrideName = null) => {
     const nameToUse = presetOverrideName || productName || 'Daily Grocery Item';
+    setGenerating(true);
+    try {
+      const res = await adminService.generateProductDetails({
+        name: nameToUse,
+        category,
+        unit,
+        brand: details?.brand || ''
+      });
+      if (res && typeof res === 'object') {
+        const dietVal = res.dietaryPreference !== undefined ? res.dietaryPreference : (details?.dietaryPreference || '');
+        // Preserve admin's custom summary if they already entered one
+        const currentSummary = (details?.summary && String(details.summary).trim()) || '';
+        const generatedSummary = res.description || '';
+        const finalSummary = currentSummary || generatedSummary;
+
+        if (generatedSummary && onDescriptionChange && !currentSummary) {
+          onDescriptionChange(generatedSummary);
+        }
+
+        onChange(prev => ({
+          ...prev,
+          summary: finalSummary,
+          brand: res.brand || prev.brand || '',
+          productType: res.productType || prev.productType || '',
+          dietaryPreference: dietVal,
+          flavour: res.flavour || prev.flavour || '',
+          itemForm: res.itemForm || prev.itemForm || '',
+          weight: res.weight || unit || prev.weight || '',
+          packagingType: res.packagingType || prev.packagingType || 'Packet',
+          itemsIncluded: res.itemsIncluded || prev.itemsIncluded || '1 x Pack',
+          countryOfOrigin: res.countryOfOrigin || prev.countryOfOrigin || 'India',
+          shelfLife: res.shelfLife || prev.shelfLife || '',
+          keyFeatures: Array.isArray(res.keyFeatures) && res.keyFeatures.length > 0 ? res.keyFeatures : (prev.keyFeatures || []),
+          ingredients: res.ingredients || prev.ingredients || '',
+          allergens: res.allergens || prev.allergens || '',
+          storage: res.storage || prev.storage || '',
+          nutrition: {
+            serving: 'Per 100g',
+            ...(prev.nutrition || {}),
+            ...(res.nutrition || {})
+          }
+        }));
+        setIsCustomDiet(Boolean(dietVal && !['Veg', 'Non-Veg', 'Vegan', 'Eggless', 'Organic', 'Jain', 'Gluten-Free', 'Sugar-Free', 'Keto', 'Ayurvedic', ''].includes(dietVal)));
+        return;
+      }
+    } catch (err) {
+      console.warn('[Specifications] AI auto-generate fallback:', err);
+    } finally {
+      setGenerating(false);
+    }
+
+    // Local fallback
     const generated = generateDetailedSpecifications(nameToUse, category, unit, image);
-    onChange(generated);
+    const existingSummary = (details?.summary && String(details.summary).trim()) || '';
+    if (generated.summary && onDescriptionChange && !existingSummary) {
+      onDescriptionChange(generated.summary);
+    }
+    onChange(prev => ({
+      ...generated,
+      summary: existingSummary || generated.summary || ''
+    }));
   };
 
   const handlePresetChange = (e) => {
@@ -60,6 +148,16 @@ export default function ProductSpecificationsEditor({
       handleAutoGenerate();
     } else {
       handleAutoGenerate(val);
+    }
+  };
+
+  const handleDietSelectChange = (e) => {
+    const val = e.target.value;
+    if (val === '__custom__') {
+      setIsCustomDiet(true);
+    } else {
+      setIsCustomDiet(false);
+      update('dietaryPreference', val);
     }
   };
 
@@ -83,6 +181,7 @@ export default function ProductSpecificationsEditor({
           <button
             type="button"
             onClick={() => handleAutoGenerate()}
+            disabled={generating}
             style={{
               background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
               border: 'none',
@@ -91,16 +190,17 @@ export default function ProductSpecificationsEditor({
               fontSize: '12px',
               fontWeight: 800,
               color: '#ffffff',
-              cursor: 'pointer',
+              cursor: generating ? 'not-allowed' : 'pointer',
+              opacity: generating ? 0.75 : 1,
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
               boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)'
             }}
-            title="Auto-fill specifications uniquely tailored to this product's name, category & unit"
+            title="Auto-fill high-power specifications using Backend AI & Semantic Knowledge Engine"
           >
-            <Wand2 size={14} color="#ffffff" />
-            <span>✨ Auto-Fill from Name & Category</span>
+            {generating ? <Loader2 size={14} className="spin" color="#ffffff" /> : <Wand2 size={14} color="#ffffff" />}
+            <span>{generating ? '✨ Generating Specifications…' : '✨ Auto-Fill from Name & Category'}</span>
           </button>
 
           <select
@@ -174,21 +274,59 @@ export default function ProductSpecificationsEditor({
         </div>
 
         <div>
-          <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-            Dietary Preference / Speciality
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 700, margin: 0 }}>
+              Dietary Preference / Speciality
+            </label>
+            {details.dietaryPreference && (
+              <span style={{ fontSize: '10px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                Live User Tag: {details.dietaryPreference}
+              </span>
+            )}
+          </div>
           <select
-            value={details.dietaryPreference || ''}
-            onChange={e => update('dietaryPreference', e.target.value)}
+            value={isCustomDiet ? '__custom__' : normalizeDietPreset(details.dietaryPreference)}
+            onChange={handleDietSelectChange}
             style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
           >
             <option value="Veg">🟢 Vegetarian (Veg)</option>
-            <option value="Non-Veg">🔴 Non-Vegetarian</option>
+            <option value="Non-Veg">🔴 Non-Vegetarian (Non-Veg)</option>
             <option value="Vegan">🌱 100% Vegan</option>
             <option value="Eggless">🥚 Eggless</option>
             <option value="Organic">🌿 Certified Organic</option>
+            <option value="Jain">🙏 Jain Friendly (No Onion/Garlic)</option>
+            <option value="Gluten-Free">🌾 100% Gluten-Free</option>
+            <option value="Sugar-Free">🚫 Sugar-Free</option>
+            <option value="Keto">🥑 Keto Friendly</option>
+            <option value="Ayurvedic">🍃 100% Ayurvedic / Herbal</option>
+            <option value="__custom__">✏️ Custom Speciality / Diet (Type manually)…</option>
             <option value="">⚪ Not Applicable (Non-Food / Utility)</option>
           </select>
+
+          {isCustomDiet && (
+            <div style={{ marginTop: '6px' }}>
+              <input
+                type="text"
+                placeholder="Type custom speciality (e.g. Cold Pressed, High Protein, Sugar Free)"
+                value={details.dietaryPreference || ''}
+                onChange={e => update('dietaryPreference', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 10px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #10b981',
+                  background: '#f0fdf4',
+                  fontSize: '12.5px',
+                  boxSizing: 'border-box',
+                  color: '#065f46',
+                  fontWeight: 600
+                }}
+              />
+              <small style={{ fontSize: '10.5px', color: '#047857', display: 'block', marginTop: '2px' }}>
+                ✓ Admin custom tag: This exact speciality will appear directly to the customer on the product page.
+              </small>
+            </div>
+          )}
         </div>
 
         <div>

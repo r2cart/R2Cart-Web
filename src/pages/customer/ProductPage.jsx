@@ -28,6 +28,7 @@ import ProductEnquiryModal from '../../components/customer/ProductEnquiryModal';
 import { isProductComingSoon } from '../../config/homeLayout';
 import { packOptions } from '../../utils/products';
 import { parseProductDetails } from '../../utils/productDetails';
+import { catalogService } from '../../services/catalog.service';
 
 export function ProductPage() {
   const { id } = useParams();
@@ -42,7 +43,28 @@ export function ProductPage() {
   } = useApp();
   const { t, tCat, tProd, tEta } = useLanguage();
 
-  const product = products.find((item) => item.id === id || item.slug === id);
+  const appProduct = products.find((item) => item.id === id || item.slug === id);
+  const [product, setProduct] = useState(appProduct || null);
+
+  useEffect(() => {
+    const found = products.find((item) => item.id === id || item.slug === id);
+    if (found) {
+      setProduct(prev => (prev ? { ...found, ...prev } : found));
+    }
+  }, [id, products]);
+
+  useEffect(() => {
+    let active = true;
+    if (!id) return;
+    catalogService.getProduct(id)
+      .then(fresh => {
+        if (active && fresh) {
+          setProduct(fresh);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [id]);
 
   const gallery = (product?.images && product.images.length > 0)
     ? product.images
@@ -120,8 +142,13 @@ export function ProductPage() {
   // Parse rich structured details (or fallback to plain description with auto-inference)
   const details = parseProductDetails(product.description, product);
   const dietaryPref = details.dietaryPreference || '';
-  const isVeg = dietaryPref.toLowerCase().includes('veg') && !dietaryPref.toLowerCase().includes('non');
-  const isNonVeg = dietaryPref.toLowerCase().includes('non-veg');
+  const dLower = dietaryPref.toLowerCase();
+  const isNonVeg = dLower.includes('non') || dLower.includes('chicken') || dLower.includes('meat') || dLower.includes('fish') || dLower.includes('mutton');
+  const isVegan = dLower.includes('vegan');
+  const isEggless = dLower.includes('eggless');
+  const isOrganic = dLower.includes('organic');
+  const isJain = dLower.includes('jain');
+  const isVeg = !isNonVeg && !isVegan && (dLower.includes('veg') || dLower === 'vegetarian');
   const hasNutrition = details.nutrition && Object.entries(details.nutrition).some(([k, v]) => k !== 'serving' && Boolean(v));
 
   return (
@@ -401,6 +428,30 @@ export function ProductPage() {
           background: #fef2f2;
           border-color: #fecaca;
           color: #b91c1c;
+        }
+
+        .dietary-badge-pill.vegan {
+          background: #f0fdf4;
+          border-color: #86efac;
+          color: #15803d;
+        }
+
+        .dietary-badge-pill.eggless {
+          background: #fefce8;
+          border-color: #fde047;
+          color: #a16207;
+        }
+
+        .dietary-badge-pill.organic {
+          background: #ecfdf5;
+          border-color: #6ee7b7;
+          color: #047857;
+        }
+
+        .dietary-badge-pill.jain {
+          background: #fef3c7;
+          border-color: #fcd34d;
+          color: #b45309;
         }
 
         /* Specifications section */
@@ -736,7 +787,7 @@ export function ProductPage() {
               )}
 
               {dietaryPref && (
-                <div className={`dietary-badge-pill ${isNonVeg ? 'non-veg' : ''}`}>
+                <div className={`dietary-badge-pill ${isNonVeg ? 'non-veg' : isVegan ? 'vegan' : isEggless ? 'eggless' : isOrganic ? 'organic' : isJain ? 'jain' : ''}`}>
                   {isVeg ? (
                     <span className="fssai-indicator veg" title="Vegetarian">
                       <span className="fssai-circle" />
@@ -745,6 +796,14 @@ export function ProductPage() {
                     <span className="fssai-indicator non-veg" title="Non-Vegetarian">
                       <span className="fssai-triangle" />
                     </span>
+                  ) : isVegan ? (
+                    <span style={{ fontSize: '13px', lineHeight: 1 }} title="100% Vegan">🌱</span>
+                  ) : isEggless ? (
+                    <span style={{ fontSize: '13px', lineHeight: 1 }} title="Eggless">🥚</span>
+                  ) : isOrganic ? (
+                    <span style={{ fontSize: '13px', lineHeight: 1 }} title="Certified Organic">🌿</span>
+                  ) : isJain ? (
+                    <span style={{ fontSize: '13px', lineHeight: 1 }} title="Jain Friendly">🙏</span>
                   ) : (
                     <Leaf size={13} color="#059669" />
                   )}
@@ -917,8 +976,15 @@ export function ProductPage() {
                   </Button>
                 ) : (
                   <>
-                    <div style={{ minWidth: '130px' }}>
-                      <QuantitySelector id={product.id} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ minWidth: '130px' }}>
+                        <QuantitySelector id={product.id} product={product} />
+                      </div>
+                      {Number(product.minOrderQty) > 1 && (
+                        <div style={{ fontSize: '11px', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, width: 'fit-content' }}>
+                          ⚠️ Min Order: {product.minOrderQty} units
+                        </div>
+                      )}
                     </div>
                     {product.orderMode === 'BOTH' && (
                       <Button
@@ -1061,7 +1127,7 @@ export function ProductPage() {
               )}
               {dietaryPref && (
                 <div className="spec-item">
-                  <span className="label">Dietary Preference</span>
+                  <span className="label">Dietary Preference / Speciality</span>
                   <span className="val">{dietaryPref}</span>
                 </div>
               )}
@@ -1207,16 +1273,16 @@ export function ProductPage() {
               </div>
             </div>
 
-            {details.summary && (
+            {details.summary ? (
               <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
                 <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', margin: '0 0 6px' }}>
                   About this item
                 </h3>
-                <p style={{ margin: 0, fontSize: '12.5px', color: '#475569', lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: '12.5px', color: '#475569', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                   {details.summary}
                 </p>
               </div>
-            )}
+            ) : null}
 
             <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
               <small style={{ color: '#94a3b8', fontSize: '11px', display: 'block', lineHeight: 1.5 }}>
