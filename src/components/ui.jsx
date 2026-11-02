@@ -1,6 +1,6 @@
 import {AlertCircle,AlertTriangle,ArrowRight,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Clock,Globe,Heart,MapPin,Minus,PackageOpen,PhoneCall,Plus,Search,SearchX,ShoppingBag,Sparkles,Star,Trash2,X,Zap} from 'lucide-react';
 import {Link} from 'react-router-dom'; import {useApp} from '../context/AppContext'; import {useLanguage} from '../context/LanguageContext';
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useMemo} from 'react';
 import {createPortal} from 'react-dom';
 import {packOptions} from '../utils/products';
 import {isProductComingSoon} from '../config/homeLayout';
