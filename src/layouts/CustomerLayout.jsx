@@ -1586,6 +1586,8 @@ import {subscribeToPush,playNotificationSound} from '../services/pushNotificatio
 
 export default function CustomerLayout({children}){
  const {user,storeSettings,locationOpen,setLocationOpen,addressesLoaded,activeDeliveryRules,activeAddress,notify}=useApp();
+ const isVillageClosed = Boolean(activeDeliveryRules?.isOpenNow === false || activeDeliveryRules?.isClosed);
+ const isVillageExplicitlyOpen = Boolean(activeDeliveryRules?.isOpenNow === true && !activeDeliveryRules?.isClosed);
  const nav=useNavigate();
  const [customerAlert,setCustomerAlert]=useState(null);
  const [announcement,setAnnouncement]=useState(null);
