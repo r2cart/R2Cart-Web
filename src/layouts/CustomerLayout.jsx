@@ -1980,10 +1980,10 @@ export default function CustomerLayout({children}){
             <span style={{ fontSize: '16px', flexShrink: 0 }}>🌙</span>
             <div style={{ minWidth: 0, flex: 1 }}>
               <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Delivery Closed for ${vName} (Store Hours: ${formattedHours})
+                Delivery Closed for {vName} (Store Hours: {formattedHours})
               </span>
               <span style={{ fontSize: '11px', color: '#fef3c7', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.25 }}>
-                Instant delivery to ${vName} is currently closed. You can schedule your order for upcoming delivery slots!
+                Instant delivery to {vName} is currently closed. You can schedule your order for upcoming delivery slots!
               </span>
             </div>
           </div>

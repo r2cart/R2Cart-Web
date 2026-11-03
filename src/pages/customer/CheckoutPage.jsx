@@ -157,6 +157,9 @@ export function CheckoutPage() {
     (storeSettings?.isOrderPaused && (emergencyType === 'ALL_ORDERS' || emergencyType === 'STORE_CLOSE'))
   );
 
+  // Village-level operating hours closure check
+  const isVillageClosed = Boolean(rules?.isOpenNow === false || rules?.isClosed);
+
   // Granular order type permissions derived from store schedule engine & village operating hours
   const allowImmediate = !isStoreFullyClosed && !isVillageClosed && (
     effectiveStatus !== undefined && effectiveStatus !== null
@@ -184,9 +187,6 @@ export function CheckoutPage() {
   const nav = useNavigate();
   const [selected, setSelected] = useState(() => activeAddress?.id || null);
   const [placing, setPlacing] = useState(false);
-
-  // selectedAddress & rules derived at top of component
-  const isVillageClosed = Boolean(rules?.isOpenNow === false || rules?.isClosed);
   const [addressModal, setAddressModal] = useState(false);
 
   // Delivery instructions state
