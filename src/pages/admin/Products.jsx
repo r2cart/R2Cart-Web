@@ -1175,13 +1175,25 @@ export function ProductForm(){
    const imgs = (routeProduct.images && routeProduct.images.length > 0)
      ? routeProduct.images
      : (routeProduct.image ? [routeProduct.image] : []);
-   return imgs.map((url, i) => ({
-     id: `img-${i}-${Date.now()}`,
-     url,
-     file: null,
-     preview: url,
-     originalSrc: url
-   }));
+   const desc = parseProductDetails(routeProduct.description || '');
+   return imgs.map((url, i) => {
+     const savedCrop = desc.imageCrops?.[url] || desc.imageCrops?.[i] || desc.imageCrops?.[String(i)];
+     const orig = desc.originalImages?.[url] || desc.originalImages?.[i] || desc.originalImages?.[String(i)] || url;
+     return {
+       id: `img-${i}-${Date.now()}`,
+       url,
+       file: null,
+       preview: url,
+       originalSrc: orig,
+       cropConfig: savedCrop ? {
+         zoom: savedCrop.zoom !== undefined ? Number(savedCrop.zoom) : 1,
+         rotation: savedCrop.rotation || 0,
+         offset: savedCrop.offset || { x: 0, y: 0 },
+         flipH: Boolean(savedCrop.flipH),
+         flipV: Boolean(savedCrop.flipV)
+       } : null
+     };
+   });
  });
  const [packs, setPacks] = useState([]);
  const [loadError, setLoadError] = useState(''), [reload, setReload] = useState(0);
@@ -1307,13 +1319,24 @@ export function ProductForm(){
         const imgs = (product.images && product.images.length > 0)
           ? product.images
           : (product.image ? [product.image] : []);
-        setImageList(imgs.map((url, i) => ({
-          id: `img-${i}-${Date.now()}`,
-          url,
-          file: null,
-          preview: url,
-          originalSrc: url
-        })));
+        setImageList(imgs.map((url, i) => {
+          const savedCrop = parsedDesc.imageCrops?.[url] || parsedDesc.imageCrops?.[i] || parsedDesc.imageCrops?.[String(i)];
+          const orig = parsedDesc.originalImages?.[url] || parsedDesc.originalImages?.[i] || parsedDesc.originalImages?.[String(i)] || url;
+          return {
+            id: `img-${i}-${Date.now()}`,
+            url,
+            file: null,
+            preview: url,
+            originalSrc: orig,
+            cropConfig: savedCrop ? {
+              zoom: savedCrop.zoom !== undefined ? Number(savedCrop.zoom) : 1,
+              rotation: savedCrop.rotation || 0,
+              offset: savedCrop.offset || { x: 0, y: 0 },
+              flipH: Boolean(savedCrop.flipH),
+              flipV: Boolean(savedCrop.flipV)
+            } : null
+          };
+        }));
 
         const otherPacks = Array.isArray(variants)
           ? variants
@@ -1530,7 +1553,15 @@ export function ProductForm(){
     if (!srcToUse) return;
     setCropTargetIndex(index);
     setRawImageToCrop(srcToUse);
-    setCropConfig({ zoom: 1, rotation: 0, offset: { x: 0, y: 0 } });
+    const existingCrop = item.cropConfig || details.imageCrops?.[item.url] || details.imageCrops?.[index] || details.imageCrops?.[String(index)];
+    const configToApply = existingCrop ? {
+      zoom: existingCrop.zoom !== undefined ? Number(existingCrop.zoom) : 1,
+      rotation: existingCrop.rotation || 0,
+      offset: existingCrop.offset || { x: 0, y: 0 },
+      flipH: Boolean(existingCrop.flipH),
+      flipV: Boolean(existingCrop.flipV)
+    } : { zoom: 1, rotation: 0, offset: { x: 0, y: 0 }, flipH: false, flipV: false };
+    setCropConfig(configToApply);
     setCropperOpen(true);
   };
 
@@ -1543,8 +1574,16 @@ export function ProductForm(){
       setImageList(prev => prev.map((item, i) => i === cropTargetIndex ? {
         ...item,
         file: croppedFile,
-        preview: croppedPreviewUrl
+        preview: croppedPreviewUrl,
+        cropConfig: savedConfig
       } : item));
+      setDetails(prev => ({
+        ...prev,
+        imageCrops: {
+          ...(prev.imageCrops || {}),
+          [cropTargetIndex]: savedConfig
+        }
+      }));
     }
     if (savedConfig) setCropConfig(savedConfig);
     setCropperOpen(false);
@@ -1632,10 +1671,39 @@ export function ProductForm(){
         throw new Error('At least 1 product image is required (Slot 1: Cover image)');
       }
 
+      // Collect image crop configs and original image sources
+      const savedCrops = { ...(details.imageCrops || {}) };
+      const savedOriginals = { ...(details.originalImages || {}) };
+      imageList.forEach((item, idx) => {
+        const cfg = item.cropConfig || details.imageCrops?.[idx];
+        if (cfg) {
+          savedCrops[idx] = cfg;
+          if (finalUrls[idx]) {
+            savedCrops[finalUrls[idx]] = cfg;
+          }
+        }
+        if (item.originalSrc) {
+          savedOriginals[idx] = item.originalSrc;
+          if (finalUrls[idx]) {
+            savedOriginals[finalUrls[idx]] = item.originalSrc;
+          }
+        }
+      });
+
       const finalSummary = (form.description !== undefined && form.description !== null)
         ? form.description.trim()
         : (details.summary || '').trim();
-      const finalDesc = formatProductDetails({ ...details, summary: finalSummary }) || finalSummary || '';
+      const finalDesc = formatProductDetails({
+        ...details,
+        summary: finalSummary,
+        imageCrops: savedCrops,
+        originalImages: savedOriginals
+      }) || finalSummary || '';
+      try {
+        if (id || form.name) {
+          localStorage.setItem(`r2cart_crops_${id || form.name}`, JSON.stringify(savedCrops));
+        }
+      } catch {}
       let next = { ...form, description: finalDesc, image: finalUrls[0], images: finalUrls };
       if (next.name && next.nameHi) {
         try {

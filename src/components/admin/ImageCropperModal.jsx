@@ -68,11 +68,11 @@ export default function ImageCropperModal({
   onCropDone,
   onCancel
 }) {
-  const [zoom, setZoom] = useState(initialZoom || 1);
+  const [zoom, setZoom] = useState(typeof initialZoom === 'number' && initialZoom > 0 ? initialZoom : 1);
   const [rotation, setRotation] = useState(initialRotation || 0);
   const [offset, setOffset] = useState(initialOffset || { x: 0, y: 0 });
-  const [flipH, setFlipH] = useState(initialFlipH || false);
-  const [flipV, setFlipV] = useState(initialFlipV || false);
+  const [flipH, setFlipH] = useState(Boolean(initialFlipH));
+  const [flipV, setFlipV] = useState(Boolean(initialFlipV));
   const [showGrid, setShowGrid] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -96,20 +96,24 @@ export default function ImageCropperModal({
     renderCropToContext(ctx, 600, img, zoom, rotation, offset, flipH, flipV);
   }, [zoom, rotation, offset, flipH, flipV]);
 
-  // Load image object whenever imageSrc changes
+  // Load image object whenever imageSrc or initial props change
   useEffect(() => {
     if (!open || !imageSrc) return;
 
-    setZoom(initialZoom || 1);
+    const startingZoom = typeof initialZoom === 'number' && initialZoom > 0 ? initialZoom : 1;
+    setZoom(startingZoom);
     setRotation(initialRotation || 0);
     setOffset(initialOffset || { x: 0, y: 0 });
-    setFlipH(initialFlipH || false);
-    setFlipV(initialFlipV || false);
+    setFlipH(Boolean(initialFlipH));
+    setFlipV(Boolean(initialFlipV));
     setImageLoaded(false);
 
     let active = true;
+    const isBlobOrData = imageSrc.startsWith('blob:') || imageSrc.startsWith('data:');
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!isBlobOrData) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = imageSrc;
 
     img.onload = () => {
@@ -316,21 +320,62 @@ export default function ImageCropperModal({
       // Draw with identical transform function to 800x800
       renderCropToContext(exportCtx, 800, img, zoom, rotation, offset, flipH, flipV);
 
-      exportCanvas.toBlob(
-        (blob) => {
-          setIsProcessing(false);
-          if (!blob) return;
-          const file = new File([blob], `product-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          const previewUrl = URL.createObjectURL(blob);
-          onCropDone(file, previewUrl, { zoom, rotation, offset, flipH, flipV });
-        },
-        'image/jpeg',
-        0.92
-      );
+      const finishCrop = (blob) => {
+        setIsProcessing(false);
+        if (!blob) {
+          throw new Error('Failed to create image blob from crop.');
+        }
+        const file = new File([blob], `product-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const previewUrl = URL.createObjectURL(blob);
+        onCropDone(file, previewUrl, { zoom, rotation, offset, flipH, flipV });
+      };
+
+      if (exportCanvas.toBlob) {
+        exportCanvas.toBlob(
+          (blob) => {
+            if (blob) {
+              finishCrop(blob);
+            } else {
+              // Fallback to dataURL
+              try {
+                const dataUrl = exportCanvas.toDataURL('image/jpeg', 0.92);
+                const arr = dataUrl.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                  u8arr[n] = bstr.charCodeAt(n);
+                }
+                const fallbackBlob = new Blob([u8arr], { type: mime });
+                finishCrop(fallbackBlob);
+              } catch (fallbackErr) {
+                setIsProcessing(false);
+                console.error('Fallback export error:', fallbackErr);
+                alert('Could not export cropped image. Please check CORS permissions or try choosing from your device.');
+              }
+            }
+          },
+          'image/jpeg',
+          0.92
+        );
+      } else {
+        const dataUrl = exportCanvas.toDataURL('image/jpeg', 0.92);
+        const arr = dataUrl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const fallbackBlob = new Blob([u8arr], { type: mime });
+        finishCrop(fallbackBlob);
+      }
     } catch (err) {
       setIsProcessing(false);
       console.error('Canvas export error:', err);
-      alert('Security note: Could not export crop because the pasted image URL has restricted CORS permissions. Please download the image to your computer and choose it from your device.');
+      alert('Security note: Could not export crop because the image source has restricted CORS permissions. Please download the image to your computer and choose it from your device.');
     }
   };
 
@@ -451,7 +496,7 @@ export default function ImageCropperModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <button
               type="button"
-              onClick={() => zoomToPoint(zoom - 0.15, 150, 150)}
+              onClick={() => zoomToPoint(zoom - 0.1, 150, 150)}
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
@@ -480,7 +525,7 @@ export default function ImageCropperModal({
 
             <button
               type="button"
-              onClick={() => zoomToPoint(zoom + 0.15, 150, 150)}
+              onClick={() => zoomToPoint(zoom + 0.1, 150, 150)}
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
@@ -515,24 +560,25 @@ export default function ImageCropperModal({
           </div>
 
           {/* Quick Zoom Preset Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginBottom: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, marginRight: '2px', textTransform: 'uppercase' }}>
               Zoom:
             </span>
             {[
               { label: 'Fit', action: handleFitContain },
               { label: 'Fill', action: handleFillCover },
+              { label: '90%', action: () => zoomToPoint(0.9, 150, 150), active: Math.round(zoom * 100) === 90 },
               { label: '100%', action: () => zoomToPoint(1.0, 150, 150), active: Math.round(zoom * 100) === 100 },
+              { label: '125%', action: () => zoomToPoint(1.25, 150, 150), active: Math.round(zoom * 100) === 125 },
               { label: '150%', action: () => zoomToPoint(1.5, 150, 150), active: Math.round(zoom * 100) === 150 },
-              { label: '200%', action: () => zoomToPoint(2.0, 150, 150), active: Math.round(zoom * 100) === 200 },
-              { label: '300%', action: () => zoomToPoint(3.0, 150, 150), active: Math.round(zoom * 100) === 300 }
+              { label: '200%', action: () => zoomToPoint(2.0, 150, 150), active: Math.round(zoom * 100) === 200 }
             ].map((p, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={p.action}
                 style={{
-                  padding: '3px 8px',
+                  padding: '3px 7px',
                   borderRadius: '6px',
                   border: `1px solid ${p.active ? '#059669' : '#e2e8f0'}`,
                   background: p.active ? '#ecfdf5' : '#ffffff',

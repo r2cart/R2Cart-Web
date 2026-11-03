@@ -586,7 +586,9 @@ export function parseProductDetails(rawDescription, product = null) {
         keyFeatures: Array.isArray(parsed.keyFeatures)
           ? parsed.keyFeatures.filter(Boolean)
           : (parsed.keyFeatures ? String(parsed.keyFeatures).split('\n').filter(Boolean) : []),
-        customSpecs: Array.isArray(parsed.customSpecs) ? parsed.customSpecs : []
+        customSpecs: Array.isArray(parsed.customSpecs) ? parsed.customSpecs : [],
+        imageCrops: parsed.imageCrops && typeof parsed.imageCrops === 'object' ? parsed.imageCrops : {},
+        originalImages: parsed.originalImages && typeof parsed.originalImages === 'object' ? parsed.originalImages : {}
       };
     } catch {}
   }
@@ -692,6 +694,8 @@ export function formatProductDetails(details) {
     allergens: String(details.allergens || '').trim(),
     storage: String(details.storage || '').trim(),
     nutrition: details.nutrition || {},
-    customSpecs: Array.isArray(details.customSpecs) ? details.customSpecs : []
+    customSpecs: Array.isArray(details.customSpecs) ? details.customSpecs : [],
+    imageCrops: details.imageCrops || {},
+    originalImages: details.originalImages || {}
   });
 }
