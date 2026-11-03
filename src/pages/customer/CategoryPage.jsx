@@ -35,7 +35,7 @@ const PageHead=({eyebrow,title,badge,text})=>(
 
 export function CategoryPage(){
  const {slug}=useParams();
- const {categories,products,storeSettings}=useApp();
+ const {categories,products,storeSettings,refreshProducts}=useApp();
  const active=categories.find(category=>category.slug===slug)||categories[0];
  const [sort,setSort]=useState('popular');
  const [stock,setStock]=useState('all');
@@ -47,6 +47,7 @@ export function CategoryPage(){
 
  useEffect(()=>{
   setCatLoading(true);
+  refreshProducts().catch(()=>{});
   const timer=setTimeout(()=>setCatLoading(false),200);
   return()=>clearTimeout(timer);
  },[slug]);

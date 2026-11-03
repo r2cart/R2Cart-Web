@@ -35,17 +35,25 @@ export function HomePage(){
 
  useEffect(() => {
   let mounted = true;
-  Promise.all([
-   catalogService.getBestSellers().catch(() => null),
-   catalogService.getTopPicks().catch(() => null),
-   catalogService.getActiveMarketing().catch(() => null)
-  ]).then(([bs, tp, mkt]) => {
-   if (!mounted) return;
-   if (bs) setBestSellersData(bs);
-   if (tp) setTopPicksData(tp);
-   if (mkt?.festivalOffers) setFestivalOffers(mkt.festivalOffers);
-  });
-  return () => { mounted = false; };
+  const loadHomeRankings = () => {
+    Promise.all([
+      catalogService.getBestSellers().catch(() => null),
+      catalogService.getTopPicks().catch(() => null),
+      catalogService.getActiveMarketing().catch(() => null)
+    ]).then(([bs, tp, mkt]) => {
+      if (!mounted) return;
+      if (bs) setBestSellersData(bs);
+      if (tp) setTopPicksData(tp);
+      if (mkt?.festivalOffers) setFestivalOffers(mkt.festivalOffers);
+    });
+  };
+
+  loadHomeRankings();
+  window.addEventListener('r2cart:products-updated', loadHomeRankings);
+  return () => {
+    mounted = false;
+    window.removeEventListener('r2cart:products-updated', loadHomeRankings);
+  };
  }, []);
 
  const liveBanners=useMemo(()=>banners.filter(banner=>!banner.status||banner.status==='ACTIVE'),[banners]);

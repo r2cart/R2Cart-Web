@@ -265,12 +265,36 @@ export function AppProvider({children}){
   window.addEventListener('r2cart:banners-updated',refresh);
   window.addEventListener('r2cart:delivery-updated',refresh);
   window.addEventListener('r2cart:settings-updated',handleSettingsUpdated);
+
+  // Auto-revalidate products on tab visibility change or focus
+  let lastProductSync = Date.now();
+  const handleVisibilityOrFocus = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - lastProductSync > 15000) {
+      lastProductSync = Date.now();
+      refreshProducts().catch(() => {});
+      refreshCategories().catch(() => {});
+    }
+  };
+  window.addEventListener('visibilitychange', handleVisibilityOrFocus);
+  window.addEventListener('focus', handleVisibilityOrFocus);
+
+  // Periodic sync every 30 seconds while user is actively viewing so new products propagate quickly
+  const pollInterval = setInterval(() => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      lastProductSync = Date.now();
+      refreshProducts().catch(() => {});
+    }
+  }, 30000);
+
   return()=>{
     window.removeEventListener('r2cart:categories-updated',refresh);
     window.removeEventListener('r2cart:products-updated',refresh);
     window.removeEventListener('r2cart:banners-updated',refresh);
     window.removeEventListener('r2cart:delivery-updated',refresh);
     window.removeEventListener('r2cart:settings-updated',handleSettingsUpdated);
+    window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.removeEventListener('focus', handleVisibilityOrFocus);
+    clearInterval(pollInterval);
   };
  },[]);
  const syncCart=(id,quantity)=>{if(online())customerService.setCartItem(id,quantity).catch(async error=>{notify(error.message,'error');try{const remote=await customerService.cart();setCart(remote.cart)}catch{}})};
