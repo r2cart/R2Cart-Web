@@ -14,6 +14,7 @@ export default function AdminNavbarActions(){
  const [testStatus,setTestStatus]=useState('idle');
  const [perm,setPerm]=useState(()=>(typeof Notification!=='undefined'?Notification.permission:'unsupported'));
  const [read,setRead]=useState(()=>{try{return JSON.parse(localStorage.getItem('r2cart-admin-read-notifications')||'[]')}catch{return []}});
+ const [cleared,setCleared]=useState(()=>{try{return JSON.parse(localStorage.getItem('r2cart-admin-cleared-notifications')||'[]')}catch{return []}});
 
  useEffect(()=>{
   const handlePerm=()=>setPerm(typeof Notification!=='undefined'?Notification.permission:'unsupported');
@@ -125,7 +126,22 @@ export default function AdminNavbarActions(){
  },[q]);
 
  const mark=ids=>{const next=[...new Set([...read,...ids])].slice(-500);setRead(next);localStorage.setItem('r2cart-admin-read-notifications',JSON.stringify(next))};
- const notices=data?.notifications||[],unread=notices.filter(n=>!read.includes(n.id)).length;
+ const clearAll=()=>{
+  const allIds=notices.map(n=>n.id);
+  const next=[...new Set([...cleared,...allIds])].slice(-1000);
+  setCleared(next);
+  localStorage.setItem('r2cart-admin-cleared-notifications',JSON.stringify(next));
+  mark(allIds);
+ };
+ const clearOne=(id,e)=>{
+  if(e){e.preventDefault();e.stopPropagation();}
+  const next=[...new Set([...cleared,id])].slice(-1000);
+  setCleared(next);
+  localStorage.setItem('r2cart-admin-cleared-notifications',JSON.stringify(next));
+ };
+ const allNotices=data?.notifications||[];
+ const notices=allNotices.filter(n=>!cleared.includes(n.id));
+ const unread=notices.filter(n=>!read.includes(n.id)).length;
  const go=path=>{setMenu('');nav(path)};
 
  return <div className="admin-head-actions" ref={root}>
@@ -172,10 +188,28 @@ export default function AdminNavbarActions(){
     <Bell/>
     {unread>0&&<i>{unread>99?'99+':unread}</i>}
    </button>
-   {menu==='notifications'&&<div className="admin-navbar-popover">
-    <div className="row between" style={{marginBottom:'8px'}}>
-     <b>Notifications</b>
-     <button disabled={!unread} onClick={()=>mark(notices.map(n=>n.id))}>Mark all read</button>
+   {menu==='notifications'&&<div className="admin-navbar-popover" style={{ width: '380px', maxWidth: 'calc(100vw - 32px)' }}>
+    <div className="row between" style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid #f1f5f9' }}>
+     <b style={{ fontSize: '14px', color: '#0f172a' }}>Notifications {unread > 0 ? `(${unread})` : ''}</b>
+     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+       <button
+         type="button"
+         disabled={!unread}
+         onClick={()=>mark(notices.map(n=>n.id))}
+         style={{ background: 'none', border: 'none', color: unread ? '#059669' : '#94a3b8', fontSize: '11.5px', fontWeight: 700, cursor: unread ? 'pointer' : 'default', padding: '2px 4px' }}
+       >
+         Mark all read
+       </button>
+       <span style={{ color: '#cbd5e1', fontSize: '11px' }}>·</span>
+       <button
+         type="button"
+         disabled={!notices.length}
+         onClick={clearAll}
+         style={{ background: 'none', border: 'none', color: notices.length ? '#ef4444' : '#94a3b8', fontSize: '11.5px', fontWeight: 700, cursor: notices.length ? 'pointer' : 'default', padding: '2px 4px' }}
+       >
+         Clear all
+       </button>
+     </div>
     </div>
 
     {perm!=='granted'&&perm!=='unsupported'&&(
@@ -218,7 +252,45 @@ export default function AdminNavbarActions(){
      </div>
     )}
 
-    {noticeError?<><p role="alert">{noticeError}</p><button onClick={load}>Try again</button></>:!data?<p>Loading notifications…</p>:!notices.length?<p>No pending alerts. Preferences are managed in Settings.</p>:notices.map(n=><button className={`navbar-result ${read.includes(n.id)?'':'unread'}`} key={n.id} onClick={()=>{mark([n.id]);go(n.path)}}><span><b>{n.title}</b><small>{n.text}</small><small>{new Date(n.date).toLocaleString('en-IN')}</small></span></button>)}
+    {noticeError ? (
+      <><p role="alert">{noticeError}</p><button onClick={load}>Try again</button></>
+    ) : !data ? (
+      <p>Loading notifications…</p>
+    ) : !notices.length ? (
+      <div style={{ padding: '24px 10px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+        🔔 No pending alerts. All clear!
+      </div>
+    ) : (
+      notices.map(n => (
+        <div
+          key={n.id}
+          className={`navbar-result ${read.includes(n.id) ? '' : 'unread'}`}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px', padding: '8px 10px', borderRadius: '8px', marginBottom: '4px' }}
+        >
+          <button
+            type="button"
+            onClick={() => { mark([n.id]); go(n.path); }}
+            style={{ flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', color: 'inherit' }}
+          >
+            <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <b style={{ fontSize: '12.5px', color: '#0f172a' }}>{n.title}</b>
+              <small style={{ color: '#475569', fontSize: '11px' }}>{n.text}</small>
+              <small style={{ color: '#059669', fontWeight: 600, fontSize: '10.5px', marginTop: '2px' }}>
+                ⏰ {new Date(n.date).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })} · {new Date(n.date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' })}
+              </small>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => clearOne(n.id, e)}
+            style={{ background: '#f1f5f9', border: 'none', color: '#64748b', cursor: 'pointer', width: '22px', height: '22px', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: '11px', flexShrink: 0 }}
+            title="Clear notification"
+          >
+            ✕
+          </button>
+        </div>
+      ))
+    )}
    </div>}
   </div>
 

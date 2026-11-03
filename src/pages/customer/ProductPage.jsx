@@ -680,7 +680,7 @@ export function ProductPage() {
                 onClick={() => toggleFavorite(product.id)}
                 aria-label={isFav ? 'Remove from favourites' : 'Save to favourites'}
               >
-                <Heart size={18} fill={isFav ? 'currentColor' : 'none'} strokeWidth={2} />
+                <Heart size={18} fill={isFav ? '#ef4444' : 'none'} color={isFav ? '#ef4444' : '#64748b'} strokeWidth={2} />
               </button>
 
               <div
@@ -1019,11 +1019,13 @@ export function ProductPage() {
                     fontSize: '12.5px',
                     fontWeight: 700,
                     borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
+                    border: isFav ? '1.5px solid #fecdd3' : '1px solid #e2e8f0',
+                    background: isFav ? '#fff1f2' : '#ffffff',
+                    color: isFav ? '#e11d48' : '#334155',
                     padding: '8px 14px'
                   }}
                 >
-                  <Heart size={16} fill={isFav ? 'currentColor' : 'none'} color={isFav ? '#ef4444' : '#475569'} />
+                  <Heart size={16} fill={isFav ? '#ef4444' : 'none'} color={isFav ? '#ef4444' : '#475569'} strokeWidth={isFav ? 0 : 2} />
                   <span>{isFav ? 'Saved' : 'Save'}</span>
                 </Button>
               </div>

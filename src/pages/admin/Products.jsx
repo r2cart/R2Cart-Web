@@ -509,7 +509,7 @@ export function AdminProducts(){
    </div>
   </FilterBar>
   {viewMode === 'cards' ? (
-   <div className="cat-products-card-grid" style={{marginBottom:'24px'}}>
+   <div className="cat-products-card-grid" style={{marginBottom:'24px', width:'100%', boxSizing:'border-box'}}>
      {loading ? (
         Array.from({ length: 10 }).map((_, i) => (
           <div key={i} className="product-card-shape product-card-skeleton" style={{ background: '#ffffff', borderRadius: '16px', border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>

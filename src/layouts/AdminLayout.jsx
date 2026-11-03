@@ -383,6 +383,9 @@ export default function AdminLayout({ children }) {
                   Order <b>#{orderAlert.orderNumber}</b>
                   {orderAlert.total ? ` · ₹${orderAlert.total}` : ''}
                   {orderAlert.customerName ? ` by ${orderAlert.customerName}` : ''}
+                  <div style={{ fontSize: '11.5px', color: '#6ee7b7', marginTop: '3px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>⏰ Order Arrived: {orderAlert.time || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                  </div>
                 </div>
                 <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
                   <button

@@ -35,6 +35,34 @@ const ADMIN_CANCEL_REASONS = [
 ];
 const date = value => new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
+function formatOrderTime(value) {
+  if (!value) return { timeStr: '', dateStr: '', relative: '', full: '' };
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return { timeStr: String(value), dateStr: '', relative: '', full: String(value) };
+
+  const timeStr = d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  const dateStr = d.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const diffSec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+  let relative = '';
+  if (diffSec < 60) relative = 'Just now';
+  else if (diffSec < 3600) relative = `${Math.floor(diffSec / 60)}m ago`;
+  else if (diffSec < 86400) relative = `${Math.floor(diffSec / 3600)}h ago`;
+
+  return { timeStr, dateStr, relative, full: `${timeStr} · ${dateStr}` };
+}
+
 let adminOrdersCache = null;
 
 export function AdminOrders() {
@@ -330,9 +358,25 @@ export function AdminOrders() {
                     >
                       #{order.orderNumber}
                     </Link>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                      {date(order.date)}
-                    </div>
+                    {(() => {
+                      const tInfo = formatOrderTime(order.date);
+                      return (
+                        <div style={{ marginTop: '3px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock size={11} color="#059669" />
+                            {tInfo.timeStr}
+                            {tInfo.relative && (
+                              <span style={{ background: '#ecfdf5', color: '#047857', fontSize: '9.5px', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                                {tInfo.relative}
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ fontSize: '10.5px', color: '#64748b' }}>
+                            {tInfo.dateStr}
+                          </span>
+                        </div>
+                      );
+                    })()}
                     <div style={{ marginTop: '6px' }}>
                       {order.deliveryType === 'SCHEDULED' ? (
                         <span className="order-type-chip-lg scheduled" style={{ padding: '3px 8px', fontSize: '11px' }}>
@@ -345,7 +389,7 @@ export function AdminOrders() {
                       )}
                     </div>
                   </td>
-                  <td>
+                  <td style={{ minWidth: '170px', maxWidth: '230px' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '13px' }}>
                       {order.customer || 'Customer'}
                     </div>
@@ -357,7 +401,7 @@ export function AdminOrders() {
                       </div>
                     )}
                     {order.addressSnapshot && (
-                      <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '5px', maxWidth: '240px', lineHeight: 1.35 }}>
+                      <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '4px', lineHeight: 1.35, wordBreak: 'break-word' }}>
                         <span style={{ color: '#059669', fontWeight: 700 }}>📍 </span>
                         <span>{addressText(order.addressSnapshot).line}</span>
                         {addressText(order.addressSnapshot).cityLine && (
@@ -368,13 +412,15 @@ export function AdminOrders() {
                       </div>
                     )}
                   </td>
-                  <td>
-                    <span style={{ fontWeight: 700, color: '#0f172a' }}>
-                      {order.items.reduce((sum, item) => sum + item.quantity, 0)}
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>
+                      {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
                     </span>
-                    <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>
-                      {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
-                    </small>
+                    {order.items.length > 1 && (
+                      <small style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>
+                        ({order.items.length} pack{order.items.length > 1 ? 's' : ''})
+                      </small>
+                    )}
                   </td>
                   <td>
                     <b style={{ fontSize: '14px', color: '#0f172a' }}>{money(order.total)}</b>
@@ -399,36 +445,32 @@ export function AdminOrders() {
                   <td>
                     <StatusBadge status={order.status} />
                     {order.status === 'Delivered' && (
-                      <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600, marginTop: '4px' }}>
+                      <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600, marginTop: '3px', whiteSpace: 'nowrap' }}>
                         ✓ {order.deliveredAt ? date(order.deliveredAt) : 'Delivered'}
                       </div>
                     )}
                     {order.status === 'Cancelled' && (
-                      <div style={{ marginTop: '5px' }}>
-                        <div
-                          style={{
-                            display: 'inline-block',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: '#9f1239',
-                            background: '#ffe4e6',
-                            border: '1px solid #fecdd3',
-                            padding: '2px 7px',
-                            borderRadius: '5px',
-                            maxWidth: '180px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                          title={`Cancellation Reason: ${order.cancellationReason || 'Reason not recorded'}${order.cancelledBy ? ` (by ${order.cancelledBy})` : ''}`}
-                        >
-                          Reason: {order.cancellationReason || 'Cancelled'}
-                        </div>
-                        {order.cancelledBy && (
-                          <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
-                            By {order.cancelledBy}
-                          </div>
-                        )}
+                      <div
+                        style={{
+                          marginTop: '4px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: '#9f1239',
+                          background: '#fff1f2',
+                          border: '1px solid #fecdd3',
+                          padding: '2px 7px',
+                          borderRadius: '6px',
+                          maxWidth: '160px',
+                          cursor: 'help'
+                        }}
+                        title={`Cancellation Reason: ${order.cancellationReason || 'Reason not recorded'}${order.cancelledBy ? ` (by ${order.cancelledBy})` : ''}`}
+                      >
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          ✕ {order.cancellationReason || 'Cancelled'}
+                        </span>
                       </div>
                     )}
                   </td>
@@ -668,16 +710,15 @@ export function AdminOrderDetails() {
                 <span>{copied ? 'Copied!' : 'Copy'}</span>
               </button>
             </div>
-            <div className="order-meta-info">
-              <span className="order-meta-item">
-                <Clock size={13} />
-                Placed {date(order.date)} · India time
+            <div className="order-meta-info" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+              <span className="order-meta-item" style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '4px 10px', borderRadius: '7px', fontWeight: 700, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <Clock size={13} color="#16a34a" />
+                <span>Order Placed: <b>{new Date(order.date).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}</b> ({new Date(order.date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' })})</span>
               </span>
               {order.status === 'Delivered' && (
-                <span className="order-meta-item" style={{ color: '#15803d', fontWeight: 700 }}>
+                <span className="order-meta-item" style={{ background: '#ecfdf5', color: '#15803d', fontWeight: 700, border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '7px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <CheckCircle size={13} />
-                  Delivered on {order.deliveredAt ? date(order.deliveredAt) : 'Yes'}
-                  {order.deliveryPerson?.name ? ` by ${order.deliveryPerson.name}` : ''}
+                  <span>Delivered on {order.deliveredAt ? date(order.deliveredAt) : 'Yes'}{order.deliveryPerson?.name ? ` by ${order.deliveryPerson.name}` : ''}</span>
                 </span>
               )}
             </div>

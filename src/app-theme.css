@@ -312,8 +312,8 @@ main>.page,main>.static-page,main>.success-page{animation:pageEnter .38s cubic-b
 .cat-cards-empty p{font-size:13px;max-width:380px;line-height:1.6;margin:0}
 
 /* ── Product Card Shape Grid ── */
-.cat-products-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px}
-.product-card-shape{border:1.5px solid #f1f5f9;border-radius:16px;overflow:hidden;background:#fff;display:flex;flex-direction:column;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.cat-products-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;width:100%;max-width:100%;box-sizing:border-box}
+.product-card-shape{border:1.5px solid #f1f5f9;border-radius:16px;overflow:hidden;background:#fff;display:flex;flex-direction:column;width:100%;min-width:0;box-sizing:border-box;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
 .product-card-shape:hover{border-color:#a7f3d0;box-shadow:0 12px 28px rgba(6,78,59,.1);transform:translateY(-3px)}
 .card-shape-media{height:150px;background:#f8fafc;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
 .card-shape-media img{width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
@@ -340,7 +340,7 @@ main>.page,main>.static-page,main>.success-page{animation:pageEnter .38s cubic-b
 .card-quick-stock-btn.is-out:hover{background:#dcfce7;border-color:#86efac}
 .card-quick-stock-btn.is-in{background:#fef2f2;color:#dc2626;border-color:#fecaca}
 .card-quick-stock-btn.is-in:hover{background:#fee2e2;border-color:#fca5a5}
-.card-action-bar{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:8px;border-top:1px dashed #f1f5f9}
+.card-action-bar{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:8px;border-top:1px dashed #f1f5f9}
 .card-status-toggle-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;transition:all .18s ease;border:1px solid transparent}
 .card-status-toggle-btn.active{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
 .card-status-toggle-btn.active:hover{background:#d1fae5}

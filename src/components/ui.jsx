@@ -266,7 +266,7 @@ function BaseProductCard({product,packSelector}){
     {isComingSoon ? (
       <span className="discount" style={{background:'#f59e0b',color:'#fff',fontWeight:800}}>SOON</span>
     ) : off>0 && <span className="discount">{off}% {t('off', 'OFF')}</span>}
-    <button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'currentColor':'none'}/></button>
+    <button className={`heart ${favorites.includes(product.id)?'active':''}`} onClick={()=>toggleFavorite(product.id)} aria-label="Favourite"><Heart size={18} fill={favorites.includes(product.id)?'#ef4444':'none'} color={favorites.includes(product.id)?'#ef4444':'currentColor'}/></button>
     <Link to={`/product/${product.id}`} style={{display:'block',width:'100%',height:'100%'}}>
       <img src={gallery[imgIdx]||product.image} alt={tProd(product.name)} loading="lazy" decoding="async" onError={fallback}/>
     </Link>
