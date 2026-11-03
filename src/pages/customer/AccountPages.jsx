@@ -435,7 +435,7 @@ export function AccountPage() {
 }
 
 export function AddressesPage() {
-  const { addressList, setAddressList, notify, user } = useApp();
+  const { addressList, setAddressList, notify, user, setActiveAddress } = useApp();
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -448,6 +448,7 @@ export function AddressesPage() {
       const saved = editing.id ? await customerService.updateAddress(editing.id, payload) : await customerService.addAddress(payload);
       const normalized = addressView(saved);
       setAddressList(items => editing.id ? items.map(item => item.id === editing.id ? normalized : item) : [normalized, ...items]);
+      setActiveAddress(normalized);
       setEditing(null);
       notify(editing.id ? 'Address updated' : 'Address saved to your account');
     } catch (error) {
@@ -460,7 +461,10 @@ export function AddressesPage() {
   const remove = async () => {
     try {
       await customerService.deleteAddress(deleting.id);
-      setAddressList(items => items.filter(item => item.id !== deleting.id));
+      const remaining = addressList.filter(item => item.id !== deleting.id);
+      setAddressList(remaining);
+      const nextActive = remaining.find(item => item.default) || remaining[0] || null;
+      setActiveAddress(nextActive);
       setDeleting(null);
       notify('Address deleted');
     } catch (error) {
@@ -471,7 +475,12 @@ export function AddressesPage() {
   const makeDefault = async id => {
     try {
       await customerService.setDefaultAddress(id);
-      setAddressList(items => items.map(item => ({ ...item, default: item.id === id, isDefault: item.id === id })));
+      const updatedList = addressList.map(item => ({ ...item, default: item.id === id, isDefault: item.id === id }));
+      setAddressList(updatedList);
+      const nextDefault = updatedList.find(item => item.id === id);
+      if (nextDefault) {
+        setActiveAddress(nextDefault);
+      }
       notify('Default address updated');
     } catch (error) {
       notify(error.message, 'error');

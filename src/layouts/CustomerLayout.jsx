@@ -93,7 +93,10 @@ function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();co
                 ) : isClosed ? (
                   <>{reopenLabel ? `Reopens ${reopenLabel}` : t('storeClosed')} · {location}</>
                 ) : (
-                  <>{location} <ChevronDown size={13}/></>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', maxWidth: '100%' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location}</span>
+                    <ChevronDown size={12} style={{ flexShrink: 0 }} />
+                  </span>
                 )}
               </small>
             </span>
@@ -417,7 +420,7 @@ export function Footer(){
 export function MobileBottomNav(){const {categories,user}=useApp();const {t}=useLanguage();const mobileNav=[{id:'nav-home',to:'/',label:t('home'),Icon:Home},{id:'nav-cats',to:`/category/${categories[0]?.slug||'fruits-vegetables'}`,label:t('categories'),Icon:Menu},{id:'nav-search',to:'/search',label:t('search'),Icon:Search},{id:'nav-orders',to:user?'/orders':'/login',label:t('orders'),Icon:Package},{id:'nav-account',to:user?'/account':'/login',label:user?t('account'):t('signIn'),Icon:UserRound}];return <nav className="bottom-nav">{mobileNav.map(item=><NavLink key={item.id} to={item.to} end={item.to==='/'}><item.Icon/><span>{item.label}</span></NavLink>)}</nav>}
 export function LocationModal(){
   const nav=useNavigate();
-  const {locationOpen,setLocationOpen,notify,addressList,setAddressList,addressesLoaded,user,deliveryRulesFor,activeAddress,setActiveAddress,storeSettings,deliveryZones}=useApp();
+  const {locationOpen,setLocationOpen,notify,addressList,setAddressList,addressesLoaded,user,deliveryRulesFor,activeAddress,setActiveAddress,storeSettings,deliveryZones,availableLocalities,setLocation}=useApp();
   const [manual,setManual]=useState(false);
 
   const emergencyPause = storeSettings?.policies?.emergencyPause;
@@ -667,7 +670,7 @@ export function LocationModal(){
                               }}
                             >
                               <span>⚡</span>
-                              <span>{zone.zoneName} · Fee: ₹{zone.deliveryFee} · {zone.estimatedDelivery}</span>
+                              <span>{zone.zoneName || zone.villageName || zone.name || address.area} · Fee: ₹{zone.deliveryFee} · {zone.estimatedDelivery}</span>
                             </span>
                             {zone.freeDeliveryThreshold > 0 && (
                               <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
@@ -716,13 +719,53 @@ export function LocationModal(){
               </div>
             )}
             {!user && (
-              <div style={{ textAlign: 'center', padding: '24px 16px' }}>
-                <p className="location-empty" style={{ marginBottom: '16px' }}>
-                  Sign in to view your saved addresses and unlock instant delivery to your doorstep.
-                </p>
-                <Button className="wide" onClick={signIn}>
-                  Sign in to continue
-                </Button>
+              <div style={{ padding: '12px 6px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+                  <p className="location-empty" style={{ marginBottom: '14px', fontSize: '13px' }}>
+                    Sign in to view your saved addresses and unlock instant delivery to your doorstep.
+                  </p>
+                  <Button className="wide" onClick={signIn}>
+                    Sign in to continue
+                  </Button>
+                </div>
+
+                {availableLocalities && availableLocalities.length > 0 && (
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#475569', fontSize: '12.5px', fontWeight: 700 }}>
+                      <MapPin size={15} color="#059669" />
+                      <span>Or browse delivery timings for a village in Hathua:</span>
+                    </div>
+                    <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {availableLocalities.map(loc => {
+                        const zone = deliveryRulesFor(loc);
+                        return (
+                          <button
+                            key={loc}
+                            type="button"
+                            onClick={() => {
+                              storage.set('guest_selected_locality', `${loc}, Hathua`);
+                              setLocation(`${loc}, Hathua`);
+                              close();
+                              notify(`Browsing delivery for ${loc} · ${zone?.estimatedDelivery || '15–20 mins'}`);
+                            }}
+                            style={{
+                              background: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              color: '#334155'
+                            }}
+                          >
+                            {loc}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>

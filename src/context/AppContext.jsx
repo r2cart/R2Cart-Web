@@ -12,7 +12,28 @@ import r2cartLogo from '../assets/r2cart-mark.svg';
 
 const Ctx=createContext(null);
 const DEFAULT_LOCATION='Select delivery address';
-const formatLocation=address=>address?`${address.line}, ${address.cityLine||address.city}`:DEFAULT_LOCATION;
+export const formatLocation=(address)=>{
+  if(!address)return DEFAULT_LOCATION;
+  if(typeof address==='string')return address;
+
+  const parts=[];
+  if(address.house)parts.push(address.house);
+  if(address.street)parts.push(address.street);
+  if(address.landmark)parts.push(address.landmark);
+  if(address.area)parts.push(address.area);
+  const line=parts.length?parts.join(', '):(address.line||'');
+
+  const cityParts=[];
+  if(address.city)cityParts.push(address.city);
+  if(address.state)cityParts.push(address.state);
+  if(address.pin)cityParts.push(address.pin);
+  const cityLine=cityParts.length?cityParts.join(', '):(address.cityLine||'');
+
+  if(line&&cityLine)return `${line}, ${cityLine}`;
+  if(line)return line;
+  if(cityLine)return cityLine;
+  return address.area||address.city||DEFAULT_LOCATION;
+};
 const isInvalidCustomer=value=>Boolean(value)&&(value.role&&value.role!=='CUSTOMER'||value.email?.toLowerCase()==='aarav@example.com'||value.name?.trim().toLowerCase()==='aarav sharma');
 function clearLegacyDemoSession(){
  try{
@@ -102,15 +123,20 @@ export function AppProvider({children}){
     setFavorites(remoteFavorites.map(p=>p.id));
     setAddressList(addresses);
     setAddressesLoaded(true);
-    const savedLocation=storage.get(`location-${profile.id}`,'');
     const savedAddressId=storage.get('active_address_id',null);
     const matchedActive=savedAddressId&&addresses.find(a=>a.id===savedAddressId);
     const defaultAddress=matchedActive||addresses.find(address=>address.default)||addresses[0];
     if(defaultAddress){
-      if(!savedAddressId)setActiveAddressId(defaultAddress.id);
-      setLocation(savedLocation||formatLocation(defaultAddress));
+      setActiveAddressId(defaultAddress.id);
+      storage.set('active_address_id',defaultAddress.id);
+      const dynamicLoc=formatLocation(defaultAddress);
+      setLocation(dynamicLoc);
+      storage.set(`location-${profile.id}`,dynamicLoc);
     }else{
+      setActiveAddressId(null);
+      storage.remove('active_address_id');
       setLocation(DEFAULT_LOCATION);
+      storage.remove(`location-${profile.id}`);
     }
     return orderService.list();
   }).then(rows=>{if(rows)setOrderList(rows)}).catch(error=>{
@@ -459,6 +485,20 @@ export function AppProvider({children}){
   return addressList.find(a=>a.default)||addressList[0]||null;
  },[addressList,activeAddressId]);
 
+ // Keep location strictly and dynamically synchronized with activeAddress
+ useEffect(()=>{
+  if(activeAddress){
+    const dynamicLoc=formatLocation(activeAddress);
+    setLocation(dynamicLoc);
+    if(user?.id)storage.set(`location-${user.id}`,dynamicLoc);
+  }else if(!user?.id){
+    const guestLoc=storage.get('guest_selected_locality',null);
+    setLocation(guestLoc||DEFAULT_LOCATION);
+  }else{
+    setLocation(DEFAULT_LOCATION);
+  }
+ },[activeAddress,user?.id]);
+
  const setActiveAddress=useCallback(addrOrId=>{
   const addr=typeof addrOrId==='object'?addrOrId:addressList.find(a=>a.id===addrOrId);
   const id=addr?.id||(typeof addrOrId==='string'?addrOrId:null);
@@ -466,7 +506,7 @@ export function AppProvider({children}){
   if(id)storage.set('active_address_id',id);
   else storage.remove('active_address_id');
   if(addr){
-    const locStr=`${addr.line}, ${addr.cityLine||addr.area||addr.city}`;
+    const locStr=formatLocation(addr);
     setLocation(locStr);
     if(user?.id)storage.set(`location-${user.id}`,locStr);
   }
