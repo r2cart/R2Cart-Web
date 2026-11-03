@@ -2775,6 +2775,8 @@ export function ProductForm(){
     initialZoom={cropConfig.zoom}
     initialRotation={cropConfig.rotation}
     initialOffset={cropConfig.offset}
+    initialFlipH={cropConfig.flipH}
+    initialFlipV={cropConfig.flipV}
     onCropDone={handleCropDone}
     onCancel={()=>setCropperOpen(false)}
   />

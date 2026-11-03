@@ -1,12 +1,25 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { RotateCw, RotateCcw, ZoomIn, ZoomOut, Check, X, RefreshCw, Maximize2, Square } from 'lucide-react';
+import {
+  RotateCw,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Check,
+  RefreshCw,
+  Maximize2,
+  Square,
+  FlipHorizontal,
+  FlipVertical,
+  Grid,
+  Crosshair
+} from 'lucide-react';
 import { Button, Modal } from '../ui';
 
 /**
  * Draws the transformed image onto a target canvas.
- * Handles centering, rotation, user pan offset, and zoom scaling consistently.
+ * Handles centering, rotation, flip, user pan offset, and zoom scaling consistently.
  */
-function renderCropToContext(ctx, targetSize, img, zoom, rotation, offset) {
+function renderCropToContext(ctx, targetSize, img, zoom, rotation, offset, flipH = false, flipV = false) {
   ctx.clearRect(0, 0, targetSize, targetSize);
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, targetSize, targetSize);
@@ -27,7 +40,7 @@ function renderCropToContext(ctx, targetSize, img, zoom, rotation, offset) {
   const oy = offset.y * scaleRatio;
 
   ctx.save();
-  // Move origin to center
+  // Move origin to canvas center
   ctx.translate(targetSize / 2, targetSize / 2);
 
   // Apply user pan offset in screen coordinates
@@ -35,6 +48,9 @@ function renderCropToContext(ctx, targetSize, img, zoom, rotation, offset) {
 
   // Apply rotation around center
   ctx.rotate((rotation * Math.PI) / 180);
+
+  // Apply flip horizontally and/or vertically
+  ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
 
   // Draw image centered at origin
   ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
@@ -47,12 +63,18 @@ export default function ImageCropperModal({
   initialZoom = 1,
   initialRotation = 0,
   initialOffset = { x: 0, y: 0 },
+  initialFlipH = false,
+  initialFlipV = false,
   onCropDone,
   onCancel
 }) {
   const [zoom, setZoom] = useState(initialZoom || 1);
   const [rotation, setRotation] = useState(initialRotation || 0);
   const [offset, setOffset] = useState(initialOffset || { x: 0, y: 0 });
+  const [flipH, setFlipH] = useState(initialFlipH || false);
+  const [flipV, setFlipV] = useState(initialFlipV || false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -60,6 +82,8 @@ export default function ImageCropperModal({
   const imageObjRef = useRef(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const touchDistRef = useRef(null);
+  const touchCenterRef = useRef({ x: 150, y: 150 });
 
   // Redraw the live preview canvas
   const redraw = useCallback(() => {
@@ -69,8 +93,8 @@ export default function ImageCropperModal({
 
     const ctx = canvas.getContext('2d');
     // Canvas internal resolution is 600x600 for sharp retina display
-    renderCropToContext(ctx, 600, img, zoom, rotation, offset);
-  }, [zoom, rotation, offset]);
+    renderCropToContext(ctx, 600, img, zoom, rotation, offset, flipH, flipV);
+  }, [zoom, rotation, offset, flipH, flipV]);
 
   // Load image object whenever imageSrc changes
   useEffect(() => {
@@ -79,6 +103,8 @@ export default function ImageCropperModal({
     setZoom(initialZoom || 1);
     setRotation(initialRotation || 0);
     setOffset(initialOffset || { x: 0, y: 0 });
+    setFlipH(initialFlipH || false);
+    setFlipV(initialFlipV || false);
     setImageLoaded(false);
 
     let active = true;
@@ -108,9 +134,9 @@ export default function ImageCropperModal({
     return () => {
       active = false;
     };
-  }, [open, imageSrc]);
+  }, [open, imageSrc, initialZoom, initialRotation, initialOffset, initialFlipH, initialFlipV]);
 
-  // Redraw canvas whenever zoom, rotation, offset or image loading changes
+  // Redraw canvas whenever transforms or image loading changes
   useEffect(() => {
     if (imageLoaded) {
       redraw();
@@ -127,7 +153,10 @@ export default function ImageCropperModal({
     };
 
     const handleWindowMouseUp = () => {
-      isDraggingRef.current = false;
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        setIsDragging(false);
+      }
     };
 
     window.addEventListener('mousemove', handleWindowMouseMove);
@@ -138,48 +167,117 @@ export default function ImageCropperModal({
     };
   }, []);
 
+  /**
+   * Focal-point zoom: zooms in or out centered at point (pointX, pointY)
+   * relative to the 300x300 viewport.
+   */
+  const zoomToPoint = useCallback((targetZoom, pointX = 150, pointY = 150) => {
+    setZoom((currentZoom) => {
+      const clampedZoom = Math.min(4.0, Math.max(0.3, Number(targetZoom.toFixed(2))));
+      if (Math.abs(clampedZoom - currentZoom) < 0.001) return currentZoom;
+      const ratio = clampedZoom / currentZoom;
+      setOffset((currentOffset) => ({
+        x: Math.round(pointX - 150 - (pointX - 150 - currentOffset.x) * ratio),
+        y: Math.round(pointY - 150 - (pointY - 150 - currentOffset.y) * ratio)
+      }));
+      return clampedZoom;
+    });
+  }, []);
+
   const handleMouseDown = (e) => {
+    // Left-click only
+    if (e.button !== 0) return;
     e.preventDefault();
     isDraggingRef.current = true;
+    setIsDragging(true);
     dragStartRef.current = {
       x: e.clientX - offset.x,
       y: e.clientY - offset.y
     };
   };
 
-  // Touch Support for mobile / tablets
+  // Double-click to zoom in directly at clicked point (or reset to 1x if already zoomed in)
+  const handleDoubleClick = (e) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    if (zoom < 1.8) {
+      zoomToPoint(2.2, px, py);
+    } else {
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+    }
+  };
+
+  // Touch Support with single-finger pan and two-finger pinch-to-zoom
   const handleTouchStart = (e) => {
     if (e.touches.length === 1) {
       isDraggingRef.current = true;
+      setIsDragging(true);
       dragStartRef.current = {
         x: e.touches[0].clientX - offset.x,
         y: e.touches[0].clientY - offset.y
+      };
+    } else if (e.touches.length === 2) {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      touchDistRef.current = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const rect = e.currentTarget.getBoundingClientRect();
+      touchCenterRef.current = {
+        x: (t1.clientX + t2.clientX) / 2 - rect.left,
+        y: (t1.clientY + t2.clientY) / 2 - rect.top
       };
     }
   };
 
   const handleTouchMove = (e) => {
-    if (!isDraggingRef.current || e.touches.length !== 1) return;
-    const nextX = e.touches[0].clientX - dragStartRef.current.x;
-    const nextY = e.touches[0].clientY - dragStartRef.current.y;
-    setOffset({ x: nextX, y: nextY });
+    if (e.touches.length === 1 && isDraggingRef.current) {
+      const nextX = e.touches[0].clientX - dragStartRef.current.x;
+      const nextY = e.touches[0].clientY - dragStartRef.current.y;
+      setOffset({ x: nextX, y: nextY });
+    } else if (e.touches.length === 2 && touchDistRef.current) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const newDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const scale = newDist / touchDistRef.current;
+      touchDistRef.current = newDist;
+      zoomToPoint(zoom * scale, touchCenterRef.current.x, touchCenterRef.current.y);
+    }
   };
 
   const handleTouchEnd = () => {
     isDraggingRef.current = false;
+    setIsDragging(false);
+    touchDistRef.current = null;
   };
 
-  // Mouse wheel zoom
+  // Mouse wheel zoom centered directly on cursor position
   const handleWheel = (e) => {
     e.preventDefault();
-    const delta = e.deltaY * -0.0015;
-    setZoom((prev) => Math.min(3, Math.max(0.4, Number((prev + delta).toFixed(2)))));
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    // Smooth proportional zoom: wheel up zooms in, wheel down zooms out
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    zoomToPoint(zoom * factor, px, py);
   };
 
-  // Quick Action: Reset to default center & scale 1
+  // Reset all adjustments
   const handleReset = () => {
     setZoom(1);
     setRotation(0);
+    setOffset({ x: 0, y: 0 });
+    setFlipH(false);
+    setFlipV(false);
+  };
+
+  // Re-center pan offset without losing zoom or rotation
+  const handleRecenter = () => {
     setOffset({ x: 0, y: 0 });
   };
 
@@ -216,7 +314,7 @@ export default function ImageCropperModal({
       const exportCtx = exportCanvas.getContext('2d');
 
       // Draw with identical transform function to 800x800
-      renderCropToContext(exportCtx, 800, img, zoom, rotation, offset);
+      renderCropToContext(exportCtx, 800, img, zoom, rotation, offset, flipH, flipV);
 
       exportCanvas.toBlob(
         (blob) => {
@@ -224,7 +322,7 @@ export default function ImageCropperModal({
           if (!blob) return;
           const file = new File([blob], `product-${Date.now()}.jpg`, { type: 'image/jpeg' });
           const previewUrl = URL.createObjectURL(blob);
-          onCropDone(file, previewUrl, { zoom, rotation, offset });
+          onCropDone(file, previewUrl, { zoom, rotation, offset, flipH, flipV });
         },
         'image/jpeg',
         0.92
@@ -232,7 +330,6 @@ export default function ImageCropperModal({
     } catch (err) {
       setIsProcessing(false);
       console.error('Canvas export error:', err);
-      // Fallback: If canvas tainted due to external URL without CORS, alert user
       alert('Security note: Could not export crop because the pasted image URL has restricted CORS permissions. Please download the image to your computer and choose it from your device.');
     }
   };
@@ -241,13 +338,14 @@ export default function ImageCropperModal({
 
   return (
     <Modal open={open} onClose={onCancel} title="Product Image Studio (1:1 Square)">
-      <div style={{ padding: '16px 20px 22px', boxSizing: 'border-box', width: '100%' }}>
-        <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 14px', lineHeight: 1.4 }}>
-          Drag the photo to center it inside the square frame. Use the zoom slider or preset buttons to fit your product cleanly.
+      <div style={{ padding: '14px 18px 18px', boxSizing: 'border-box', width: '100%', maxWidth: '420px', margin: '0 auto' }}>
+        <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 10px', textAlign: 'center', lineHeight: 1.4 }}>
+          Drag to reposition. Scroll wheel or double-click on any part of the image to zoom directly into that point.
         </p>
 
         {/* Viewport Frame (300px x 300px) */}
         <div
+          title="Drag to move · Double-click to zoom at cursor · Scroll wheel to zoom in/out"
           style={{
             width: '300px',
             height: '300px',
@@ -257,12 +355,13 @@ export default function ImageCropperModal({
             borderRadius: '16px',
             background: '#0f172a',
             border: '2px solid #059669',
-            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.15)',
-            cursor: 'grab',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.16)',
+            cursor: isDragging ? 'grabbing' : 'grab',
             userSelect: 'none',
             touchAction: 'none'
           }}
           onMouseDown={handleMouseDown}
+          onDoubleClick={handleDoubleClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -297,28 +396,31 @@ export default function ImageCropperModal({
             </div>
           )}
 
-          {/* Rule of Thirds Grid Overlay */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              zIndex: 3,
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
-              gridTemplateRows: '1fr 1fr 1fr'
-            }}
-          >
-            <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.25)', borderBottom: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.25)', borderBottom: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div style={{ borderBottom: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.25)', borderBottom: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.25)', borderBottom: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div style={{ borderBottom: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.25)' }} />
-            <div />
-          </div>
+          {/* Rule of Thirds Grid Overlay (Toggleable) */}
+          {showGrid && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                zIndex: 3,
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gridTemplateRows: '1fr 1fr 1fr',
+                opacity: 0.85
+              }}
+            >
+              <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.28)', borderBottom: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.28)', borderBottom: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div style={{ borderBottom: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.28)', borderBottom: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.28)', borderBottom: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div style={{ borderBottom: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div style={{ borderRight: '1px dashed rgba(255, 255, 255, 0.28)' }} />
+              <div />
+            </div>
+          )}
 
           {/* Corner Viewfinder Accents */}
           <div style={{ position: 'absolute', top: 10, left: 10, width: 14, height: 14, borderTop: '3px solid #10b981', borderLeft: '3px solid #10b981', pointerEvents: 'none', zIndex: 4 }} />
@@ -328,9 +430,9 @@ export default function ImageCropperModal({
         </div>
 
         {/* Micro-hint */}
-        <div style={{ textAlign: 'center', marginTop: '6px', marginBottom: '12px' }}>
-          <small style={{ fontSize: '11px', color: '#94a3b8' }}>
-            💡 Drag to move · Scroll wheel to zoom
+        <div style={{ textAlign: 'center', marginTop: '6px', marginBottom: '10px' }}>
+          <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+            ✨ Double-click on any point to zoom there · Scroll wheel to zoom · Drag to pan
           </small>
         </div>
 
@@ -340,16 +442,16 @@ export default function ImageCropperModal({
             background: '#f8fafc',
             border: '1px solid #e2e8f0',
             borderRadius: '14px',
-            padding: '12px 14px',
-            maxWidth: '340px',
+            padding: '10px 12px',
+            maxWidth: '360px',
             margin: '0 auto'
           }}
         >
           {/* Zoom Slider Row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <button
               type="button"
-              onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
+              onClick={() => zoomToPoint(zoom - 0.15, 150, 150)}
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
@@ -368,8 +470,8 @@ export default function ImageCropperModal({
 
             <input
               type="range"
-              min="0.4"
-              max="3"
+              min="0.3"
+              max="4.0"
               step="0.02"
               value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
@@ -378,7 +480,7 @@ export default function ImageCropperModal({
 
             <button
               type="button"
-              onClick={() => setZoom((z) => Math.min(3, Number((z + 0.1).toFixed(2))))}
+              onClick={() => zoomToPoint(zoom + 0.15, 150, 150)}
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
@@ -404,7 +506,7 @@ export default function ImageCropperModal({
                 border: '1px solid #e2e8f0',
                 borderRadius: '6px',
                 padding: '2px 6px',
-                minWidth: '38px',
+                minWidth: '40px',
                 textAlign: 'center'
               }}
             >
@@ -412,28 +514,61 @@ export default function ImageCropperModal({
             </span>
           </div>
 
-          {/* Preset Buttons & Rotation Row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {/* Quick Zoom Preset Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, marginRight: '2px', textTransform: 'uppercase' }}>
+              Zoom:
+            </span>
+            {[
+              { label: 'Fit', action: handleFitContain },
+              { label: 'Fill', action: handleFillCover },
+              { label: '100%', action: () => zoomToPoint(1.0, 150, 150), active: Math.round(zoom * 100) === 100 },
+              { label: '150%', action: () => zoomToPoint(1.5, 150, 150), active: Math.round(zoom * 100) === 150 },
+              { label: '200%', action: () => zoomToPoint(2.0, 150, 150), active: Math.round(zoom * 100) === 200 },
+              { label: '300%', action: () => zoomToPoint(3.0, 150, 150), active: Math.round(zoom * 100) === 300 }
+            ].map((p, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={p.action}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: `1px solid ${p.active ? '#059669' : '#e2e8f0'}`,
+                  background: p.active ? '#ecfdf5' : '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: p.active ? '#059669' : '#334155',
+                  cursor: 'pointer'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Rotate, Flip & Utility Row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
-                padding: '5px 9px',
-                borderRadius: '8px',
+                gap: '3px',
+                padding: '4px 8px',
+                borderRadius: '7px',
                 border: '1px solid #e2e8f0',
                 background: '#ffffff',
                 fontSize: '11px',
-                fontWeight: 700,
+                fontWeight: 600,
                 color: '#334155',
                 cursor: 'pointer'
               }}
               title="Rotate 90 degrees counter-clockwise"
             >
               <RotateCcw size={12} />
-              <span>Left</span>
+              <span>-90°</span>
             </button>
 
             <button
@@ -442,64 +577,108 @@ export default function ImageCropperModal({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
-                padding: '5px 9px',
-                borderRadius: '8px',
+                gap: '3px',
+                padding: '4px 8px',
+                borderRadius: '7px',
                 border: '1px solid #e2e8f0',
                 background: '#ffffff',
                 fontSize: '11px',
-                fontWeight: 700,
+                fontWeight: 600,
                 color: '#334155',
                 cursor: 'pointer'
               }}
               title="Rotate 90 degrees clockwise"
             >
               <RotateCw size={12} />
-              <span>Right</span>
+              <span>+90°</span>
             </button>
 
             <button
               type="button"
-              onClick={handleFillCover}
+              onClick={() => setFlipH((v) => !v)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
-                padding: '5px 9px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                background: '#ffffff',
+                gap: '3px',
+                padding: '4px 8px',
+                borderRadius: '7px',
+                border: `1px solid ${flipH ? '#059669' : '#e2e8f0'}`,
+                background: flipH ? '#ecfdf5' : '#ffffff',
                 fontSize: '11px',
-                fontWeight: 700,
-                color: '#334155',
+                fontWeight: 600,
+                color: flipH ? '#059669' : '#334155',
                 cursor: 'pointer'
               }}
-              title="Fill square completely"
+              title="Flip horizontally (mirror)"
             >
-              <Square size={12} />
-              <span>Fill</span>
+              <FlipHorizontal size={12} />
+              <span>Flip H</span>
             </button>
 
             <button
               type="button"
-              onClick={handleFitContain}
+              onClick={() => setFlipV((v) => !v)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
-                padding: '5px 9px',
-                borderRadius: '8px',
+                gap: '3px',
+                padding: '4px 8px',
+                borderRadius: '7px',
+                border: `1px solid ${flipV ? '#059669' : '#e2e8f0'}`,
+                background: flipV ? '#ecfdf5' : '#ffffff',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: flipV ? '#059669' : '#334155',
+                cursor: 'pointer'
+              }}
+              title="Flip vertically"
+            >
+              <FlipVertical size={12} />
+              <span>Flip V</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRecenter}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '4px 8px',
+                borderRadius: '7px',
                 border: '1px solid #e2e8f0',
                 background: '#ffffff',
                 fontSize: '11px',
-                fontWeight: 700,
+                fontWeight: 600,
                 color: '#334155',
                 cursor: 'pointer'
               }}
-              title="Fit entire image within square"
+              title="Re-center image pan"
             >
-              <Maximize2 size={12} />
-              <span>Fit</span>
+              <Crosshair size={12} />
+              <span>Center</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowGrid((v) => !v)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '4px 8px',
+                borderRadius: '7px',
+                border: `1px solid ${showGrid ? '#059669' : '#e2e8f0'}`,
+                background: showGrid ? '#ecfdf5' : '#ffffff',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: showGrid ? '#059669' : '#64748b',
+                cursor: 'pointer'
+              }}
+              title="Toggle rule-of-thirds grid overlay"
+            >
+              <Grid size={12} />
+              <span>Grid</span>
             </button>
 
             <button
@@ -508,17 +687,17 @@ export default function ImageCropperModal({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
-                padding: '5px 9px',
-                borderRadius: '8px',
+                gap: '3px',
+                padding: '4px 8px',
+                borderRadius: '7px',
                 border: '1px solid #e2e8f0',
                 background: '#ffffff',
                 fontSize: '11px',
-                fontWeight: 700,
-                color: '#64748b',
+                fontWeight: 600,
+                color: '#dc2626',
                 cursor: 'pointer'
               }}
-              title="Reset Zoom, Pan and Rotation"
+              title="Reset Zoom, Pan, Rotation and Flip"
             >
               <RefreshCw size={12} />
               <span>Reset</span>
@@ -532,8 +711,8 @@ export default function ImageCropperModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginTop: '18px',
-            paddingTop: '14px',
+            marginTop: '14px',
+            paddingTop: '12px',
             borderTop: '1px solid #f1f5f9'
           }}
         >
@@ -544,7 +723,7 @@ export default function ImageCropperModal({
             style={{
               borderRadius: '10px',
               border: '1.5px solid #e2e8f0',
-              padding: '8px 16px',
+              padding: '7px 15px',
               fontSize: '13px',
               fontWeight: 700,
               color: '#475569',
@@ -565,7 +744,7 @@ export default function ImageCropperModal({
               borderRadius: '10px',
               background: '#059669',
               color: '#ffffff',
-              padding: '8px 18px',
+              padding: '7px 18px',
               fontSize: '13px',
               fontWeight: 800,
               boxShadow: '0 4px 14px rgba(5, 150, 105, 0.25)'
