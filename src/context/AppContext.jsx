@@ -266,25 +266,27 @@ export function AppProvider({children}){
   window.addEventListener('r2cart:delivery-updated',refresh);
   window.addEventListener('r2cart:settings-updated',handleSettingsUpdated);
 
-  // Auto-revalidate products on tab visibility change or focus
-  let lastProductSync = Date.now();
+  // Auto-revalidate products and delivery/emergency settings on tab visibility change or focus
+  let lastSync = Date.now();
   const handleVisibilityOrFocus = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - lastProductSync > 15000) {
-      lastProductSync = Date.now();
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - lastSync > 10000) {
+      lastSync = Date.now();
       refreshProducts().catch(() => {});
       refreshCategories().catch(() => {});
+      refreshDelivery().catch(() => {});
     }
   };
   window.addEventListener('visibilitychange', handleVisibilityOrFocus);
   window.addEventListener('focus', handleVisibilityOrFocus);
 
-  // Periodic sync every 30 seconds while user is actively viewing so new products propagate quickly
+  // Periodic sync every 20 seconds while user is actively viewing so emergency alerts and new products propagate quickly
   const pollInterval = setInterval(() => {
     if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-      lastProductSync = Date.now();
+      lastSync = Date.now();
       refreshProducts().catch(() => {});
+      refreshDelivery().catch(() => {});
     }
-  }, 30000);
+  }, 20000);
 
   return()=>{
     window.removeEventListener('r2cart:categories-updated',refresh);
