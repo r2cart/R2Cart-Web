@@ -159,12 +159,16 @@ export function CheckoutPage() {
 
   // Village-level operating hours closure check
   const isVillageClosed = Boolean(rules?.isOpenNow === false || rules?.isClosed);
+  const isVillageExplicitlyOpen = Boolean(rules?.isOpenNow === true && !rules?.isClosed);
 
   // Granular order type permissions derived from store schedule engine & village operating hours
+  // If village has custom priority hours and is currently open (e.g. open till 23:59),
+  // it takes priority over global store schedule closing!
   const allowImmediate = !isStoreFullyClosed && !isVillageClosed && (
-    effectiveStatus !== undefined && effectiveStatus !== null
+    isVillageExplicitlyOpen ||
+    (effectiveStatus !== undefined && effectiveStatus !== null
       ? Boolean(effectiveStatus.allowImmediateOrders)
-      : true
+      : true)
   );
 
   const allowScheduled = !isStoreFullyClosed && (

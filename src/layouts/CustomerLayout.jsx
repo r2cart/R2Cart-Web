@@ -33,19 +33,25 @@ function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();co
     effectiveStatus?.storeStatus === 'CLOSED' ||
     (effectiveStatus?.allowImmediateOrders === false && effectiveStatus?.allowScheduledOrders === false)
   );
+  // Village-level operating hours check (Priority 1: Village, Priority 2: Zone)
+  const isVillageClosed = Boolean(rules?.isOpenNow === false || rules?.isClosed);
+  const isVillageExplicitlyOpen = Boolean(rules?.isOpenNow === true && !rules?.isClosed);
+
+  // If village has custom priority hours and is currently OPEN, it overrides global closing hours!
   const isInstantClosed = Boolean(
     isEmergencyPaused ||
     isStoreFullyClosed ||
-    effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' ||
-    effectiveStatus?.allowImmediateOrders === false
+    (!isVillageExplicitlyOpen && (
+      effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' ||
+      effectiveStatus?.allowImmediateOrders === false
+    ))
   );
   const allowScheduled = Boolean(
     !isStoreFullyClosed &&
     (effectiveStatus !== undefined && effectiveStatus !== null ? effectiveStatus.allowScheduledOrders : true)
   );
-  const isVillageClosed = Boolean(rules?.isOpenNow === false || rules?.isClosed);
   const isPaused = Boolean(rules?.isPaused || isEmergencyPaused);
-  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed || isVillageClosed);
+  const isClosed = Boolean(isEmergencyPaused || isStoreFullyClosed || isVillageClosed || isInstantClosed);
   const nextOpening = effectiveStatus?.nextAvailableOpening;
   const reopenLabel = nextOpening?.label;
 
@@ -2015,6 +2021,8 @@ export default function CustomerLayout({children}){
   {/* Scheduled-Only / Outside Operating Hours Notice */}
   {!storeSettings?.policies?.emergencyPause?.isPaused && 
    storeSettings?.effectiveStatus?.storeStatus !== 'EMERGENCY_PAUSED' &&
+   !isVillageClosed &&
+   !isVillageExplicitlyOpen &&
    (storeSettings?.effectiveStatus?.storeStatus === 'SCHEDULED_ONLY' || storeSettings?.effectiveStatus?.allowImmediateOrders === false) && (() => {
     const isEm = Boolean(storeSettings?.effectiveStatus?.isEmergencyActive);
     const nextOpening = storeSettings?.effectiveStatus?.nextAvailableOpening;
