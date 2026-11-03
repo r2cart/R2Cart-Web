@@ -20,6 +20,8 @@ const villageBlank = {
   allowCod: true,
   allowScheduled: true,
   estimatedMinutes: '30',
+  openingTime: '',
+  closingTime: '',
   deliveryHours: '',
   schedule: '',
   notes: '',
@@ -36,6 +38,8 @@ const zoneBlank = {
   deliveryFee: '',
   freeDeliveryThreshold: '',
   estimatedMinutes: '30',
+  openingTime: '',
+  closingTime: '',
   status: 'ACTIVE'
 };
 
@@ -358,6 +362,8 @@ export function AdminDelivery() {
         allowCod: editVillage.allowCod !== false,
         allowScheduled: editVillage.allowScheduled !== false,
         estimatedMinutes: editVillage.estimatedMinutes ? Number(editVillage.estimatedMinutes) : 30,
+        openingTime: editVillage.openingTime ? String(editVillage.openingTime).trim() : null,
+        closingTime: editVillage.closingTime ? String(editVillage.closingTime).trim() : null,
         deliveryHours: editVillage.deliveryHours ? String(editVillage.deliveryHours).trim() : null,
         areaId: editVillage.areaId || null
       };
@@ -430,7 +436,9 @@ export function AdminDelivery() {
         minimumOrder: Number(editArea.minimumOrder),
         deliveryFee: Number(editArea.deliveryFee),
         freeDeliveryThreshold: Number(editArea.freeDeliveryThreshold),
-        estimatedMinutes: Number(editArea.estimatedMinutes)
+        estimatedMinutes: Number(editArea.estimatedMinutes),
+        openingTime: editArea.openingTime ? String(editArea.openingTime).trim() : null,
+        closingTime: editArea.closingTime ? String(editArea.closingTime).trim() : null
       };
 
       if (editArea.id) {
@@ -766,6 +774,26 @@ export function AdminDelivery() {
                     </div>
                   )}
 
+                  {v.openingTime && v.closingTime ? (
+                    <div style={{ background: '#f0f9ff', color: '#0369a1', padding: '6px 10px', borderRadius: '6px', fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock3 size={14} /> Store Hours: <b>{v.openingTime} – {v.closingTime}</b>
+                      </div>
+                      <span style={{ fontSize: '10px', background: '#0284c7', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        Priority 1: Village
+                      </span>
+                    </div>
+                  ) : v.area?.openingTime && v.area?.closingTime ? (
+                    <div style={{ background: '#fffbeb', color: '#92400e', padding: '6px 10px', borderRadius: '6px', fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock3 size={14} /> Inherited Hours: <b>{v.area.openingTime} – {v.area.closingTime}</b>
+                      </div>
+                      <span style={{ fontSize: '10px', background: '#f59e0b', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        Priority 2: Zone
+                      </span>
+                    </div>
+                  ) : null}
+
                   {v.notes && (
                     <p style={{ fontSize: '12px', color: '#6b7280', margin: '8px 0 0' }}>{v.notes}</p>
                   )}
@@ -874,6 +902,17 @@ export function AdminDelivery() {
                     <span><small>Free Above</small><b>{money(zone.freeDeliveryThreshold)}</b></span>
                     <span><small>ETA</small><b>{zone.estimatedMinutes} min</b></span>
                   </div>
+
+                  {zone.openingTime && zone.closingTime && (
+                    <div style={{ background: '#fffbeb', color: '#92400e', padding: '6px 10px', borderRadius: '6px', fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock3 size={14} /> Zone Operating Hours: <b>{zone.openingTime} – {zone.closingTime}</b>
+                      </div>
+                      <span style={{ fontSize: '10px', background: '#f59e0b', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        Priority 2: Zone
+                      </span>
+                    </div>
+                  )}
 
                   <div className="village-action-toolbar">
                     <div className="village-action-group">
@@ -1327,6 +1366,43 @@ export function AdminDelivery() {
               </select>
             </label>
 
+            <div className="full" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', marginTop: '4px', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock3 size={16} style={{ color: '#0284c7' }} />
+                  <span style={{ fontWeight: 700, fontSize: '13px', color: '#1e293b' }}>
+                    Store Operating Hours (Village Level)
+                  </span>
+                </div>
+                <span style={{ fontSize: '11px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                  Priority 1: High
+                </span>
+              </div>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                Leave empty to inherit operating hours from Parent Zone (Priority 2) or Global Store Settings (Priority 3).
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <label style={{ margin: 0 }}>
+                  <small style={{ fontWeight: 600, color: '#475569' }}>Store Opening Time</small>
+                  <input
+                    type="time"
+                    value={editVillage?.openingTime || ''}
+                    onChange={e => setEditVillage(curr => ({ ...curr, openingTime: e.target.value }))}
+                    style={{ marginTop: '4px' }}
+                  />
+                </label>
+                <label style={{ margin: 0 }}>
+                  <small style={{ fontWeight: 600, color: '#475569' }}>Store Closing Time</small>
+                  <input
+                    type="time"
+                    value={editVillage?.closingTime || ''}
+                    onChange={e => setEditVillage(curr => ({ ...curr, closingTime: e.target.value }))}
+                    style={{ marginTop: '4px' }}
+                  />
+                </label>
+              </div>
+            </div>
+
             <label>
               Custom Delivery Hours (Optional)
               <input
@@ -1464,6 +1540,43 @@ export function AdminDelivery() {
                 onChange={e => setEditArea(curr => ({ ...curr, freeDeliveryThreshold: e.target.value }))}
               />
             </label>
+
+            <div className="full" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock3 size={16} style={{ color: '#d97706' }} />
+                  <span style={{ fontWeight: 700, fontSize: '13px', color: '#92400e' }}>
+                    Zone Operating Hours (Parent Zone Level)
+                  </span>
+                </div>
+                <span style={{ fontSize: '11px', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                  Priority 2: Medium
+                </span>
+              </div>
+              <p style={{ fontSize: '11px', color: '#78350f', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                Applies to all villages in this zone that don't have custom village-level hours set. Leave empty to inherit from Global Store Settings (Priority 3).
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <label style={{ margin: 0 }}>
+                  <small style={{ fontWeight: 600, color: '#92400e' }}>Zone Opening Time</small>
+                  <input
+                    type="time"
+                    value={editArea?.openingTime || ''}
+                    onChange={e => setEditArea(curr => ({ ...curr, openingTime: e.target.value }))}
+                    style={{ marginTop: '4px' }}
+                  />
+                </label>
+                <label style={{ margin: 0 }}>
+                  <small style={{ fontWeight: 600, color: '#92400e' }}>Zone Closing Time</small>
+                  <input
+                    type="time"
+                    value={editArea?.closingTime || ''}
+                    onChange={e => setEditArea(curr => ({ ...curr, closingTime: e.target.value }))}
+                    style={{ marginTop: '4px' }}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
 
           <div className="locality-selector" style={{ marginTop: '16px' }}>
@@ -1593,7 +1706,7 @@ export function AdminDelivery() {
                   <small style={{ color: 'var(--muted)', display: 'block' }}>Delivery Fee</small>
                   <b>₹{villagePreviewData.deliveryFee}</b>
                   <span style={{ fontSize: '10px', display: 'block', color: 'var(--muted)', marginTop: '2px' }}>
-                    Source: {villagePreviewData.sourceIndicators?.deliveryFee}
+                    Source: {villagePreviewData.sources?.deliveryFee || villagePreviewData.sourceIndicators?.deliveryFee || 'GLOBAL_DEFAULT'}
                   </span>
                 </div>
 
@@ -1601,7 +1714,7 @@ export function AdminDelivery() {
                   <small style={{ color: 'var(--muted)', display: 'block' }}>Minimum Order</small>
                   <b>₹{villagePreviewData.minimumOrder}</b>
                   <span style={{ fontSize: '10px', display: 'block', color: 'var(--muted)', marginTop: '2px' }}>
-                    Source: {villagePreviewData.sourceIndicators?.minimumOrder}
+                    Source: {villagePreviewData.sources?.minimumOrder || villagePreviewData.sourceIndicators?.minimumOrder || 'GLOBAL_DEFAULT'}
                   </span>
                 </div>
 
@@ -1609,7 +1722,7 @@ export function AdminDelivery() {
                   <small style={{ color: 'var(--muted)', display: 'block' }}>Free Delivery Above</small>
                   <b>₹{villagePreviewData.freeDeliveryThreshold}</b>
                   <span style={{ fontSize: '10px', display: 'block', color: 'var(--muted)', marginTop: '2px' }}>
-                    Source: {villagePreviewData.sourceIndicators?.freeDeliveryThreshold}
+                    Source: {villagePreviewData.sources?.freeDeliveryThreshold || villagePreviewData.sourceIndicators?.freeDeliveryThreshold || 'GLOBAL_DEFAULT'}
                   </span>
                 </div>
 
@@ -1617,7 +1730,7 @@ export function AdminDelivery() {
                   <small style={{ color: 'var(--muted)', display: 'block' }}>Service Radius</small>
                   <b>{villagePreviewData.radiusKm} km</b>
                   <span style={{ fontSize: '10px', display: 'block', color: 'var(--muted)', marginTop: '2px' }}>
-                    Source: {villagePreviewData.sourceIndicators?.radiusKm}
+                    Source: {villagePreviewData.sources?.radiusKm || villagePreviewData.sourceIndicators?.radiusKm || 'GLOBAL_DEFAULT'}
                   </span>
                 </div>
 
@@ -1627,7 +1740,7 @@ export function AdminDelivery() {
                     {villagePreviewData.allowCod ? 'Allowed' : 'Disabled'}
                   </b>
                   <span style={{ fontSize: '10px', display: 'block', color: 'var(--muted)', marginTop: '2px' }}>
-                    Source: {villagePreviewData.sourceIndicators?.allowCod}
+                    Source: {villagePreviewData.sources?.allowCod || villagePreviewData.sourceIndicators?.allowCod || 'GLOBAL_DEFAULT'}
                   </span>
                 </div>
 
@@ -1635,8 +1748,42 @@ export function AdminDelivery() {
                   <small style={{ color: 'var(--muted)', display: 'block' }}>Estimated ETA</small>
                   <b>{villagePreviewData.estimatedDelivery}</b>
                   <span style={{ fontSize: '10px', display: 'block', color: 'var(--muted)', marginTop: '2px' }}>
-                    Source: {villagePreviewData.sourceIndicators?.estimatedDelivery}
+                    Source: {villagePreviewData.sources?.estimatedDelivery || villagePreviewData.sourceIndicators?.estimatedDelivery || 'GLOBAL_DEFAULT'}
                   </span>
+                </div>
+
+                <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'rgba(255,255,255,0.02)', gridColumn: 'span 2' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <small style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock3 size={14} /> Store Operating Schedule (Open – Close)
+                    </small>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: villagePreviewData.isOpenNow ? '#ecfdf5' : '#fef2f2',
+                      color: villagePreviewData.isOpenNow ? '#059669' : '#dc2626'
+                    }}>
+                      {villagePreviewData.isOpenNow ? '🟢 Open Now' : '🔴 Closed'}
+                    </span>
+                  </div>
+                  <b style={{ fontSize: '15px' }}>{villagePreviewData.openingTime || '07:00'} – {villagePreviewData.closingTime || '22:00'}</b>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                      Source:{' '}
+                      <strong style={{ color: villagePreviewData.hoursSource === 'VILLAGE_OVERRIDE' ? '#0284c7' : villagePreviewData.hoursSource === 'AREA_OVERRIDE' ? '#d97706' : '#10b981' }}>
+                        {villagePreviewData.hoursSource === 'VILLAGE_OVERRIDE'
+                          ? 'Priority 1: Village Override'
+                          : villagePreviewData.hoursSource === 'AREA_OVERRIDE'
+                          ? 'Priority 2: Zone Inheritance'
+                          : 'Priority 3: Global Setting'}
+                      </strong>
+                    </span>
+                    {villagePreviewData.storeStatus?.message && (
+                      <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{villagePreviewData.storeStatus.message}</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
