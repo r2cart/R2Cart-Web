@@ -147,6 +147,14 @@ export function CheckoutPage() {
     qty
   } = useApp();
 
+  const nav = useNavigate();
+  const [selected, setSelected] = useState(() => activeAddress?.id || null);
+  const [placing, setPlacing] = useState(false);
+  const [addressModal, setAddressModal] = useState(false);
+
+  const selectedAddress = addressList.find((item) => item.id === selected) || activeAddress;
+  const rules = (selectedAddress?.area ? deliveryRulesFor(selectedAddress.area) : null) || activeDeliveryRules || deliveryConfig;
+
   const emergencyPause = storeSettings?.policies?.emergencyPause;
   const effectiveStatus = storeSettings?.effectiveStatus;
   const emergencyType = storeSettings?.emergencySettings?.type || effectiveStatus?.emergencyDetails?.type || 'ALL_ORDERS';
@@ -187,11 +195,6 @@ export function CheckoutPage() {
   const holidayDates = Array.isArray(emergencyPause?.holidayDates) ? emergencyPause.holidayDates : [];
   const advanceBookingDays = Math.max(1, Math.min(30, Number(storeSettings?.advanceBookingDays || storeSettings?.effectiveStatus?.globalDefault?.advanceBookingDays || 4)));
   const sameDayCutoffMinutes = Math.max(0, Number(storeSettings?.sameDayCutoffMinutes ?? storeSettings?.effectiveStatus?.globalDefault?.sameDayCutoffMinutes ?? 60));
-
-  const nav = useNavigate();
-  const [selected, setSelected] = useState(() => activeAddress?.id || null);
-  const [placing, setPlacing] = useState(false);
-  const [addressModal, setAddressModal] = useState(false);
 
   // Delivery instructions state
   const [selectedInstructions, setSelectedInstructions] = useState(() => {
@@ -393,9 +396,6 @@ export function CheckoutPage() {
       });
     return () => { active = false; };
   }, [subtotal]);
-
-  const selectedAddress = addressList.find((item) => item.id === selected) || activeAddress;
-  const rules = (selectedAddress?.area ? deliveryRulesFor(selectedAddress.area) : null) || activeDeliveryRules || deliveryConfig;
 
   const affectedVillageIds = useMemo(() => {
     const list = storeSettings?.emergencySettings?.affectedVillageIds ||
