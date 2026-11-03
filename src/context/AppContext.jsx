@@ -34,7 +34,28 @@ export const formatLocation=(address)=>{
   if(cityLine)return cityLine;
   return address.area||address.city||DEFAULT_LOCATION;
 };
-const isInvalidCustomer=value=>Boolean(value)&&(value.role&&value.role!=='CUSTOMER'||value.email?.toLowerCase()==='aarav@example.com'||value.name?.trim().toLowerCase()==='aarav sharma');
+export const isTimeWithinOperatingHours=(openStr,closeStr)=>{
+  if(!openStr||!closeStr)return true;
+  try{
+    const kolkataTime=new Intl.DateTimeFormat('en-IN',{
+      timeZone:'Asia/Kolkata',
+      hour:'2-digit',
+      minute:'2-digit',
+      hour12:false
+    }).format(new Date());
+    const [curH,curM]=kolkataTime.split(':').map(Number);
+    const curMins=curH*60+curM;
+
+    const [oH,oM]=String(openStr).trim().split(':').map(Number);
+    const openMins=oH*60+oM;
+    const [cH,cM]=String(closeStr).trim().split(':').map(Number);
+    const closeMins=cH*60+cM;
+
+    return curMins>=openMins&&curMins<closeMins;
+  }catch{
+    return true;
+  }
+};
 function clearLegacyDemoSession(){
  try{
   const stored=storage.get('user',null);
@@ -389,19 +410,26 @@ export function AppProvider({children}){
       affectedList.includes(String(villageMatch.id).toLowerCase()) ||
       affectedList.includes(String(villageMatch.name).toLowerCase())
     );
+    const effOpen = villageMatch.openingTime || '07:00';
+    const effClose = villageMatch.closingTime || '22:00';
+    const isHoursOpen = isTimeWithinOperatingHours(effOpen, effClose);
+
     return {
       zoneId:villageMatch.id,
       villageId:villageMatch.id,
       villageName:villageMatch.name,
+      zoneName:villageMatch.name,
       name:villageMatch.name,
       minimumOrder:Number(villageMatch.minimumOrder),
       deliveryFee:Number(villageMatch.deliveryFee),
       freeDeliveryThreshold:Number(villageMatch.freeDeliveryThreshold),
       estimatedDelivery:`${villageMatch.estimatedMinutes||30} minutes`,
       radiusKm:Number(villageMatch.radiusKm||5),
-      openingTime:villageMatch.openingTime||null,
-      closingTime:villageMatch.closingTime||null,
+      openingTime:effOpen,
+      closingTime:effClose,
       hoursSource:villageMatch.hoursSource||null,
+      isOpenNow:isHoursOpen,
+      isClosed:!isHoursOpen,
       allowCod:villageMatch.allowCod??true,
       allowScheduled:villageMatch.allowScheduled??true,
       isVillage:true,
@@ -421,6 +449,10 @@ export function AppProvider({children}){
       affectedList.includes(String(areaMatch.name).toLowerCase()) ||
       (Array.isArray(areaMatch.suspendedLocalities) && areaMatch.suspendedLocalities.some(loc => String(loc).trim().toLowerCase() === clean))
     );
+    const effOpen = areaMatch.openingTime || '07:00';
+    const effClose = areaMatch.closingTime || '22:00';
+    const isHoursOpen = isTimeWithinOperatingHours(effOpen, effClose);
+
     return {
       zoneId:areaMatch.id,
       zoneName:areaMatch.name,
@@ -429,9 +461,11 @@ export function AppProvider({children}){
       freeDeliveryThreshold:Number(areaMatch.freeDeliveryThreshold),
       estimatedDelivery:`${areaMatch.estimatedMinutes||20} minutes`,
       radiusKm:Number(areaMatch.radiusKm||5),
-      openingTime:areaMatch.openingTime||null,
-      closingTime:areaMatch.closingTime||null,
+      openingTime:effOpen,
+      closingTime:effClose,
       hoursSource:areaMatch.hoursSource||null,
+      isOpenNow:isHoursOpen,
+      isClosed:!isHoursOpen,
       allowCod:areaMatch.allowCod??true,
       allowScheduled:areaMatch.allowScheduled??true,
       isVillage:false,
@@ -450,6 +484,10 @@ export function AppProvider({children}){
       affectedList.includes(String(anyMatch.id).toLowerCase()) ||
       affectedList.includes(String(anyMatch.name).toLowerCase())
     );
+    const effOpen = anyMatch.openingTime || '07:00';
+    const effClose = anyMatch.closingTime || '22:00';
+    const isHoursOpen = isTimeWithinOperatingHours(effOpen, effClose);
+
     return {
       zoneId:anyMatch.id,
       zoneName:anyMatch.name,
@@ -458,9 +496,11 @@ export function AppProvider({children}){
       freeDeliveryThreshold:Number(anyMatch.freeDeliveryThreshold),
       estimatedDelivery:`${anyMatch.estimatedMinutes||25} minutes`,
       radiusKm:Number(anyMatch.radiusKm||5),
-      openingTime:anyMatch.openingTime||null,
-      closingTime:anyMatch.closingTime||null,
+      openingTime:effOpen,
+      closingTime:effClose,
       hoursSource:anyMatch.hoursSource||null,
+      isOpenNow:isHoursOpen,
+      isClosed:!isHoursOpen,
       allowCod:anyMatch.allowCod??true,
       allowScheduled:anyMatch.allowScheduled??true,
       isVillage:Boolean(anyMatch.isVillage),

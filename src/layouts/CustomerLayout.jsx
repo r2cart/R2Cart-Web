@@ -43,8 +43,9 @@ function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();co
     !isStoreFullyClosed &&
     (effectiveStatus !== undefined && effectiveStatus !== null ? effectiveStatus.allowScheduledOrders : true)
   );
+  const isVillageClosed = Boolean(rules?.isOpenNow === false || rules?.isClosed);
   const isPaused = Boolean(rules?.isPaused || isEmergencyPaused);
-  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed);
+  const isClosed = Boolean(isStoreFullyClosed || isInstantClosed || isVillageClosed);
   const nextOpening = effectiveStatus?.nextAvailableOpening;
   const reopenLabel = nextOpening?.label;
 
@@ -1934,6 +1935,77 @@ export default function CustomerLayout({children}){
             }}
           >
             Change →
+          </button>
+        </div>
+      </aside>
+    );
+  })()}
+
+  {/* Village Closed / Outside Village Operating Hours Notice */}
+  {!storeSettings?.policies?.emergencyPause?.isPaused && 
+   storeSettings?.effectiveStatus?.storeStatus !== 'EMERGENCY_PAUSED' &&
+   !activeDeliveryRules?.isPaused &&
+   (activeDeliveryRules?.isOpenNow === false || activeDeliveryRules?.isClosed) && (() => {
+    const vName = activeAddress?.area || activeDeliveryRules?.villageName || activeDeliveryRules?.name || 'Selected Village';
+    const openTime = activeDeliveryRules?.openingTime || '07:00';
+    const closeTime = activeDeliveryRules?.closingTime || '22:00';
+    const formattedHours = `${openTime} – ${closeTime}`;
+
+    return (
+      <aside
+        role="alert"
+        style={{
+          background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+          color: '#ffffff',
+          padding: '9px 14px',
+          boxShadow: '0 2px 10px rgba(180, 83, 9, 0.25)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 99989,
+          width: '100%',
+          boxSizing: 'border-box'
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '1240px',
+            margin: '0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: '16px', flexShrink: 0 }}>🌙</span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Delivery Closed for ${vName} (Store Hours: ${formattedHours})
+              </span>
+              <span style={{ fontSize: '11px', color: '#fef3c7', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.25 }}>
+                Instant delivery to ${vName} is currently closed. You can schedule your order for upcoming delivery slots!
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setLocationOpen(true)}
+            style={{
+              background: '#ffffff',
+              color: '#b45309',
+              border: 'none',
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            Change Village →
           </button>
         </div>
       </aside>

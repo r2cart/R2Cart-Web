@@ -157,8 +157,8 @@ export function CheckoutPage() {
     (storeSettings?.isOrderPaused && (emergencyType === 'ALL_ORDERS' || emergencyType === 'STORE_CLOSE'))
   );
 
-  // Granular order type permissions derived from store schedule engine
-  const allowImmediate = !isStoreFullyClosed && (
+  // Granular order type permissions derived from store schedule engine & village operating hours
+  const allowImmediate = !isStoreFullyClosed && !isVillageClosed && (
     effectiveStatus !== undefined && effectiveStatus !== null
       ? Boolean(effectiveStatus.allowImmediateOrders)
       : true
@@ -184,6 +184,9 @@ export function CheckoutPage() {
   const nav = useNavigate();
   const [selected, setSelected] = useState(() => activeAddress?.id || null);
   const [placing, setPlacing] = useState(false);
+
+  // selectedAddress & rules derived at top of component
+  const isVillageClosed = Boolean(rules?.isOpenNow === false || rules?.isClosed);
   const [addressModal, setAddressModal] = useState(false);
 
   // Delivery instructions state
@@ -1192,7 +1195,7 @@ export function CheckoutPage() {
                       </span>
                     </div>
                     <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-                      {isSelectedAreaSuspended ? `Deliveries to ${selectedAddress?.area || 'this area'} suspended` : allowImmediate ? `Estimated in ${rules?.estimatedDelivery || '15–30 mins'}` : 'Closed outside store hours'}
+                      {isSelectedAreaSuspended ? `Deliveries to ${selectedAddress?.area || 'this area'} suspended` : allowImmediate ? `Estimated in ${rules?.estimatedDelivery || '15–30 mins'}` : (rules?.openingTime && rules?.closingTime ? `Closed · Hours: ${rules.openingTime} – ${rules.closingTime}` : 'Closed outside store hours')}
                     </p>
                   </div>
                   {deliveryType === 'INSTANT' && !isSelectedAreaSuspended && (
