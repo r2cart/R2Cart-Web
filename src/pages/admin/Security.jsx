@@ -530,7 +530,7 @@ export function AdminSecurity() {
           </div>
 
           <div className="security-table-container">
-            <div className="security-table-wrap">
+            <div className="security-table-wrap admin-desktop-table">
               <table className="security-table">
                 <thead>
                   <tr>
@@ -753,6 +753,111 @@ export function AdminSecurity() {
                 </tbody>
               </table>
             </div>
+
+            {/* MOBILE STAFF CARDS (Zero horizontal scroll, native card view) */}
+            <div className="admin-mobile-cards">
+              {!filteredStaffList.length ? (
+                <div className="admin-mobile-empty-card">
+                  {searchStaff || staffRoleFilter ? 'No staff accounts matching your filter criteria.' : 'No staff accounts found.'}
+                </div>
+              ) : (
+                filteredStaffList.map(member => {
+                  const isSuper = member.staffRole === 'SUPER_ADMIN' || member.role === 'SUPER_ADMIN';
+                  const grantedKeys = Object.entries(member.permissions || {})
+                    .filter(([k, v]) => Boolean(v) && k !== 'all')
+                    .map(([k]) => k);
+
+                  const initials = (member.name || 'Admin')
+                    .trim()
+                    .split(/\s+/)
+                    .map(x => x[0])
+                    .filter(Boolean)
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase() || 'AD';
+
+                  const avatarClass = isSuper ? 'super-admin' : member.staffRole === 'DELIVERY_PERSON' ? 'delivery' : 'admin';
+
+                  return (
+                    <div className="admin-mobile-card" key={`m-staff-${member.id}`}>
+                      <div className="admin-mobile-card-head">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className={`member-avatar ${avatarClass}`} style={{ width: '38px', height: '38px', fontSize: '13px' }}>
+                            {initials}
+                          </div>
+                          <div>
+                            <div className="admin-mobile-cust-title">{member.name}</div>
+                            <div className="admin-mobile-date-text">
+                              {member.staffRole === 'SUPER_ADMIN' ? 'Platform Administrator' : member.staffRole?.replace('_', ' ') || 'Staff Member'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <button
+                            type="button"
+                            className={`status-pill ${member.status?.toLowerCase() === 'active' ? 'active' : 'suspended'}`}
+                            onClick={() => toggleMemberStatus(member)}
+                            disabled={isSuper && user?.id === member.id}
+                            style={{ cursor: isSuper && user?.id === member.id ? 'not-allowed' : 'pointer' }}
+                          >
+                            <span className="dot" />
+                            <span>{member.status?.toLowerCase() === 'active' ? 'Active' : 'Suspended'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="admin-mobile-card-body">
+                        <div className="admin-mobile-contact-row">
+                          {member.mobile && (
+                            <a href={`tel:${member.mobile}`} className="admin-mobile-contact-chip">
+                              <Phone size={12} /> {member.mobile}
+                            </a>
+                          )}
+                          {member.email && (
+                            <a href={`mailto:${member.email}`} className="admin-mobile-contact-chip">
+                              <Mail size={12} /> {member.email}
+                            </a>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
+                          <span>Granted: <b>{isSuper ? 'Full Access' : `${grantedKeys.length} permissions`}</b></span>
+                          <span>Last login: <b>{member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'Never'}</b></span>
+                        </div>
+                      </div>
+
+                      <div className="admin-mobile-card-actions">
+                        <Button
+                          variant="outline"
+                          style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 700 }}
+                          onClick={() => setEditPermissions(member)}
+                        >
+                          <ShieldCheck size={13} style={{ marginRight: '5px' }} /> Edit Access
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 700, border: '1px solid #e2e8f0' }}
+                          onClick={() => setResetPasswordTarget(member)}
+                        >
+                          <KeyRound size={13} style={{ marginRight: '5px' }} /> Password
+                        </Button>
+                        {!isSuper && (
+                          <button
+                            type="button"
+                            className="admin-mobile-del-btn"
+                            onClick={() => setRemoveStaff(member)}
+                            title="Revoke Staff Account"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </>
       )}
@@ -793,7 +898,7 @@ export function AdminSecurity() {
           </div>
 
           <div className="security-table-container">
-            <div className="security-table-wrap">
+            <div className="security-table-wrap admin-desktop-table">
               <table className="security-table">
                 <thead>
                   <tr>

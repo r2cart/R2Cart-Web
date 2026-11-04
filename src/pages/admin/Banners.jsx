@@ -529,7 +529,7 @@ export function AdminBanners(){
       </div>
      </div>
 
-     <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:'12px'}}>
+     <div className="banner-triple-images-grid" style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:'12px'}}>
       {/* 1. Main Large Image */}
       <div style={{background:'#ffffff',border:'1px solid #cbd5e1',borderRadius:'12px',padding:'12px',display:'flex',flexDirection:'column'}}>
        <span style={{fontSize:'11.5px',fontWeight:800,color:'#0f172a',marginBottom:'4px'}}>

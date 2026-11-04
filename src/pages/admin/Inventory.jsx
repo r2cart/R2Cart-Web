@@ -335,7 +335,7 @@ export function AdminInventory() {
           </div>
 
           <div className="admin-card table-card">
-            <div className="table-wrap">
+            <div className="table-wrap admin-desktop-table">
               <table>
                 <thead>
                   <tr>
@@ -473,6 +473,128 @@ export function AdminInventory() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* MOBILE INVENTORY CARDS (Zero horizontal scroll, native card view) */}
+            <div className="admin-mobile-cards">
+              {loading && !items.length ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={`inv-m-skel-${idx}`} className="admin-mobile-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="r2c-skeleton-box" style={{ width: '42px', height: '42px', borderRadius: '8px', flexShrink: 0 }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1 }}>
+                        <div className="r2c-skeleton-box" style={{ width: '140px', height: '14px', borderRadius: '4px' }} />
+                        <div className="r2c-skeleton-box" style={{ width: '80px', height: '11px', borderRadius: '4px' }} />
+                      </div>
+                    </div>
+                    <div className="r2c-skeleton-box" style={{ width: '100%', height: '36px', borderRadius: '8px' }} />
+                  </div>
+                ))
+              ) : error ? (
+                <div className="admin-mobile-empty-card">
+                  <span className="text-danger">{error}</span>
+                  <Button variant="outline" onClick={() => loadOverview(1)} style={{ marginTop: '8px' }}>Try Again</Button>
+                </div>
+              ) : !items.length ? (
+                <div className="admin-mobile-empty-card">
+                  No products match the selected criteria.
+                </div>
+              ) : (
+                items.map(product => (
+                  <div className="admin-mobile-card" key={`m-inv-${product.id}`}>
+                    <div className="admin-mobile-card-head">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name || 'Product'}
+                            className="admin-mobile-prod-thumb"
+                            onError={e => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="admin-mobile-avatar" style={{ borderRadius: '8px' }}>
+                            <Package size={16} />
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <div className="admin-mobile-cust-title">{product.name}</div>
+                          <div className="admin-mobile-date-text">{product.sku} · {product.category?.name || 'General'}</div>
+                        </div>
+                      </div>
+                      <StatusBadge
+                        status={
+                          product.stockStatus === 'OUT_OF_STOCK'
+                            ? 'Out of stock'
+                            : product.stockStatus === 'LOW_STOCK'
+                            ? 'Low stock'
+                            : 'Active'
+                        }
+                      />
+                    </div>
+
+                    <div className="admin-mobile-card-body">
+                      <div className="admin-mobile-stats-row">
+                        <div className="admin-mobile-stat-box">
+                          <span className="admin-mobile-stat-lbl">Current Stock</span>
+                          <span className="admin-mobile-stat-val" style={{ color: product.stock <= 0 ? '#dc2626' : product.stock <= product.lowStockThreshold ? '#d97706' : '#059669' }}>
+                            {product.stock} <small style={{ fontSize: '11px', color: '#64748b' }}>{product.unit}</small>
+                          </span>
+                        </div>
+                        <div className="admin-mobile-stat-box">
+                          <span className="admin-mobile-stat-lbl">Alert Threshold</span>
+                          <span className="admin-mobile-stat-val">
+                            {product.lowStockThreshold} <small style={{ fontSize: '11px', color: '#64748b' }}>units</small>
+                          </span>
+                        </div>
+                      </div>
+
+                      {product.hasExpiry && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          background: product.expiryStatus === 'EXPIRED' ? '#fee2e2' : product.expiryStatus === 'EXPIRING_SOON' ? '#fef3c7' : '#ecfdf5',
+                          fontSize: '11.5px',
+                          fontWeight: 700
+                        }}>
+                          <span style={{ color: product.expiryStatus === 'EXPIRED' ? '#b91c1c' : product.expiryStatus === 'EXPIRING_SOON' ? '#b45309' : '#047857' }}>
+                            {product.expiryStatus === 'EXPIRED' ? 'EXPIRED' : product.expiryStatus === 'EXPIRING_SOON' ? 'EXPIRING SOON' : 'FRESH'}
+                          </span>
+                          <span style={{ color: '#475569', fontSize: '11px' }}>Exp: {product.expiryDate || 'N/A'}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="admin-mobile-card-actions">
+                      <Button
+                        variant="outline"
+                        style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 700 }}
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setAdjustmentTargetStock(String(product.stock));
+                          setAdjustmentReason('');
+                        }}
+                      >
+                        <Edit2 size={13} style={{ marginRight: '5px' }} /> Adjust Stock
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 700, border: '1px solid #e2e8f0' }}
+                        onClick={() => {
+                          setExpiryProduct(product);
+                          setHasExpiry(Boolean(product.hasExpiry));
+                          setExpiryDate(product.expiryDate || '');
+                          setBatchNumber(product.batchNumber || '');
+                        }}
+                      >
+                        <Calendar size={13} style={{ marginRight: '5px' }} /> Expiry
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Pagination Controls */}

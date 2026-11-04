@@ -64,7 +64,7 @@ function DeliverySkeleton() {
         </div>
       </div>
 
-      <div className="tabs admin-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'hidden' }}>
+      <div className="tabs admin-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', scrollbarWidth: 'none' }}>
         {[170, 160, 190, 180, 170, 160].map((w, i) => (
           <div key={i} className="r2c-skeleton-box" style={{ width: `${w}px`, height: 42, borderRadius: 10, flexShrink: 0 }} />
         ))}
@@ -646,7 +646,7 @@ export function AdminDelivery() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="admin-tabs" style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '10px' }}>
+      <div className="admin-tabs" style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '10px', overflowX: 'auto', scrollbarWidth: 'none' }}>
         <button
           type="button"
           className={`tab-btn ${tab === 'villages' ? 'active' : ''}`}
