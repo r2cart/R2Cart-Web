@@ -171,7 +171,7 @@ function SecuritySkeleton() {
 }
 
 export function AdminSecurity() {
-  const { notify } = useApp();
+  const { user, notify } = useApp();
   const [tab, setTab] = useState('staff'); // 'staff' | 'audit' | 'logins'
   const [loading, setLoading] = useState(() => !cachedStaff);
   const [busy, setBusy] = useState(false);
@@ -794,16 +794,10 @@ export function AdminSecurity() {
                         </div>
 
                         <div>
-                          <button
-                            type="button"
-                            className={`status-pill ${member.status?.toLowerCase() === 'active' ? 'active' : 'suspended'}`}
-                            onClick={() => toggleMemberStatus(member)}
-                            disabled={isSuper && user?.id === member.id}
-                            style={{ cursor: isSuper && user?.id === member.id ? 'not-allowed' : 'pointer' }}
-                          >
+                          <span className={`status-pill ${member.isStaffActive !== false ? 'active' : 'suspended'}`}>
                             <span className="dot" />
-                            <span>{member.status?.toLowerCase() === 'active' ? 'Active' : 'Suspended'}</span>
-                          </button>
+                            <span>{member.isStaffActive !== false ? 'Active' : 'Suspended'}</span>
+                          </span>
                         </div>
                       </div>
 
@@ -831,26 +825,36 @@ export function AdminSecurity() {
                         <Button
                           variant="outline"
                           style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 700 }}
-                          onClick={() => setEditPermissions(member)}
+                          onClick={() =>
+                            setEditStaff({
+                              ...member,
+                              password: '',
+                              permissions: member.permissions || {}
+                            })
+                          }
                         >
-                          <ShieldCheck size={13} style={{ marginRight: '5px' }} /> Edit Access
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 700, border: '1px solid #e2e8f0' }}
-                          onClick={() => setResetPasswordTarget(member)}
-                        >
-                          <KeyRound size={13} style={{ marginRight: '5px' }} /> Password
+                          <Edit2 size={13} style={{ marginRight: '5px' }} /> {isSuper ? 'View' : 'Edit'}
                         </Button>
                         {!isSuper && (
-                          <button
-                            type="button"
-                            className="admin-mobile-del-btn"
-                            onClick={() => setRemoveStaff(member)}
-                            title="Revoke Staff Account"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className={`security-icon-btn ${member.isStaffActive !== false ? 'toggle-deactivate' : 'toggle-activate'}`}
+                              onClick={() => setConfirmToggleActive(member)}
+                              title={member.isStaffActive !== false ? 'Deactivate Account Privileges' : 'Activate Account Privileges'}
+                              style={{ width: '36px', height: '36px', borderRadius: '8px' }}
+                            >
+                              {member.isStaffActive !== false ? <UserMinus size={15} /> : <UserCheck size={15} />}
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-mobile-del-btn"
+                              onClick={() => setRemoveStaff(member)}
+                              title="Revoke Staff Account"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
