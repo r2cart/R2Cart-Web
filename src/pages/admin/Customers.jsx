@@ -177,7 +177,7 @@ export function AdminCustomers() {
       </FilterBar>
 
       <div className="admin-card table-card">
-        <div className="table-wrap">
+        <div className="table-wrap admin-desktop-table">
           <table>
             <thead>
               <tr>
@@ -329,6 +329,123 @@ export function AdminCustomers() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CUSTOMERS CARDS (Zero horizontal scroll, native card view) */}
+        <div className="admin-mobile-cards">
+          {loading && !customers.length ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div key={`m-skel-${idx}`} className="admin-mobile-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="r2c-skeleton-box" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1 }}>
+                    <div className="r2c-skeleton-box" style={{ width: '130px', height: '14px', borderRadius: '4px' }} />
+                    <div className="r2c-skeleton-box" style={{ width: '80px', height: '11px', borderRadius: '4px' }} />
+                  </div>
+                </div>
+                <div className="r2c-skeleton-box" style={{ width: '100%', height: '36px', borderRadius: '8px' }} />
+              </div>
+            ))
+          ) : error ? (
+            <div className="admin-mobile-empty-card">
+              <span className="text-danger">{error}</span>
+              <Button variant="outline" onClick={load} style={{ marginTop: '8px' }}>
+                Try again
+              </Button>
+            </div>
+          ) : !list.length ? (
+            <div className="admin-mobile-empty-card">
+              No customers match these filters.
+            </div>
+          ) : (
+            list.map(customer => {
+              const initials = (customer.name || customer.email || 'C')
+                .split(' ')
+                .filter(Boolean)
+                .map(p => p[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
+
+              return (
+                <div className="admin-mobile-card" key={customer.id}>
+                  <div className="admin-mobile-card-head">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="admin-mobile-avatar">{initials}</div>
+                      <div>
+                        <div className="admin-mobile-cust-title">{customer.name || 'Unnamed customer'}</div>
+                        <div className="admin-mobile-date-text">Joined {date(customer.createdAt)}</div>
+                      </div>
+                    </div>
+                    <button
+                      disabled={saving}
+                      onClick={() => toggle(customer)}
+                      aria-label="Toggle customer account status"
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                      title="Click to toggle account status"
+                    >
+                      <StatusBadge status={statusLabel(customer.status)} />
+                    </button>
+                  </div>
+
+                  <div className="admin-mobile-card-body">
+                    <div className="admin-mobile-contact-row">
+                      {customer.mobile ? (
+                        <a href={`tel:${customer.mobile}`} className="admin-mobile-contact-chip">
+                          <Phone size={12} /> {customer.mobile}
+                        </a>
+                      ) : (
+                        <span className="admin-mobile-contact-chip disabled">
+                          <Phone size={12} /> No mobile
+                        </span>
+                      )}
+                      {customer.email && (
+                        <a href={`mailto:${customer.email}`} className="admin-mobile-contact-chip">
+                          <Mail size={12} /> {customer.email}
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="admin-mobile-stats-row">
+                      <div className="admin-mobile-stat-box">
+                        <span className="admin-mobile-stat-lbl">Total Orders</span>
+                        <span className="admin-mobile-stat-val">
+                          {customer.totalOrders ?? customer.orders?.length ?? 0}
+                        </span>
+                      </div>
+                      <div className="admin-mobile-stat-box">
+                        <span className="admin-mobile-stat-lbl">Delivered Spent</span>
+                        <span className="admin-mobile-stat-val green">
+                          {money(customer.totalSpent || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-mobile-card-actions">
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelected(customer)}
+                      style={{ flex: 1, height: '36px', fontSize: '12.5px', fontWeight: 700 }}
+                    >
+                      <Eye size={14} style={{ marginRight: '6px' }} /> View Profile
+                    </Button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => setDeletingCustomer(customer)}
+                        className="admin-mobile-del-btn"
+                        title="Permanently delete customer from database"
+                        aria-label={`Delete ${customer.name}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

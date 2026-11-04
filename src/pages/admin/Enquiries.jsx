@@ -220,7 +220,7 @@ export default function Enquiries() {
 
       {/* INQUIRIES TABLE CARD */}
       <div className="admin-card table-card" style={{ background: '#fff', borderRadius: '14px', border: '1.5px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-        <div className="table-wrap">
+        <div className="table-wrap admin-desktop-table">
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
@@ -481,6 +481,160 @@ export default function Enquiries() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE INQUIRIES CARDS (Zero horizontal scroll, native card view) */}
+        <div className="admin-mobile-cards">
+          {loading && !items.length ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div key={`inq-m-skel-${idx}`} className="admin-mobile-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                  <div className="r2c-skeleton-box" style={{ width: '120px', height: '16px', borderRadius: '4px' }} />
+                  <div className="r2c-skeleton-box" style={{ width: '70px', height: '22px', borderRadius: '12px' }} />
+                </div>
+                <div className="r2c-skeleton-box" style={{ width: '100%', height: '40px', borderRadius: '8px' }} />
+                <div className="r2c-skeleton-box" style={{ width: '100%', height: '32px', borderRadius: '8px' }} />
+              </div>
+            ))
+          ) : error ? (
+            <div className="admin-mobile-empty-card">
+              <AlertCircle size={24} style={{ color: '#ef4444', margin: '0 auto 6px' }} />
+              <p style={{ color: '#dc2626', fontWeight: 600, fontSize: '13px', margin: '0 0 10px' }}>{error}</p>
+              <button 
+                onClick={fetchEnquiries}
+                style={{ padding: '6px 14px', borderRadius: '8px', border: '1.5px solid #cbd5e1', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !items.length ? (
+            <div className="admin-mobile-empty-card">
+              <PhoneCall size={22} style={{ color: '#94a3b8', margin: '0 auto 6px' }} />
+              <div style={{ color: '#0f172a', fontWeight: 700, fontSize: '14px', marginBottom: '2px' }}>
+                No Customer Inquiries
+              </div>
+              <div style={{ color: '#64748b', fontSize: '12px' }}>
+                {statusTab !== 'All' ? `No requests matching "${statusTab}".` : 'Customer inquiries will appear here.'}
+              </div>
+            </div>
+          ) : (
+            items.map((item) => {
+              const cleanPhone = String(item.phone || '').replace(/\D/g, '');
+              const productImg = item.product?.images?.[0]?.url || 'https://placehold.co/100?text=Product';
+              const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(`Hello ${item.name}, regarding your inquiry about ${item.product?.name || 'our product'} on R2Cart:`)}`;
+
+              return (
+                <div className="admin-mobile-card" key={`m-inq-${item.id}`}>
+                  <div className="admin-mobile-card-head">
+                    <div>
+                      <div className="admin-mobile-cust-title">{item.name || 'Customer'}</div>
+                      <div className="admin-mobile-date-text">
+                        <Clock size={11} />
+                        <span>{new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                      <span style={{
+                        ...getStatusBadgeStyle(item.status),
+                        padding: '3px 9px',
+                        borderRadius: '20px',
+                        fontSize: '10.5px',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}>
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="admin-mobile-card-body">
+                    {item.product && (
+                      <div className="admin-mobile-product-box">
+                        <img src={productImg} alt={item.product?.name || 'Product'} className="admin-mobile-prod-thumb" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="admin-mobile-prod-name">{item.product.name}</div>
+                          <div className="admin-mobile-prod-meta">{item.product.unit || 'Item'} · {money(item.product.price)}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {item.message && (
+                      <div className="admin-mobile-inq-msg">
+                        <b>Inquiry:</b> "{item.message}"
+                      </div>
+                    )}
+
+                    {item.adminNotes && (
+                      <div className="admin-mobile-inq-notes">
+                        <b>Staff Note:</b> {item.adminNotes}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="admin-mobile-inq-actions">
+                    {cleanPhone ? (
+                      <>
+                        <a href={`tel:${cleanPhone}`} className="admin-mobile-act-btn call">
+                          <PhoneCall size={13} /> Call
+                        </a>
+                        <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="admin-mobile-act-btn whatsapp">
+                          <MessageCircle size={13} /> WhatsApp
+                        </a>
+                      </>
+                    ) : (
+                      item.email && (
+                        <a href={`mailto:${item.email}`} className="admin-mobile-act-btn call">
+                          <Mail size={13} /> Email
+                        </a>
+                      )
+                    )}
+
+                    <select
+                      value={item.status}
+                      disabled={updatingId === item.id}
+                      onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                      style={{
+                        padding: '5px 8px',
+                        borderRadius: '7px',
+                        border: '1.5px solid #cbd5e1',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        background: '#f8fafc',
+                        color: '#0f172a',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="CONTACTED">Contacted</option>
+                      <option value="RESOLVED">Resolved</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => openDetailModal(item)}
+                      className="admin-mobile-act-btn details"
+                      title="View details & edit notes"
+                    >
+                      <Eye size={13} /> Notes
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      className="admin-mobile-act-btn delete"
+                      title="Delete inquiry"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

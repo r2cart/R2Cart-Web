@@ -284,7 +284,7 @@ export function AdminOrders() {
 
       {/* ORDERS TABLE CARD */}
       <div className="admin-card table-card">
-        <div className="table-wrap">
+        <div className="table-wrap admin-desktop-table">
           <table>
             <thead>
               <tr>
@@ -488,6 +488,138 @@ export function AdminOrders() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE ORDERS CARDS (Zero horizontal scroll, native card view) */}
+        <div className="admin-mobile-cards">
+          {loading && !result?.orders?.length ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div key={`ord-m-skel-${idx}`} className="admin-mobile-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                  <div className="r2c-skeleton-box" style={{ width: '100px', height: '16px', borderRadius: '4px' }} />
+                  <div className="r2c-skeleton-box" style={{ width: '70px', height: '20px', borderRadius: '12px' }} />
+                </div>
+                <div className="r2c-skeleton-box" style={{ width: '150px', height: '14px', borderRadius: '4px' }} />
+                <div className="r2c-skeleton-box" style={{ width: '100%', height: '36px', borderRadius: '8px' }} />
+              </div>
+            ))
+          ) : error ? (
+            <div className="admin-mobile-empty-card">
+              <p role="alert" style={{ color: '#dc2626', margin: '0 0 10px' }}>{error}</p>
+              <Button variant="outline" onClick={() => setRefresh(value => value + 1)}>Try again</Button>
+            </div>
+          ) : !result?.orders?.length ? (
+            <div className="admin-mobile-empty-card">
+              <div style={{ color: '#64748b', fontSize: '14px' }}>
+                No orders found matching the selected filters.
+              </div>
+              {(tab !== 'All' || deliveryType !== 'ALL' || searchQuery) && (
+                <button
+                  type="button"
+                  onClick={() => { updateDeliveryType('ALL'); updateStatusTab('All'); handleClearSearch(); }}
+                  style={{ marginTop: '10px', background: 'none', border: 'none', color: '#059669', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}
+                >
+                  Reset all filters
+                </button>
+              )}
+            </div>
+          ) : (
+            result.orders.map(order => {
+              const tInfo = formatOrderTime(order.date);
+              const addr = order.addressSnapshot ? addressText(order.addressSnapshot) : null;
+              const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+              return (
+                <div className="admin-mobile-card" key={`m-ord-${order.id}`}>
+                  <div className="admin-mobile-card-head">
+                    <div>
+                      <Link
+                        to={`${prefix}/orders/${order.id}`}
+                        className="admin-mobile-order-num"
+                      >
+                        #{order.orderNumber}
+                      </Link>
+                      <div className="admin-mobile-date-text">
+                        <Clock size={11} color="#059669" />
+                        <span>{tInfo.timeStr}</span>
+                        {tInfo.relative && (
+                          <span className="admin-mobile-rel-badge">
+                            {tInfo.relative}
+                          </span>
+                        )}
+                        <span style={{ color: '#94a3b8' }}>· {tInfo.dateStr}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                      <StatusBadge status={order.status} />
+                      {order.deliveryType === 'SCHEDULED' ? (
+                        <span className="order-type-chip-lg scheduled" style={{ padding: '2px 7px', fontSize: '10.5px' }}>
+                          <Calendar size={11} /> {order.deliverySlot || order.deliveryDate}
+                        </span>
+                      ) : (
+                        <span className="order-type-chip-lg instant" style={{ padding: '2px 7px', fontSize: '10.5px' }}>
+                          <Zap size={11} /> Instant
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="admin-mobile-card-body">
+                    <div className="admin-mobile-cust-row">
+                      <span className="admin-mobile-cust-name">{order.customer || 'Customer'}</span>
+                      {order.mobile && (
+                        <a href={`tel:${order.mobile}`} className="admin-mobile-call-chip">
+                          <Phone size={11} /> {order.mobile}
+                        </a>
+                      )}
+                    </div>
+
+                    {addr && (
+                      <div className="admin-mobile-addr-text">
+                        <MapPin size={12} color="#059669" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <span>
+                          {addr.line}{addr.cityLine ? `, ${addr.cityLine}` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="admin-mobile-card-foot">
+                    <div className="admin-mobile-foot-stats">
+                      <div className="admin-mobile-items-qty">
+                        <b>{totalItems} item{totalItems > 1 ? 's' : ''}</b>
+                        <span> · {order.paymentMethod === 'COD' ? 'Cash on Delivery' : order.paymentMethod}</span>
+                        <span style={{
+                          marginLeft: '5px',
+                          display: 'inline-block',
+                          fontSize: '9.5px',
+                          fontWeight: 800,
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          background: order.paymentStatus === 'PAID' ? '#dcfce7' : '#fef3c7',
+                          color: order.paymentStatus === 'PAID' ? '#15803d' : '#92400e'
+                        }}>
+                          {order.paymentStatus || 'PENDING'}
+                        </span>
+                      </div>
+                      <div className="admin-mobile-total-amt">
+                        {money(order.total)}
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`${prefix}/orders/${order.id}`}
+                      className="admin-mobile-view-btn"
+                    >
+                      <span>Manage Order</span>
+                      <ChevronRight size={15} />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
