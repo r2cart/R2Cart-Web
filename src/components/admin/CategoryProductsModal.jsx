@@ -327,7 +327,7 @@ export default function CategoryProductsModal({ category, onClose, onRefreshCate
                   >
                     {/* Media Area */}
                     <div className="card-shape-media">
-                      {BooleancheckIsSoon(product) && (
+                      {Boolean(checkIsSoon(product)) && (
                         <span style={{ position: 'absolute', top: '8px', left: '8px', background: '#d97706', color: '#fff', fontSize: '9.5px', fontWeight: 800, padding: '2px 6px', borderRadius: '6px', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                           <Clock3 size={10} /> SOON
                         </span>
