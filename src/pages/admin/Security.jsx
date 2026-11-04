@@ -26,7 +26,9 @@ import {
   Copy,
   Check,
   FileCode,
-  XCircle
+  XCircle,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { Button, ConfirmDialog, Modal, StatusBadge } from '../../components/ui';
 import { useApp } from '../../context/AppContext';
