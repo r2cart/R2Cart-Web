@@ -2,7 +2,6 @@ import {useEffect, useState, useMemo, useCallback} from 'react'; import {Link,Na
 import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,Trash2,UserRound,X,Zap,AlertCircle,Moon} from 'lucide-react';
 import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,money} from '../components/ui';
 import {useLanguage} from '../context/LanguageContext';
-import LaunchNoticeModal from '../components/customer/LaunchNoticeModal';
 import brandWordmark from '../assets/r2cart-logo.png';
 import {BRAND} from '../config/brand';
 import {customerService} from '../services/customer.service';
@@ -1595,54 +1594,6 @@ export default function CustomerLayout({children}){
  const [promoPopup,setPromoPopup]=useState(null);
  const [showPromoModal,setShowPromoModal]=useState(false);
 
- const isLaunchNoticeDismissed = useCallback(() => {
-  try {
-   return Boolean(localStorage.getItem('r2cart_launch_notice_dismissed_v4'));
-  } catch {
-   return true;
-  }
- }, []);
-
- const [launchNoticeOpen, setLaunchNoticeOpen] = useState(false);
- const [pendingAddressPrompt, setPendingAddressPrompt] = useState(false);
-
- // Launch notice presentation timer: only triggered if notice is not dismissed and no modal is active
- useEffect(() => {
-  const path = window.location.pathname;
-  if (['/checkout','/order-success','/login','/signup','/verify-otp','/forgot-password'].includes(path) || path.startsWith('/admin') || path.startsWith('/delivery') || path.startsWith('/super-admin')) {
-   return;
-  }
-  if (!isLaunchNoticeDismissed() && !locationOpen) {
-   const timer = setTimeout(() => {
-    if (!locationOpen) {
-     setLaunchNoticeOpen(true);
-    }
-   }, 500);
-   return () => clearTimeout(timer);
-  }
- }, [locationOpen, isLaunchNoticeDismissed]);
-
- const handleDismissLaunchNotice = useCallback(() => {
-  setLaunchNoticeOpen(false);
-  try {
-   localStorage.setItem('r2cart_launch_notice_dismissed_v4', 'true');
-  } catch {}
-
-  // BUG-15 Fix: If an address confirmation prompt was queued while the notice was open,
-  // open it now sequentially as a single clear prompt with a smooth delay.
-  if (pendingAddressPrompt || (user?.id && addressesLoaded)) {
-   const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-   const lastPromptTime = Number(localStorage.getItem('r2cart_last_address_prompt_time') || 0);
-   const now = Date.now();
-   if (now - lastPromptTime >= TWO_HOURS_MS) {
-    localStorage.setItem('r2cart_last_address_prompt_time', String(now));
-    setPendingAddressPrompt(false);
-    setTimeout(() => {
-     setLocationOpen(true);
-    }, 350);
-   }
-  }
- }, [pendingAddressPrompt, user?.id, addressesLoaded, setLocationOpen]);
 
  const handleAnnouncementAction = (e) => {
   if (e) e.preventDefault();
@@ -1709,23 +1660,12 @@ export default function CustomerLayout({children}){
   if (now - lastPromptTime < TWO_HOURS_MS) {
    return;
   }
-
-  // BUG-15 Fix: If Launch Notice modal is active or not yet dismissed, DO NOT stack the choose-address modal!
-  // Queue the prompt so it displays as a single clear prompt ONLY after the notice is dismissed.
-  if (!isLaunchNoticeDismissed() || launchNoticeOpen) {
-   setPendingAddressPrompt(true);
-   return;
-  }
-
-  // Set the timestamp immediately so subsequent fast navigations/reloads don't re-trigger it
   localStorage.setItem('r2cart_last_address_prompt_time', String(now));
   const timer=setTimeout(()=>{
-   if (!launchNoticeOpen) {
-    setLocationOpen(true);
-   }
+   setLocationOpen(true);
   }, 400);
   return()=>clearTimeout(timer);
- },[user?.id, addressesLoaded, launchNoticeOpen, isLaunchNoticeDismissed, setLocationOpen]);
+ },[user?.id, addressesLoaded, setLocationOpen]);
 
  const fetchActiveMarketing = useCallback(() => {
   // Clear legacy test dismissal keys
@@ -2237,13 +2177,8 @@ export default function CustomerLayout({children}){
   <LocationModal/>
   <CartDrawer/>
   <AuthPromptModal/>
-  <LaunchNoticeModal
-    open={launchNoticeOpen}
-    onDismiss={handleDismissLaunchNotice}
-  />
-
   {/* Promotional Popup Modal */}
-  {promoPopup && showPromoModal && !launchNoticeOpen && !locationOpen && (
+  {promoPopup && showPromoModal && !locationOpen && (
     <Modal
       open={showPromoModal}
       onClose={() => {
