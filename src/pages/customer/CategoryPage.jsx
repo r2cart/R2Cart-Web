@@ -1,4 +1,4 @@
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useMemo} from 'react';
 import {Link,useParams} from 'react-router-dom';
 import {Clock, Megaphone} from 'lucide-react';
 import {EmptyState,ProductGrid,Skeletons} from '../../components/ui';
@@ -36,7 +36,22 @@ const PageHead=({eyebrow,title,badge,text})=>(
 export function CategoryPage(){
  const {slug}=useParams();
  const {categories,products,storeSettings,refreshProducts}=useApp();
- const active=categories.find(category=>category.slug===slug)||categories[0];
+ const categoryOrder = storeSettings?.policies?.homeLayout?.categoryOrder || [];
+ const orderedCategories = useMemo(() => {
+  if (!categoryOrder.length) {
+    return [...categories].sort((a, b) => (Number(a.position) || 999) - (Number(b.position) || 999) || (a.name || '').localeCompare(b.name || ''));
+  }
+  const orderMap = new Map(categoryOrder.map((slugOrId, idx) => [slugOrId, idx]));
+  return [...categories].sort((a, b) => {
+    const posA = orderMap.has(a.slug) ? orderMap.get(a.slug) : (orderMap.has(a.id) ? orderMap.get(a.id) : 999);
+    const posB = orderMap.has(b.slug) ? orderMap.get(b.slug) : (orderMap.has(b.id) ? orderMap.get(b.id) : 999);
+    if (posA === posB) {
+      return (Number(a.position) || 999) - (Number(b.position) || 999) || (a.name || '').localeCompare(b.name || '');
+    }
+    return posA - posB;
+  });
+ }, [categories, categoryOrder]);
+ const active=orderedCategories.find(category=>category.slug===slug)||orderedCategories[0];
  const [sort,setSort]=useState('popular');
  const [stock,setStock]=useState('all');
  const [catLoading,setCatLoading]=useState(false);
@@ -51,6 +66,15 @@ export function CategoryPage(){
   const timer=setTimeout(()=>setCatLoading(false),200);
   return()=>clearTimeout(timer);
  },[slug]);
+
+ useEffect(() => {
+  if (active?.slug) {
+   const activeEl = document.querySelector('.category-sidebar a.active');
+   if (activeEl) {
+    activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+   }
+  }
+ }, [active?.slug]);
 
  useEffect(()=>{
   if(active?.noticeActive && (active.noticeTitle || active.noticeMessage)){
@@ -71,7 +95,7 @@ export function CategoryPage(){
    <aside className="category-sidebar">
     <h3>Categories</h3>
     <div className="sidebar-sticky">
-     {categories.map(category=>{
+     {orderedCategories.map(category=>{
       const isSoon = comingSoonCats.includes(category.slug);
       return (
        <Link className={category.slug===active.slug?'active':''} to={`/category/${category.slug}`} key={category.slug}>

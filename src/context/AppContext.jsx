@@ -78,7 +78,7 @@ export function AppProvider({children}){
  const [addressesLoaded,setAddressesLoaded]=useState(false);
  const [activeAddressId,setActiveAddressId]=useState(()=>storage.get('active_address_id',null));
  const [orderList,setOrderList]=useState([]);
- const [categories,setCategories]=useState(()=>{
+ const [categoriesRaw,setCategoriesRaw]=useState(()=>{
   const cached = storage.get('cached_categories',[]);
   return cached.filter(c => c.slug !== 'pet-care');
  });
@@ -90,6 +90,22 @@ export function AppProvider({children}){
  const [catalogErrors,setCatalogErrors]=useState({});
  const catalogResult=(key,error)=>setCatalogErrors(current=>({...current,[key]:error||''}));
  const [storeSettings,setStoreSettings]=useState(()=>storage.get('cached_store_settings',null));
+ const categories = useMemo(() => {
+  const categoryOrder = storeSettings?.policies?.homeLayout?.categoryOrder || [];
+  const list = (categoriesRaw || []).filter(c => c.slug !== 'pet-care');
+  if (!categoryOrder.length) {
+    return [...list].sort((a, b) => (Number(a.position) || 999) - (Number(b.position) || 999) || (a.name || '').localeCompare(b.name || ''));
+  }
+  const orderMap = new Map(categoryOrder.map((slugOrId, idx) => [slugOrId, idx]));
+  return [...list].sort((a, b) => {
+    const posA = orderMap.has(a.slug) ? orderMap.get(a.slug) : (orderMap.has(a.id) ? orderMap.get(a.id) : 999);
+    const posB = orderMap.has(b.slug) ? orderMap.get(b.slug) : (orderMap.has(b.id) ? orderMap.get(b.id) : 999);
+    if (posA === posB) {
+      return (Number(a.position) || 999) - (Number(b.position) || 999) || (a.name || '').localeCompare(b.name || '');
+    }
+    return posA - posB;
+  });
+ }, [categoriesRaw, storeSettings?.policies?.homeLayout?.categoryOrder]);
  const [deliveryZones,setDeliveryZones]=useState(()=>storage.get('cached_delivery_zones',[]));
  const [toast,setToast]=useState(null);const [locationOpen,setLocationOpen]=useState(false);const [cartOpen,setCartOpen]=useState(false);
  const [authModalOpen,setAuthModalOpen]=useState(false);
@@ -194,7 +210,7 @@ export function AppProvider({children}){
   try{
    const rows=await catalogService.listCategories();
    const mapped=rows.map(category=>({...category,image:mediaUrl(category.image)||r2cartLogo}));
-   setCategories(mapped);
+   setCategoriesRaw(mapped);
    storage.set('cached_categories',mapped);
    catalogResult('categories');
    return rows;
