@@ -1698,7 +1698,7 @@ export default function CustomerLayout({children}){
      const dismissed = sessionStorage.getItem(verKey);
      if (!dismissed) {
       setPromoPopup(data.popup);
-      if (!launchNoticeOpen && !locationOpen && isLaunchNoticeDismissed()) {
+      if (!locationOpen) {
        setShowPromoModal(true);
       }
       catalogService.trackMarketing(data.popup.id, 'view').catch(() => {});
@@ -1712,7 +1712,7 @@ export default function CustomerLayout({children}){
     }
    })
    .catch(() => {});
- }, [launchNoticeOpen, locationOpen, isLaunchNoticeDismissed]);
+ }, [locationOpen]);
 
  useEffect(() => {
   fetchActiveMarketing();
