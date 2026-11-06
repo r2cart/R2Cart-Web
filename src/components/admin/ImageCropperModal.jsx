@@ -12,7 +12,8 @@ import {
   FlipVertical,
   Grid,
   Crosshair,
-  AlertCircle
+  AlertCircle,
+  Upload
 } from 'lucide-react';
 import { Button, Modal } from '../ui';
 import { mediaUrl } from '../../utils/media';
@@ -88,6 +89,25 @@ export default function ImageCropperModal({
   const dragStartRef = useRef({ x: 0, y: 0 });
   const touchDistRef = useRef(null);
   const touchCenterRef = useRef({ x: 150, y: 150 });
+
+  // Replace image when user uploads replacement inside cropper
+  const handleReplaceImageFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    setLoadError(null);
+    setImageLoaded(false);
+    const img = new Image();
+    img.onload = () => {
+      imageObjRef.current = img;
+      setImageLoaded(true);
+      setLoadError(null);
+    };
+    img.onerror = () => {
+      setLoadError('Selected replacement file could not be loaded.');
+    };
+    img.src = objectUrl;
+  };
 
   // Redraw the live preview canvas
   const redraw = useCallback(() => {
@@ -513,24 +533,50 @@ export default function ImageCropperModal({
                 <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#fca5a5' }}>Failed to load image</p>
                 <p style={{ margin: 0, color: '#94a3b8', fontSize: '11px' }}>{loadError}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setLoadAttempt(a => a + 1)}
-                style={{
-                  background: '#1e293b',
-                  color: '#ffffff',
-                  border: '1px solid #475569',
-                  borderRadius: '6px',
-                  padding: '5px 12px',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-              >
-                <RefreshCw size={12} /> Retry
-              </button>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setLoadAttempt(a => a + 1)}
+                  style={{
+                    background: '#1e293b',
+                    color: '#ffffff',
+                    border: '1px solid #475569',
+                    borderRadius: '6px',
+                    padding: '6px 14px',
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <RefreshCw size={12} /> Retry
+                </button>
+                <label
+                  style={{
+                    background: '#059669',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '6px 14px',
+                    fontSize: '11.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                  title="Choose a new photo to replace this missing/broken image"
+                >
+                  <Upload size={12} /> Upload Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleReplaceImageFile}
+                  />
+                </label>
+              </div>
             </div>
           )}
 

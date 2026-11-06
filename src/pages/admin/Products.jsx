@@ -1634,6 +1634,39 @@ export function ProductForm(){
     setCropTargetIndex(null);
     notify(`Image cropped at ${Math.round((savedConfig?.zoom || 1) * 100)}% zoom`);
   };
+
+  const handleReplaceSlotImage = async (index, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      return notify('Only JPG, PNG, and WebP supported', 'error');
+    }
+    try {
+      const compressedFile = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.82 });
+      const objectUrl = URL.createObjectURL(compressedFile);
+      setImageList(prev => prev.map((item, i) => i === index ? {
+        ...item,
+        file: compressedFile,
+        originalFile: compressedFile,
+        preview: objectUrl,
+        originalSrc: objectUrl,
+        cropConfig: null
+      } : item));
+      notify('Photo replaced! Tap Crop if you want to frame or zoom.');
+    } catch {
+      const objectUrl = URL.createObjectURL(file);
+      setImageList(prev => prev.map((item, i) => i === index ? {
+        ...item,
+        file,
+        originalFile: file,
+        preview: objectUrl,
+        originalSrc: objectUrl,
+        cropConfig: null
+      } : item));
+      notify('Photo replaced! Tap Crop if you want to frame or zoom.');
+    }
+    event.target.value = '';
+  };
  const [genIndex, setGenIndex] = useState(0);
  const [generatingDesc, setGeneratingDesc] = useState(false);
 
@@ -1927,6 +1960,17 @@ export function ProductForm(){
                   src={displaySrc}
                   alt={`Slot ${idx + 1}`}
                   draggable={false}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent && !parent.querySelector('.broken-img-badge')) {
+                      const b = document.createElement('div');
+                      b.className = 'broken-img-badge';
+                      b.style.cssText = 'padding: 8px; text-align: center; color: #ef4444; font-size: 11px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 4px;';
+                      b.innerHTML = '<span>⚠️ Image 404 (Missing)</span><span style="font-size: 10px; color: #64748b; font-weight: 500;">Tap Replace to upload new</span>';
+                      parent.appendChild(b);
+                    }
+                  }}
                   style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',pointerEvents:'none'}}
                 />
               ) : (
@@ -1987,6 +2031,31 @@ export function ProductForm(){
                   <Crop size={12}/>
                   <span>Crop</span>
                 </Button>
+                <label
+                  style={{
+                    padding:'4px 6px',
+                    fontSize:'11px',
+                    color:'#0369a1',
+                    border:'1px solid #bae6fd',
+                    background:'#f0f9ff',
+                    borderRadius:'6px',
+                    cursor:'pointer',
+                    display:'inline-flex',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    gap:'3px'
+                  }}
+                  title="Replace with a new image"
+                >
+                  <Upload size={12}/>
+                  <span>Replace</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{display:'none'}}
+                    onChange={(e) => handleReplaceSlotImage(idx, e)}
+                  />
+                </label>
                 <Button
                   type="button"
                   variant="ghost"
