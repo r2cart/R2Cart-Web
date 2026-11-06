@@ -333,36 +333,9 @@ function BaseProductCard({product,packSelector}){
     )}
   </div>
   <div className="product-copy">
-    {(product.orderMode !== 'CONTACT_REQUEST' && product.deliveryScope !== 'PAN_INDIA') || product.ratingCount > 0 || dietPref ? (
+    {product.orderMode !== 'CONTACT_REQUEST' && product.deliveryScope !== 'PAN_INDIA' ? (
       <div className="product-badge-row">
-        {dietPref && (
-          <span
-            className={`card-diet-tag ${
-              dietPref.toLowerCase().includes('non')
-                ? 'non-veg'
-                : dietPref.toLowerCase().includes('vegan')
-                ? 'vegan'
-                : dietPref.toLowerCase().includes('egg')
-                ? 'eggless'
-                : dietPref.toLowerCase().includes('organic')
-                ? 'organic'
-                : 'veg'
-            }`}
-            title={dietPref}
-          >
-            <span className="dot" />
-            <span className="diet-label">{dietPref}</span>
-          </span>
-        )}
-        {product.orderMode !== 'CONTACT_REQUEST' && product.deliveryScope !== 'PAN_INDIA' && (
-          <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
-        )}
-        {product.ratingCount > 0 && (
-          <span className="card-rating-badge" title={`${Number(product.rating).toFixed(1)} rating (${product.ratingCount} reviews)`}>
-            <Star size={10} fill="#059669" color="#059669" />
-            <span>{Number(product.rating).toFixed(1)}</span>
-          </span>
-        )}
+        <span className="delivery-pill"><Zap size={10}/> {tEta(eta)}</span>
       </div>
     ) : null}
     <Link to={`/product/${product.id}`} className="product-name">{tProd(product.name)}</Link>

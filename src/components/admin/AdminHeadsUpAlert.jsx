@@ -244,3 +244,4 @@ export default function AdminHeadsUpAlert({ orderAlert, onClose, basePath = '/ad
     </>
   );
 }
+

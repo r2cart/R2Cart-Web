@@ -4708,7 +4708,7 @@ body:has(.modal-backdrop) .mobile-checkout-sticky-footer {
 .product-badge-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px;
   position: relative;
   z-index: 3;
