@@ -8,7 +8,7 @@ import {playNotificationSound,subscribeToPush,sendTestPush,triggerSystemNotifica
 import './navbar.css';
 
 export default function AdminNavbarActions(){
- const nav=useNavigate(),root=useRef(null),prevNoticesRef=useRef([]);
+ const nav=useNavigate(),root=useRef(null),prevNoticesRef=useRef([]),seenAlertsRef=useRef(new Set());
  const {lang,toggleLang,t}=useLanguage();
  const [q,setQ]=useState(''),[results,setResults]=useState([]),[menu,setMenu]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[data,setData]=useState(null),[noticeError,setNoticeError]=useState('');
  const [testStatus,setTestStatus]=useState('idle');
@@ -39,41 +39,47 @@ export default function AdminNavbarActions(){
   const newEnquiryNotices=nextNotices.filter(n=>n.id.startsWith('enquiry-')&&!prevIds.has(n.id));
   if(prevNoticesRef.current.length>0&&newOrderNotices.length>0){
    const latest=newOrderNotices[0];
-   playNotificationSound();
-   triggerSystemNotification({
-    title:'🚨 New Order Received! · R2Cart',
-    body:`${latest.title} (${latest.text})`,
-    url:latest.path||'/admin/orders',
-    tag:latest.id,
-   });
-   window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
-    detail:{
-     orderNumber:latest.title.replace(/^New order\s*/i,''),
-     customerName:'Customer',
-     total:'',
-     itemsCount:1,
+   if(!seenAlertsRef.current.has(latest.id)){
+    seenAlertsRef.current.add(latest.id);
+    playNotificationSound();
+    triggerSystemNotification({
+     title:'🚨 New Order Received! · R2Cart',
+     body:`${latest.title} (${latest.text})`,
      url:latest.path||'/admin/orders',
-    }
-   }));
+     tag:latest.id,
+    });
+    window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
+     detail:{
+      orderNumber:latest.orderNumber||latest.title.replace(/^New order\s*#?/i,''),
+      customerName:latest.customerName||'Customer',
+      total:latest.total||'',
+      itemsCount:latest.itemsCount||1,
+      url:latest.path||'/admin/orders',
+     }
+    }));
+   }
   }
   if(prevNoticesRef.current.length>0&&newEnquiryNotices.length>0){
    const latest=newEnquiryNotices[0];
-   playNotificationSound();
-   triggerSystemNotification({
-    title:'📞 New Customer Inquiry! · R2Cart',
-    body:`${latest.title} · ${latest.text}`,
-    url:latest.path||'/admin/enquiries',
-    tag:latest.id,
-   });
-   window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
-    detail:{
-     orderNumber:latest.title,
-     customerName:latest.text,
-     total:'Custom Inquiry',
-     itemsCount:1,
+   if(!seenAlertsRef.current.has(latest.id)){
+    seenAlertsRef.current.add(latest.id);
+    playNotificationSound();
+    triggerSystemNotification({
+     title:'📞 New Customer Inquiry! · R2Cart',
+     body:`${latest.title} · ${latest.text}`,
      url:latest.path||'/admin/enquiries',
-    }
-   }));
+     tag:latest.id,
+    });
+    window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
+     detail:{
+      orderNumber:latest.title,
+      customerName:latest.text,
+      total:'Custom Inquiry',
+      itemsCount:1,
+      url:latest.path||'/admin/enquiries',
+     }
+    }));
+   }
   }
   prevNoticesRef.current=nextNotices;
   setData(value);
@@ -89,17 +95,23 @@ export default function AdminNavbarActions(){
   // Background push notification event from service worker
   const onSwPush=event=>{
    if(event.data?.type==='R2CART_PUSH_RECEIVED'){
-    playNotificationSound();
-    load();
     const p=event.data.payload||{};
-    window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
-     detail:{
-      orderNumber:p.data?.orderNumber||p.title||'New Order',
-      customerName:p.body||'A customer',
-      total:p.data?.total||'',
-      url:p.data?.url||p.url||'/admin/orders',
-     }
-    }));
+    const alertKey=p.tag||p.orderId||p.data?.orderId||p.orderNumber||'sw-push';
+    if(!seenAlertsRef.current.has(alertKey)){
+     seenAlertsRef.current.add(alertKey);
+     playNotificationSound();
+     window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
+      detail:{
+       orderNumber:p.orderNumber||p.data?.orderNumber||p.title||'New Order',
+       customerName:p.customerName||p.data?.customerName||p.body||'Customer',
+       total:p.total||p.data?.total||'',
+       itemsCount:p.itemsCount||p.data?.itemsCount||1,
+       time:p.time||p.data?.time,
+       url:p.url||p.data?.url||'/admin/orders',
+      }
+     }));
+    }
+    load();
    }
   };
   if('serviceWorker' in navigator){

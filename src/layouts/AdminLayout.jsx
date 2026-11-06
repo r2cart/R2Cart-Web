@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminNavbarActions from '../components/admin/AdminNavbarActions';
+import AdminHeadsUpAlert from '../components/admin/AdminHeadsUpAlert';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -330,86 +331,12 @@ export default function AdminLayout({ children }) {
       </aside>
 
       <div className="admin-content">
-        {/* Floating Order Banner */}
-        {orderAlert && (
-          <aside
-            role="alert"
-            aria-live="assertive"
-            style={{
-              position: 'fixed',
-              top: '18px',
-              right: '24px',
-              zIndex: 99999,
-              maxWidth: '460px',
-              width: 'calc(100vw - 48px)',
-              background: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
-              border: '2px solid #10b981',
-              boxShadow: '0 20px 40px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(16, 185, 129, 0.45)',
-              borderRadius: '14px',
-              padding: '16px 18px',
-              color: '#fff'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  background: 'rgba(16, 185, 129, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '22px',
-                  flexShrink: 0
-                }}
-              >
-                🚨
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                  <strong style={{ fontSize: '13px', color: '#6ee7b7', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                    New Order Received!
-                  </strong>
-                  <button
-                    onClick={() => setOrderAlert(null)}
-                    style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '2px 4px', fontSize: '16px', lineHeight: 1 }}
-                    aria-label="Dismiss banner"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div style={{ fontSize: '13px', marginTop: '4px', color: '#f3f4f6', lineHeight: 1.4 }}>
-                  Order <b>#{orderAlert.orderNumber}</b>
-                  {orderAlert.total ? ` · ₹${orderAlert.total}` : ''}
-                  {orderAlert.customerName ? ` by ${orderAlert.customerName}` : ''}
-                  <div style={{ fontSize: '11.5px', color: '#6ee7b7', marginTop: '3px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>⏰ Order Arrived: {orderAlert.time || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                  </div>
-                </div>
-                <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => {
-                      const url = orderAlert.url || `${basePath}/orders`;
-                      setOrderAlert(null);
-                      nav(url);
-                    }}
-                    style={{ background: '#10b981', color: '#022c22', fontWeight: 700, fontSize: '12px', padding: '7px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <span>View Order</span>
-                    <span>→</span>
-                  </button>
-                  <button
-                    onClick={() => setOrderAlert(null)}
-                    style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#e5e7eb', fontWeight: 500, fontSize: '12px', padding: '7px 12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.15)', cursor: 'pointer' }}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
-        )}
+        {/* Modern Heads-Up Floating Order Alert (Top on Mobile & Desktop) */}
+        <AdminHeadsUpAlert
+          orderAlert={orderAlert}
+          onClose={() => setOrderAlert(null)}
+          basePath={basePath}
+        />
 
         {perm !== 'granted' && perm !== 'unsupported' && (
           <div style={{ background: 'linear-gradient(90deg, #148542, #0d5f2e)', color: '#fff', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 500, zIndex: 10 }}>

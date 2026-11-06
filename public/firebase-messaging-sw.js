@@ -19,14 +19,26 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId) {
 
   messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Background message received:', payload);
-    const title = payload.notification?.title || payload.data?.title || 'R2Cart Update';
+    const title = payload.notification?.title || payload.data?.title || '🚨 New Order Alert · R2Cart';
+    const orderId = payload.data?.orderId || '';
+    const orderNumber = payload.data?.orderNumber || '';
+    const tag = payload.data?.tag || (orderId ? `order-${orderId}` : (orderNumber ? `order-${orderNumber}` : 'r2cart-fcm-alert'));
+
     const notificationOptions = {
-      body: payload.notification?.body || payload.data?.body || '',
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      body: payload.notification?.body || payload.data?.body || 'A new order has been received.',
+      icon: '/r2cart-logo.png',
+      badge: '/r2cart-logo.png',
       data: payload.data || {},
       requireInteraction: true,
-      tag: payload.data?.tag || `r2cart-fcm-${Date.now()}`,
+      renotify: true,
+      silent: false,
+      timestamp: Date.now(),
+      vibrate: [500, 150, 500, 150, 500, 200, 400],
+      tag: tag,
+      actions: [
+        { action: 'open', title: '👁 View Order' },
+        { action: 'close', title: '✕ Dismiss' }
+      ]
     };
 
     self.registration.showNotification(title, notificationOptions);
@@ -35,7 +47,9 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId) {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || '/';
+  if (event.action === 'close') return;
+
+  const urlToOpen = event.notification.data?.url || '/admin/orders';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

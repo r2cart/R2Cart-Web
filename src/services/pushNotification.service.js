@@ -230,10 +230,12 @@ export async function triggerSystemNotification({
     body,
     icon: iconUrl,
     badge: iconUrl,
-    tag: tag || `r2cart-order-${Date.now()}`,
+    tag: tag || 'r2cart-order-alert',
     renotify: true,
     requireInteraction: true,
-    vibrate: [300, 150, 300, 150, 300],
+    silent: false,
+    timestamp: Date.now(),
+    vibrate: [500, 150, 500, 150, 500, 200, 400],
     data: { url: url || '/admin/orders' },
   };
 
@@ -306,28 +308,81 @@ export async function sendTestPush(role = 'ADMIN') {
   }
 }
 
-// Crisp, pleasant melodic audio chime for incoming order alert
-export function playNotificationSound() {
+// Persistent Audio & Vibration Engine for Mobile & Desktop
+let sharedAudioCtx = null;
+let audioUnlocked = false;
+
+export function unlockAudio() {
+  if (typeof window === 'undefined') return;
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
-    const ctx = new AudioContext();
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new AudioContext();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().then(() => {
+        audioUnlocked = true;
+      }).catch(() => {});
+    } else {
+      audioUnlocked = true;
+    }
+  } catch (e) {
+    console.warn('Audio unlock warning:', e);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const unlockEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'];
+  const onFirstInteraction = () => {
+    unlockAudio();
+  };
+  unlockEvents.forEach((evt) => window.addEventListener(evt, onFirstInteraction, { passive: true }));
+}
+
+// Crisp, high-priority audible order chime for incoming orders
+export function playNotificationSound() {
+  if (typeof window === 'undefined') return;
+
+  // 1. Trigger mobile physical hardware vibration
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate([500, 120, 500, 120, 800]);
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Play audible multi-tone chime via Web Audio API
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    if (!sharedAudioCtx) sharedAudioCtx = new AudioContext();
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+
+    const ctx = sharedAudioCtx;
     const now = ctx.currentTime;
 
+    // Pleasant yet distinct 4-tone ascending store bell (D5 -> F#5 -> A5 -> D6)
     const notes = [
-      { freq: 523.25, time: 0, dur: 0.18 },    // C5
-      { freq: 659.25, time: 0.15, dur: 0.22 }, // E5
-      { freq: 783.99, time: 0.32, dur: 0.45 }, // G5
+      { freq: 587.33, time: 0, dur: 0.15, gain: 0.7 },
+      { freq: 739.99, time: 0.12, dur: 0.16, gain: 0.75 },
+      { freq: 880.00, time: 0.25, dur: 0.18, gain: 0.8 },
+      { freq: 1174.66, time: 0.40, dur: 0.65, gain: 0.85 },
+      { freq: 880.00, time: 0.95, dur: 0.15, gain: 0.75 },
+      { freq: 1174.66, time: 1.10, dur: 0.75, gain: 0.9 },
     ];
 
-    notes.forEach(({ freq, time, dur }) => {
+    notes.forEach(({ freq, time, dur, gain: noteGain }) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
+      osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, now + time);
 
       gain.gain.setValueAtTime(0.001, now + time);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + time + 0.03);
+      gain.gain.exponentialRampToValueAtTime(noteGain, now + time + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + time + dur);
 
       osc.connect(gain);

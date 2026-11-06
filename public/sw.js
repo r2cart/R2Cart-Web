@@ -22,15 +22,21 @@ self.addEventListener('push', (event) => {
   const iconUrl = new URL(data.icon || '/r2cart-logo.png', self.location.origin).href;
   const badgeUrl = new URL(data.badge || '/r2cart-logo.png', self.location.origin).href;
 
+  const orderId = data.data?.orderId || data.orderId;
+  const orderNumber = data.data?.orderNumber || data.orderNumber;
+  const tag = data.tag || (orderId ? `order-${orderId}` : (orderNumber ? `order-${orderNumber}` : 'r2cart-order-alert'));
+
   const options = {
     body: data.body || 'A new order has been received.',
     icon: iconUrl,
     badge: badgeUrl,
     data: data.data || { url: data.url || '/admin/orders' },
-    tag: data.tag || `r2cart-order-${Date.now()}`,
+    tag: tag, // Stable tag prevents spam stacking & updates existing alert cleanly
     renotify: true,
     requireInteraction: true,
-    vibrate: [300, 150, 300, 150, 300],
+    silent: false,
+    timestamp: Date.now(),
+    vibrate: [500, 150, 500, 150, 500, 200, 400],
     actions: [
       { action: 'open', title: '👁 View Order' },
       { action: 'close', title: '✕ Dismiss' }
@@ -39,15 +45,27 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      // Show native OS notification (Windows Action Center & Desktop Toast popup)
+      // 1. Show high-priority OS notification (Android Heads-Up banner / Windows Toast)
       await self.registration.showNotification(title, options);
 
-      // Notify any currently open browser windows/tabs for in-app banner update
+      // 2. Notify any currently open browser windows/tabs for in-app heads-up pop-up & sound
       const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clientList) {
         client.postMessage({
           type: 'R2CART_PUSH_RECEIVED',
-          payload: { ...data, title, body: options.body, url: options.data.url },
+          payload: {
+            ...data,
+            title,
+            body: options.body,
+            url: options.data.url,
+            tag,
+            orderId,
+            orderNumber,
+            total: data.data?.total || data.total,
+            customerName: data.data?.customerName || data.customerName,
+            itemsCount: data.data?.itemsCount || data.itemsCount,
+            time: data.data?.time || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+          },
         });
       }
     })()
