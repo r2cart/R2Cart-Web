@@ -28,6 +28,7 @@ import { orderService } from '../../services/order.service';
 import { customerService } from '../../services/customer.service';
 import { catalogService } from '../../services/catalog.service';
 import { addressPayload, addressView } from '../../utils/address';
+import { calculateExtraShippingFees } from '../../utils/shipping';
 
 const TIME_SLOTS = [
   { id: 'morning', label: 'Morning Slot (07:00 AM – 11:00 AM)', time: '07:00 AM - 11:00 AM', startTime: '07:00', endTime: '11:00', startHour: 7, endHour: 11 },
@@ -441,7 +442,9 @@ export function CheckoutPage() {
     );
   }, [selectedAddress, rules, storeSettings, effectiveStatus, emergencyType, affectedVillageIds, deliveryZones]);
 
-  const deliveryFee = subtotal >= rules.freeDeliveryThreshold ? 0 : rules.deliveryFee;
+  const extraShipping = calculateExtraShippingFees(cartItems, subtotal);
+  const baseDeliveryFee = (rules.freeDeliveryThreshold > 0 && subtotal >= rules.freeDeliveryThreshold) ? 0 : Number(rules.deliveryFee || 0);
+  const deliveryFee = baseDeliveryFee + extraShipping;
   const total = Math.max(0, subtotal + deliveryFee - (coupon?.discount || 0));
   const minimumRemaining = Math.max(0, rules.minimumOrder - subtotal);
   const productSavings = Math.max(0, Number(mrpTotal || 0) - Number(subtotal || 0));

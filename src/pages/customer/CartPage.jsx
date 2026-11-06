@@ -22,6 +22,7 @@ import { useApp } from '../../context/AppContext';
 import { Button, EmptyState, money } from '../../components/ui';
 import { customerService } from '../../services/customer.service';
 import { isProductComingSoon } from '../../config/homeLayout';
+import { calculateExtraShippingFees } from '../../utils/shipping';
 
 const PRESET_INSTRUCTIONS = [
   { id: 'no-bell', label: "Don't ring bell", icon: '🔕' },
@@ -147,7 +148,9 @@ export function CartPage() {
   // Calculations
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
-  const deliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
+  const extraShipping = calculateExtraShippingFees(cartItems, subtotal);
+  const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
+  const deliveryFee = baseDeliveryFee + extraShipping;
   const couponDiscount = applied?.discount || 0;
   const total = Math.max(0, subtotal + deliveryFee - couponDiscount);
   const minimumRemaining = Math.max(0, Number(rules?.minimumOrder || 0) - subtotal);

@@ -7,6 +7,7 @@ import {BRAND} from '../config/brand';
 import {customerService} from '../services/customer.service';
 import {catalogService} from '../services/catalog.service';
 import {addressPayload,addressView} from '../utils/address';
+import { calculateExtraShippingFees } from '../utils/shipping';
 
 import {ItemPrice,PriceSummary} from '../components/customer/PriceSummary';
 import {isProductComingSoon} from '../config/homeLayout';
@@ -1010,7 +1011,9 @@ export function CartDrawer() {
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const rules = activeDeliveryRules || deliveryConfig;
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
-  const fee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
+  const extraShipping = calculateExtraShippingFees(cartItems, subtotal);
+  const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
+  const fee = baseDeliveryFee + extraShipping;
 
   const effectiveStatus = storeSettings?.effectiveStatus;
   const isEmergencyPaused = Boolean(

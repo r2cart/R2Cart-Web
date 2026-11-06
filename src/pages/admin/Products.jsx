@@ -26,7 +26,7 @@ import { compressImage } from '../../utils/imageCompressor';
 import { mediaUrl } from '../../utils/media';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
-const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',minOrderQty:1,sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',orderMode:'DIRECT_ORDER'};
+const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',minOrderQty:1,sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',shippingSoloOnly:false,shippingMinOtherCartValue:'',orderMode:'DIRECT_ORDER'};
 const payload=product=>({
   name:product.name,
   category:product.category,
@@ -45,6 +45,8 @@ const payload=product=>({
   deliveryScope:product.deliveryScope||'LOCAL',
   deliveryLocations:Array.isArray(product.deliveryLocations)?product.deliveryLocations:(product.deliveryLocations?String(product.deliveryLocations).split(',').map(s=>s.trim()).filter(Boolean):[]),
   shippingFee:product.shippingFee?Number(product.shippingFee):0,
+  shippingSoloOnly:Boolean(product.shippingSoloOnly),
+  shippingMinOtherCartValue:product.shippingMinOtherCartValue?Number(product.shippingMinOtherCartValue):0,
   orderMode:product.orderMode||'DIRECT_ORDER'
 });
 
@@ -2719,26 +2721,79 @@ export function ProductForm(){
           </div>
         )}
 
-        {/* Shipping / Courier Fee Field (Optional) */}
-        {(form.deliveryScope === 'PAN_INDIA' || form.deliveryScope === 'CUSTOM') && (
-          <div style={{ maxWidth: '300px' }}>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-              Extra Courier / Shipping Fee (₹)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={form.shippingFee ?? ''}
-              onChange={e => set('shippingFee', e.target.value)}
-              placeholder="0 for free shipping, or e.g. 50"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-            />
-            <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
-              Leave 0 or blank for free delivery, or enter courier shipping charge.
-            </small>
+        {/* Custom Delivery & Quantity-Based Shipping Rules */}
+        <div style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <h5 style={{ margin: '0 0 2px 0', fontSize: '13px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>📦</span> Custom Product Delivery & Shipping Charges (Optional)
+            </h5>
+            <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
+              Configure extra delivery fees for heavy/special items. If left blank or 0, normal store delivery rules will apply.
+            </p>
           </div>
-        )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', alignItems: 'flex-start' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                Per-Quantity Delivery Charge (₹ per item)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.shippingFee ?? ''}
+                onChange={e => set('shippingFee', e.target.value)}
+                placeholder="Leave blank or 0 for normal delivery"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+              <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                Charge multiplies by quantity in cart (e.g. ₹20 × 2 = ₹40). Leave 0 or blank for regular store delivery.
+              </small>
+            </div>
+
+            {Number(form.shippingFee || 0) > 0 && (
+              <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Solo Cart Condition
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.shippingSoloOnly)}
+                    onChange={e => set('shippingSoloOnly', e.target.checked)}
+                    style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#059669' }}
+                  />
+                  <span style={{ fontSize: '12.5px', color: '#1e293b', fontWeight: 600 }}>
+                    Apply only when this product is the ONLY item in cart
+                  </span>
+                </label>
+                <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                  When enabled, charge will not apply if customer adds other products meeting the minimum threshold below.
+                </small>
+              </div>
+            )}
+
+            {Number(form.shippingFee || 0) > 0 && Boolean(form.shippingSoloOnly) && (
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Min Other Items Cart Value to Waive (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.shippingMinOtherCartValue ?? ''}
+                  onChange={e => set('shippingMinOtherCartValue', e.target.value)}
+                  placeholder="e.g. 199 (0 or blank = waive on any other item)"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                />
+                <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                  If other items total is less than this amount, delivery charge will STILL be applied.
+                </small>
+              </div>
+            )}
+          </div>
+        </div>
        </section>
 
        {/* Customer Order & Inquiry Mode */}
