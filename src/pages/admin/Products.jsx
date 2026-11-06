@@ -1385,12 +1385,20 @@ export function ProductForm(){
     return () => { active = false; };
   }, [id, reload]);
 
-  useEffect(() => () => {
-    imageList.forEach(item => {
-      if (item.preview && item.preview.startsWith('blob:')) URL.revokeObjectURL(item.preview);
-      if (item.originalSrc && item.originalSrc.startsWith('blob:') && item.originalSrc !== item.preview) URL.revokeObjectURL(item.originalSrc);
-    });
-  }, [imageList]);
+  const imageListRef = useRef(imageList);
+  imageListRef.current = imageList;
+  useEffect(() => {
+    return () => {
+      imageListRef.current.forEach(item => {
+        if (item.preview && item.preview.startsWith('blob:')) {
+          try { URL.revokeObjectURL(item.preview); } catch {}
+        }
+        if (item.originalSrc && item.originalSrc.startsWith('blob:') && item.originalSrc !== item.preview) {
+          try { URL.revokeObjectURL(item.originalSrc); } catch {}
+        }
+      });
+    };
+  }, []);
 
   const set=(key,value)=>setForm(current=>({...current,[key]:value}));
   const field=(key,label,type='text')=><label>{label}<input type={type} required min={type==='number'?0:undefined} step={['mrp','price'].includes(key)?'0.01':undefined} value={form[key]??''} onChange={event=>set(key,event.target.value)}/></label>;
@@ -1435,6 +1443,7 @@ export function ProductForm(){
           id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           url: '',
           file: compressedFile,
+          originalFile: compressedFile,
           preview: objectUrl,
           originalSrc: objectUrl
         });
@@ -1444,6 +1453,7 @@ export function ProductForm(){
           id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           url: '',
           file,
+          originalFile: file,
           preview: objectUrl,
           originalSrc: objectUrl
         });
@@ -1572,9 +1582,17 @@ export function ProductForm(){
   const handleOpenCropperForIndex = (index) => {
     const item = imageList[index];
     if (!item) return;
-    const rawSrc = item.originalSrc || item.preview || item.url;
-    if (!rawSrc) return;
-    const srcToUse = mediaUrl(rawSrc) || rawSrc;
+    
+    let srcToUse = '';
+    const fileToUse = item.originalFile || item.file;
+    if (fileToUse instanceof Blob) {
+      srcToUse = URL.createObjectURL(fileToUse);
+    } else {
+      const rawSrc = item.originalSrc || item.preview || item.url;
+      if (!rawSrc) return;
+      srcToUse = mediaUrl(rawSrc) || rawSrc;
+    }
+
     setCropTargetIndex(index);
     setRawImageToCrop(srcToUse);
     const existingCrop = item.cropConfig || details.imageCrops?.[item.url] || details.imageCrops?.[index] || details.imageCrops?.[String(index)];
@@ -1593,10 +1611,11 @@ export function ProductForm(){
     if (cropTargetIndex !== null && imageList[cropTargetIndex]) {
       const old = imageList[cropTargetIndex];
       if (old.preview?.startsWith('blob:') && old.preview !== old.originalSrc && old.preview !== rawImageToCrop) {
-        URL.revokeObjectURL(old.preview);
+        try { URL.revokeObjectURL(old.preview); } catch {}
       }
       setImageList(prev => prev.map((item, i) => i === cropTargetIndex ? {
         ...item,
+        originalFile: item.originalFile || item.file,
         originalSrc: item.originalSrc || rawImageToCrop,
         file: croppedFile,
         preview: croppedPreviewUrl,

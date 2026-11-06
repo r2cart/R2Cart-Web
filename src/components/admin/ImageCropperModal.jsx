@@ -158,7 +158,8 @@ export default function ImageCropperModal({
 
     // If it's a remote URL (http/https), try fetching as Blob first to bypass CORS canvas tainting
     if (!isBlobOrData && resolvedSrc.startsWith('http')) {
-      fetch(resolvedSrc, { mode: 'cors' })
+      const fetchUrl = resolvedSrc.includes('?') ? `${resolvedSrc}&_cors=1` : `${resolvedSrc}?_cors=1`;
+      fetch(fetchUrl, { mode: 'cors' })
         .then(res => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return res.blob();
@@ -180,10 +181,10 @@ export default function ImageCropperModal({
     return () => {
       active = false;
       if (createdBlobUrl) {
-        URL.revokeObjectURL(createdBlobUrl);
+        try { URL.revokeObjectURL(createdBlobUrl); } catch {}
       }
     };
-  }, [open, imageSrc, loadAttempt, initialZoom, initialRotation, initialOffset, initialFlipH, initialFlipV]);
+  }, [open, imageSrc, loadAttempt, initialZoom, initialRotation, initialOffset?.x, initialOffset?.y, initialFlipH, initialFlipV]);
 
   // Redraw canvas whenever transforms or image loading changes
   useEffect(() => {
