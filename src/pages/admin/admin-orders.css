@@ -622,6 +622,8 @@
   border: 1px solid #e2e8f0;
   padding: 1px 5px;
   border-radius: 4px;
+  max-width: 100%;
+  word-break: break-all;
 }
 
 .enhanced-item-right {
@@ -999,12 +1001,145 @@
     gap: 8px;
   }
 
+  .order-details-shell {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .order-details-header-card,
+  .admin-section-card {
+    padding: 16px 14px;
+    border-radius: 14px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
   .order-details-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .order-header-primary-row {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .order-header-title-block,
+  .order-header-actions {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .order-stepper-box {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+
+  .order-stepper-pipeline {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .order-step-item {
+    min-width: 0;
+    flex: 1 1 0%;
+  }
+
+  .order-step-bubble {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  .order-step-title {
+    font-size: 9.5px;
+    line-height: 1.15;
+    word-break: break-word;
+    white-space: normal;
+    max-width: 65px;
+  }
+
+  .admin-section-head {
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .admin-section-badge {
+    white-space: normal;
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .enhanced-order-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .enhanced-item-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .enhanced-item-info {
+    flex: 1 1 0%;
+    min-width: 0;
+    width: 0;
+    overflow: hidden;
+  }
+
+  .enhanced-item-name {
+    white-space: normal;
+    word-break: break-word;
+    font-size: 13px;
+  }
+
+  .enhanced-item-chips {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .item-sku-pill {
+    max-width: 100%;
+    word-break: break-all;
+    white-space: normal;
+    display: inline-block;
+  }
+
+  .enhanced-item-right {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px dashed #f1f5f9;
+    box-sizing: border-box;
+  }
+
+  .enhanced-item-price-col {
+    text-align: left;
   }
 }
