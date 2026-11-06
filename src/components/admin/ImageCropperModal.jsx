@@ -11,9 +11,11 @@ import {
   FlipHorizontal,
   FlipVertical,
   Grid,
-  Crosshair
+  Crosshair,
+  AlertCircle
 } from 'lucide-react';
 import { Button, Modal } from '../ui';
+import { mediaUrl } from '../../utils/media';
 
 /**
  * Draws the transformed image onto a target canvas.
@@ -76,6 +78,8 @@ export default function ImageCropperModal({
   const [showGrid, setShowGrid] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const canvasRef = useRef(null);
@@ -107,38 +111,79 @@ export default function ImageCropperModal({
     setFlipH(Boolean(initialFlipH));
     setFlipV(Boolean(initialFlipV));
     setImageLoaded(false);
+    setLoadError(null);
 
     let active = true;
-    const isBlobOrData = imageSrc.startsWith('blob:') || imageSrc.startsWith('data:');
-    const img = new Image();
-    if (!isBlobOrData) {
-      img.crossOrigin = 'anonymous';
-    }
-    img.src = imageSrc;
+    let createdBlobUrl = null;
 
-    img.onload = () => {
-      if (!active) return;
-      imageObjRef.current = img;
-      setImageLoaded(true);
-    };
+    const resolvedSrc = mediaUrl(imageSrc) || imageSrc;
+    const isBlobOrData = resolvedSrc.startsWith('blob:') || resolvedSrc.startsWith('data:');
 
-    img.onerror = () => {
-      // If anonymous CORS failed on external url, try loading without crossOrigin
-      if (img.crossOrigin) {
-        const fallback = new Image();
-        fallback.src = imageSrc;
-        fallback.onload = () => {
-          if (!active) return;
-          imageObjRef.current = fallback;
-          setImageLoaded(true);
-        };
+    const setupImage = (sourceUrl) => {
+      const img = new Image();
+      if (!sourceUrl.startsWith('blob:') && !sourceUrl.startsWith('data:')) {
+        img.crossOrigin = 'anonymous';
       }
+      img.onload = () => {
+        if (!active) return;
+        imageObjRef.current = img;
+        setImageLoaded(true);
+        setLoadError(null);
+      };
+
+      img.onerror = () => {
+        if (!active) return;
+        // If anonymous CORS failed, try loading fallback without crossOrigin
+        if (img.crossOrigin) {
+          const fallback = new Image();
+          fallback.onload = () => {
+            if (!active) return;
+            imageObjRef.current = fallback;
+            setImageLoaded(true);
+            setLoadError(null);
+          };
+          fallback.onerror = (fallbackErr) => {
+            if (!active) return;
+            console.error('All image load attempts failed for:', sourceUrl, fallbackErr);
+            setLoadError('Failed to load image. Please verify file availability or re-upload.');
+          };
+          fallback.src = sourceUrl;
+        } else {
+          setLoadError('Failed to load image. Please verify file availability or re-upload.');
+        }
+      };
+
+      img.src = sourceUrl;
     };
+
+    // If it's a remote URL (http/https), try fetching as Blob first to bypass CORS canvas tainting
+    if (!isBlobOrData && resolvedSrc.startsWith('http')) {
+      fetch(resolvedSrc, { mode: 'cors' })
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.blob();
+        })
+        .then(blob => {
+          if (!active) return;
+          createdBlobUrl = URL.createObjectURL(blob);
+          setupImage(createdBlobUrl);
+        })
+        .catch(err => {
+          if (!active) return;
+          console.warn('Direct image fetch failed, falling back to <img> element load:', err);
+          setupImage(resolvedSrc);
+        });
+    } else {
+      setupImage(resolvedSrc);
+    }
 
     return () => {
       active = false;
+      if (createdBlobUrl) {
+        URL.revokeObjectURL(createdBlobUrl);
+      }
     };
-  }, [open, imageSrc, initialZoom, initialRotation, initialOffset, initialFlipH, initialFlipV]);
+  }, [open, imageSrc, loadAttempt, initialZoom, initialRotation, initialOffset, initialFlipH, initialFlipV]);
 
   // Redraw canvas whenever transforms or image loading changes
   useEffect(() => {
@@ -425,7 +470,7 @@ export default function ImageCropperModal({
             }}
           />
 
-          {!imageLoaded && (
+          {!imageLoaded && !loadError && (
             <div
               style={{
                 position: 'absolute',
@@ -437,7 +482,54 @@ export default function ImageCropperModal({
                 background: '#0f172a'
               }}
             >
-              Loading image…
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '22px', height: '22px', border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <span>Loading image…</span>
+              </div>
+            </div>
+          )}
+
+          {loadError && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                padding: '16px',
+                textAlign: 'center',
+                color: '#f87171',
+                fontSize: '12px',
+                background: '#0f172a',
+                zIndex: 5
+              }}
+            >
+              <AlertCircle size={28} color="#ef4444" />
+              <div>
+                <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#fca5a5' }}>Failed to load image</p>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: '11px' }}>{loadError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoadAttempt(a => a + 1)}
+                style={{
+                  background: '#1e293b',
+                  color: '#ffffff',
+                  border: '1px solid #475569',
+                  borderRadius: '6px',
+                  padding: '5px 12px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <RefreshCw size={12} /> Retry
+              </button>
             </div>
           )}
 

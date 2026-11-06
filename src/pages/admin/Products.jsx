@@ -23,6 +23,7 @@ import { translateToHindi, getCachedHindi } from '../../utils/translator';
 import ProductSpecificationsEditor from '../../components/admin/ProductSpecificationsEditor';
 import { parseProductDetails, formatProductDetails } from '../../utils/productDetails';
 import { compressImage } from '../../utils/imageCompressor';
+import { mediaUrl } from '../../utils/media';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
 const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',minOrderQty:1,sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',orderMode:'DIRECT_ORDER'};
@@ -1179,12 +1180,14 @@ export function ProductForm(){
    return imgs.map((url, i) => {
      const savedCrop = desc.imageCrops?.[url] || desc.imageCrops?.[i] || desc.imageCrops?.[String(i)];
      const orig = desc.originalImages?.[url] || desc.originalImages?.[i] || desc.originalImages?.[String(i)] || url;
+     const fullUrl = mediaUrl(url);
+     const fullOrig = mediaUrl(orig) || fullUrl;
      return {
        id: `img-${i}-${Date.now()}`,
-       url,
+       url: fullUrl,
        file: null,
-       preview: url,
-       originalSrc: orig,
+       preview: fullUrl,
+       originalSrc: fullOrig,
        cropConfig: savedCrop ? {
          zoom: savedCrop.zoom !== undefined ? Number(savedCrop.zoom) : 1,
          rotation: savedCrop.rotation || 0,
@@ -1322,12 +1325,14 @@ export function ProductForm(){
         setImageList(imgs.map((url, i) => {
           const savedCrop = parsedDesc.imageCrops?.[url] || parsedDesc.imageCrops?.[i] || parsedDesc.imageCrops?.[String(i)];
           const orig = parsedDesc.originalImages?.[url] || parsedDesc.originalImages?.[i] || parsedDesc.originalImages?.[String(i)] || url;
+          const fullUrl = mediaUrl(url);
+          const fullOrig = mediaUrl(orig) || fullUrl;
           return {
             id: `img-${i}-${Date.now()}`,
-            url,
+            url: fullUrl,
             file: null,
-            preview: url,
-            originalSrc: orig,
+            preview: fullUrl,
+            originalSrc: fullOrig,
             cropConfig: savedCrop ? {
               zoom: savedCrop.zoom !== undefined ? Number(savedCrop.zoom) : 1,
               rotation: savedCrop.rotation || 0,
@@ -1549,8 +1554,9 @@ export function ProductForm(){
   const handleOpenCropperForIndex = (index) => {
     const item = imageList[index];
     if (!item) return;
-    const srcToUse = item.originalSrc || item.preview || item.url;
-    if (!srcToUse) return;
+    const rawSrc = item.originalSrc || item.preview || item.url;
+    if (!rawSrc) return;
+    const srcToUse = mediaUrl(rawSrc) || rawSrc;
     setCropTargetIndex(index);
     setRawImageToCrop(srcToUse);
     const existingCrop = item.cropConfig || details.imageCrops?.[item.url] || details.imageCrops?.[index] || details.imageCrops?.[String(index)];
@@ -1573,6 +1579,7 @@ export function ProductForm(){
       }
       setImageList(prev => prev.map((item, i) => i === cropTargetIndex ? {
         ...item,
+        originalSrc: item.originalSrc || rawImageToCrop,
         file: croppedFile,
         preview: croppedPreviewUrl,
         cropConfig: savedConfig
@@ -1799,7 +1806,7 @@ export function ProductForm(){
     }}>
       {imageList.map((img, idx) => {
         const isCover = idx === 0;
-        const displaySrc = img.preview || img.url;
+        const displaySrc = mediaUrl(img.preview || img.url);
         const isDragging = draggedIndex === idx;
         const isDragOver = dragOverIndex === idx;
         return (
@@ -2197,7 +2204,7 @@ export function ProductForm(){
      productName={form.name}
      category={form.category}
      unit={form.unit}
-     image={imageList[0]?.preview || imageList[0]?.url || form.image}
+     image={mediaUrl(imageList[0]?.preview || imageList[0]?.url || form.image)}
      onDescriptionChange={(desc) => {
        set('description', desc);
        setDetails(prev => ({ ...prev, summary: desc }));
