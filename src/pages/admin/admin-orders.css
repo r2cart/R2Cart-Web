@@ -1004,13 +1004,17 @@
   .order-details-shell {
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     overflow-x: hidden;
   }
 
   .order-details-header-card,
   .admin-section-card {
-    padding: 16px 14px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 14px 12px;
     border-radius: 14px;
     box-sizing: border-box;
     overflow: hidden;
@@ -1020,6 +1024,8 @@
     grid-template-columns: 1fr;
     gap: 14px;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
   }
 
@@ -1028,54 +1034,75 @@
     align-items: flex-start;
     gap: 12px;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .order-header-title-block,
   .order-header-actions {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
   }
 
   .order-stepper-box {
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 6px;
+    scrollbar-width: thin;
   }
 
   .order-stepper-pipeline {
     width: 100%;
-    min-width: 0;
+    min-width: 290px;
     max-width: 100%;
+    box-sizing: border-box;
   }
 
   .order-step-item {
     min-width: 0;
+    max-width: 100%;
     flex: 1 1 0%;
+    padding: 0 2px;
   }
 
   .order-step-bubble {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     font-size: 11px;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
   }
 
   .order-step-title {
-    font-size: 9.5px;
+    font-size: 9px;
     line-height: 1.15;
     word-break: break-word;
     white-space: normal;
-    max-width: 65px;
+    max-width: 54px;
+    text-align: center;
+  }
+
+  .order-step-line {
+    top: 13px;
+    left: 8%;
+    right: 8%;
   }
 
   .admin-section-head {
+    display: flex;
     flex-wrap: wrap;
+    justify-content: space-between;
     gap: 8px;
-    align-items: flex-start;
+    align-items: center;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
   }
 
@@ -1083,6 +1110,15 @@
     white-space: normal;
     word-break: break-word;
     max-width: 100%;
+    font-size: 10.5px;
+  }
+
+  .enhanced-items-list {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .enhanced-order-item {
@@ -1090,6 +1126,8 @@
     align-items: stretch;
     gap: 10px;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     overflow: hidden;
   }
@@ -1099,14 +1137,24 @@
     align-items: flex-start;
     gap: 10px;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     overflow: hidden;
+  }
+
+  .enhanced-item-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    flex-shrink: 0;
   }
 
   .enhanced-item-info {
     flex: 1 1 0%;
     min-width: 0;
-    width: 0;
+    max-width: 100%;
+    width: 100%;
     overflow: hidden;
   }
 
@@ -1114,23 +1162,35 @@
     white-space: normal;
     word-break: break-word;
     font-size: 13px;
+    line-height: 1.35;
   }
 
   .enhanced-item-chips {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: flex;
     flex-wrap: wrap;
     gap: 4px;
+    align-items: center;
+    box-sizing: border-box;
   }
 
   .item-sku-pill {
     max-width: 100%;
     word-break: break-all;
+    overflow-wrap: anywhere;
     white-space: normal;
     display: inline-block;
+    font-size: 9.5px;
+    line-height: 1.25;
+    box-sizing: border-box;
   }
 
   .enhanced-item-right {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;

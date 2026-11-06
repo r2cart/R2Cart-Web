@@ -1979,71 +1979,111 @@ export function ProductForm(){
             </div>
 
             {/* Slot Action Buttons */}
-            <div style={{display:'flex',flexDirection:'column',gap:'4px',marginTop:'auto'}} onMouseDown={e=>e.stopPropagation()}>
-              <div style={{display:'flex',gap:'3px',alignItems:'center'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:'5px',marginTop:'auto',width:'100%'}} onMouseDown={e=>e.stopPropagation()}>
+              {/* Row 1: Left / Right arrows + Trash */}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',width:'100%'}}>
+                <div style={{display:'flex',gap:'3px'}}>
+                  <button
+                    type="button"
+                    disabled={idx === 0}
+                    onClick={(e) => handleMoveLeft(e, idx)}
+                    style={{
+                      background: idx === 0 ? '#f1f5f9' : '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '5px',
+                      padding: '3px 6px',
+                      cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                      opacity: idx === 0 ? 0.35 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#1e293b'
+                    }}
+                    title="Move Left"
+                  >
+                    <ChevronLeft size={13} style={{pointerEvents:'none'}}/>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === imageList.length - 1}
+                    onClick={(e) => handleMoveRight(e, idx)}
+                    style={{
+                      background: idx === imageList.length - 1 ? '#f1f5f9' : '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '5px',
+                      padding: '3px 6px',
+                      cursor: idx === imageList.length - 1 ? 'not-allowed' : 'pointer',
+                      opacity: idx === imageList.length - 1 ? 0.35 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#1e293b'
+                    }}
+                    title="Move Right"
+                  >
+                    <ChevronRight size={13} style={{pointerEvents:'none'}}/>
+                  </button>
+                </div>
                 <button
                   type="button"
-                  disabled={idx === 0}
-                  onClick={(e) => handleMoveLeft(e, idx)}
+                  onClick={() => handleRemoveImage(idx)}
                   style={{
-                    background: idx === 0 ? '#f1f5f9' : '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '6px',
-                    padding: '4px 7px',
-                    cursor: idx === 0 ? 'not-allowed' : 'pointer',
-                    opacity: idx === 0 ? 0.35 : 1,
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '5px',
+                    padding: '3px 6px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#1e293b'
+                    color: '#ef4444',
+                    cursor: 'pointer'
                   }}
-                  title="Move Left"
+                  title="Remove image"
                 >
-                  <ChevronLeft size={13} style={{pointerEvents:'none'}}/>
+                  <Trash2 size={13} style={{pointerEvents:'none'}}/>
                 </button>
+              </div>
+
+              {/* Row 2: Crop & Replace side by side */}
+              <div style={{display:'flex',gap:'4px',width:'100%'}}>
                 <button
                   type="button"
-                  disabled={idx === imageList.length - 1}
-                  onClick={(e) => handleMoveRight(e, idx)}
-                  style={{
-                    background: idx === imageList.length - 1 ? '#f1f5f9' : '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '6px',
-                    padding: '4px 7px',
-                    cursor: idx === imageList.length - 1 ? 'not-allowed' : 'pointer',
-                    opacity: idx === imageList.length - 1 ? 0.35 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#1e293b'
-                  }}
-                  title="Move Right"
-                >
-                  <ChevronRight size={13} style={{pointerEvents:'none'}}/>
-                </button>
-                <Button
-                  type="button"
-                  variant="outline"
                   onClick={() => handleOpenCropperForIndex(idx)}
-                  style={{flex:1,padding:'4px 6px',fontSize:'11px',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'3px'}}
+                  style={{
+                    flex: 1,
+                    padding: '4px 6px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background: '#ffffff',
+                    color: '#0f766e',
+                    border: '1px solid #99f6e4',
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '3px',
+                    cursor: 'pointer'
+                  }}
                   title="Crop & adjust image (1:1)"
                 >
                   <Crop size={12}/>
                   <span>Crop</span>
-                </Button>
+                </button>
                 <label
                   style={{
-                    padding:'4px 6px',
-                    fontSize:'11px',
-                    color:'#0369a1',
-                    border:'1px solid #bae6fd',
-                    background:'#f0f9ff',
-                    borderRadius:'6px',
-                    cursor:'pointer',
-                    display:'inline-flex',
-                    alignItems:'center',
-                    justifyContent:'center',
-                    gap:'3px'
+                    flex: 1,
+                    padding: '4px 6px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#0369a1',
+                    border: '1px solid #bae6fd',
+                    background: '#f0f9ff',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '3px'
                   }}
                   title="Replace with a new image"
                 >
@@ -2056,15 +2096,6 @@ export function ProductForm(){
                     onChange={(e) => handleReplaceSlotImage(idx, e)}
                   />
                 </label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => handleRemoveImage(idx)}
-                  style={{padding:'4px 8px',fontSize:'11px',color:'#ef4444'}}
-                  title="Remove image"
-                >
-                  <Trash2 size={13}/>
-                </Button>
               </div>
 
               {!isCover && (

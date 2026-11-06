@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button, Modal } from '../ui';
 import { mediaUrl } from '../../utils/media';
+import { env } from '../../config/env';
 
 /**
  * Draws the transformed image onto a target canvas.
@@ -174,14 +175,24 @@ export default function ImageCropperModal({
       };
 
       img.src = sourceUrl;
+      if (img.complete && img.naturalWidth > 0) {
+        if (!active) return;
+        imageObjRef.current = img;
+        setImageLoaded(true);
+        setLoadError(null);
+      }
     };
 
-    // If it's a remote URL (http/https), try fetching as Blob first to bypass CORS canvas tainting
+    // If it's a remote URL (http/https), fetch through our backend proxy to eliminate browser CORS limitations
     if (!isBlobOrData && resolvedSrc.startsWith('http')) {
-      const fetchUrl = resolvedSrc.includes('?') ? `${resolvedSrc}&_cors=1` : `${resolvedSrc}?_cors=1`;
-      fetch(fetchUrl, { mode: 'cors' })
+      const apiOrigin = env.apiBaseUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : '/api/v1');
+      const proxyUrl = `${apiOrigin}/proxy-image?url=${encodeURIComponent(resolvedSrc)}`;
+      const token = localStorage.getItem('r2cart-admin-access-token') || sessionStorage.getItem('r2cart-admin-access-token') || localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      fetch(proxyUrl, { headers })
         .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
           return res.blob();
         })
         .then(blob => {
@@ -189,9 +200,9 @@ export default function ImageCropperModal({
           createdBlobUrl = URL.createObjectURL(blob);
           setupImage(createdBlobUrl);
         })
-        .catch(err => {
+        .catch(proxyErr => {
           if (!active) return;
-          console.warn('Direct image fetch failed, falling back to <img> element load:', err);
+          console.warn('Backend proxy fetch failed, falling back to direct load:', proxyErr);
           setupImage(resolvedSrc);
         });
     } else {

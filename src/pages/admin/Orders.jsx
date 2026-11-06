@@ -1008,7 +1008,7 @@ export function AdminOrderDetails() {
       {/* 4. MAIN DETAILS 2-COLUMN GRID */}
       <div className="order-details-grid">
         {/* LEFT COLUMN: ITEMS, BILL BREAKDOWN, HISTORY */}
-        <div>
+        <div style={{ minWidth: 0, width: '100%' }}>
           {/* CARD 1: ORDER ITEMS */}
           <div className="admin-section-card">
             <div className="admin-section-head">
@@ -1185,7 +1185,7 @@ export function AdminOrderDetails() {
         </div>
 
         {/* RIGHT COLUMN: ACTIONS, SCHEDULE, CUSTOMER, RIDER & POD */}
-        <div>
+        <div style={{ minWidth: 0, width: '100%' }}>
           {/* CARD 4: PRINT & FULFILMENT ACTIONS */}
           <div className="admin-section-card">
             <div className="admin-section-head">
