@@ -22,7 +22,7 @@ import { useApp } from '../../context/AppContext';
 import { Button, EmptyState, money } from '../../components/ui';
 import { customerService } from '../../services/customer.service';
 import { isProductComingSoon } from '../../config/homeLayout';
-import { calculateExtraShippingFees } from '../../utils/shipping';
+import { calculateExtraShippingFees, getCartShippingBreakdown } from '../../utils/shipping';
 
 const PRESET_INSTRUCTIONS = [
   { id: 'no-bell', label: "Don't ring bell", icon: '🔕' },
@@ -148,7 +148,10 @@ export function CartPage() {
   // Calculations
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
-  const extraShipping = calculateExtraShippingFees(cartItems, subtotal);
+  const shippingBreakdown = useMemo(() => getCartShippingBreakdown(cartItems, subtotal), [cartItems, subtotal]);
+  const extraShipping = shippingBreakdown.extraFees;
+  const itemSurcharges = shippingBreakdown.itemSurcharges;
+  const waiveSuggestions = shippingBreakdown.waiveSuggestions;
   const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
   const deliveryFee = baseDeliveryFee + extraShipping;
   const couponDiscount = applied?.discount || 0;
@@ -887,6 +890,27 @@ export function CartPage() {
           </div>
         )}
 
+        {/* Solo Item Delivery Surcharge Waive Tip */}
+        {waiveSuggestions.length > 0 && (
+          <div
+            style={{
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: '14px',
+              padding: '12px 16px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>💡</span>
+            <div style={{ fontSize: '12.5px', color: '#92400e', lineHeight: 1.4 }}>
+              <b>Delivery Tip:</b> Add <b>{money(waiveSuggestions[0].amountNeeded)}</b> more worth of other groceries to get <b>FREE delivery</b> on {waiveSuggestions[0].productName} (save {money(waiveSuggestions[0].feeToSave)})!
+            </div>
+          </div>
+        )}
+
         {/* Total Savings Ribbon if MRP is higher than offer price */}
         {totalSavings > 0 && (
           <div
@@ -1009,6 +1033,12 @@ export function CartPage() {
                         <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
                           {product.unit || 'Standard Pack'}
                         </div>
+
+                        {Number(product.shippingFee || 0) > 0 && (
+                          <span style={{ fontSize: '11px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px' }}>
+                            📦 Delivery: {money(product.shippingFee)}/unit {product.shippingSoloOnly ? '(solo cart)' : ''}
+                          </span>
+                        )}
 
                         {/* Stock Warnings */}
                         {product.stock <= 0 ? (
@@ -1342,7 +1372,7 @@ export function CartPage() {
                     <span>Delivery Fee</span>
                     {freeThreshold > 0 && (
                       <small style={{ fontSize: '10.5px', color: '#64748b' }}>
-                        Free on orders above {money(freeThreshold)}
+                        {subtotal >= freeThreshold ? 'Base delivery waived' : `Free standard on orders above ${money(freeThreshold)}`}
                       </small>
                     )}
                   </div>
@@ -1354,6 +1384,22 @@ export function CartPage() {
                     )}
                   </b>
                 </div>
+
+                {/* Item-level Delivery Surcharge Breakdown (when applicable) */}
+                {extraShipping > 0 && (
+                  <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11.5px', color: '#475569' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                      <span>Includes Item Delivery Charge:</span>
+                      <span>+{money(extraShipping)}</span>
+                    </div>
+                    {itemSurcharges.map(sc => (
+                      <div key={sc.id} style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '11px' }}>
+                        <span>• {sc.name} ({money(sc.feePerUnit)} × {sc.qty})</span>
+                        <span>{money(sc.totalFee)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Coupon Discount */}
                 {couponDiscount > 0 && (

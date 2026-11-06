@@ -786,6 +786,26 @@ export function ProductPage() {
                 </div>
               )}
 
+              {Number(product.shippingFee || 0) > 0 && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    background: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    color: '#0369a1',
+                    fontSize: '11px',
+                    fontWeight: 700
+                  }}
+                >
+                  <Package size={13} color="#0284c7" />
+                  <span>Delivery: {money(product.shippingFee)}/unit {product.shippingSoloOnly ? '(solo cart)' : ''}</span>
+                </div>
+              )}
+
               {dietaryPref && (
                 <div className={`dietary-badge-pill ${isNonVeg ? 'non-veg' : isVegan ? 'vegan' : isEggless ? 'eggless' : isOrganic ? 'organic' : isJain ? 'jain' : ''}`}>
                   {isVeg ? (

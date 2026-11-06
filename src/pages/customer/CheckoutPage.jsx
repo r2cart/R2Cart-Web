@@ -28,7 +28,7 @@ import { orderService } from '../../services/order.service';
 import { customerService } from '../../services/customer.service';
 import { catalogService } from '../../services/catalog.service';
 import { addressPayload, addressView } from '../../utils/address';
-import { calculateExtraShippingFees } from '../../utils/shipping';
+import { calculateExtraShippingFees, getCartShippingBreakdown } from '../../utils/shipping';
 
 const TIME_SLOTS = [
   { id: 'morning', label: 'Morning Slot (07:00 AM – 11:00 AM)', time: '07:00 AM - 11:00 AM', startTime: '07:00', endTime: '11:00', startHour: 7, endHour: 11 },
@@ -442,7 +442,9 @@ export function CheckoutPage() {
     );
   }, [selectedAddress, rules, storeSettings, effectiveStatus, emergencyType, affectedVillageIds, deliveryZones]);
 
-  const extraShipping = calculateExtraShippingFees(cartItems, subtotal);
+  const shippingBreakdown = useMemo(() => getCartShippingBreakdown(cartItems, subtotal), [cartItems, subtotal]);
+  const extraShipping = shippingBreakdown.extraFees;
+  const itemSurcharges = shippingBreakdown.itemSurcharges;
   const baseDeliveryFee = (rules.freeDeliveryThreshold > 0 && subtotal >= rules.freeDeliveryThreshold) ? 0 : Number(rules.deliveryFee || 0);
   const deliveryFee = baseDeliveryFee + extraShipping;
   const total = Math.max(0, subtotal + deliveryFee - (coupon?.discount || 0));
@@ -1746,7 +1748,7 @@ export function CheckoutPage() {
                     <span>Delivery Partner Fee</span>
                     {rules?.freeDeliveryThreshold > 0 && (
                       <small style={{ fontSize: '10.5px', color: '#64748b' }}>
-                        Free on orders above {money(rules.freeDeliveryThreshold)}
+                        {subtotal >= rules.freeDeliveryThreshold ? 'Base delivery waived' : `Free standard on orders above ${money(rules.freeDeliveryThreshold)}`}
                       </small>
                     )}
                   </div>
@@ -1758,6 +1760,22 @@ export function CheckoutPage() {
                     )}
                   </b>
                 </div>
+
+                {/* Item-level Delivery Surcharge Breakdown (when applicable) */}
+                {extraShipping > 0 && (
+                  <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11.5px', color: '#475569' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                      <span>Includes Item Delivery Charge:</span>
+                      <span>+{money(extraShipping)}</span>
+                    </div>
+                    {itemSurcharges.map(sc => (
+                      <div key={sc.id} style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '11px' }}>
+                        <span>• {sc.name} ({money(sc.feePerUnit)} × {sc.qty})</span>
+                        <span>{money(sc.totalFee)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {coupon?.discount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', fontWeight: 700 }}>

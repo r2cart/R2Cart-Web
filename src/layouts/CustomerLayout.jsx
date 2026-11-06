@@ -1410,6 +1410,11 @@ export function CartDrawer() {
                         <small style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
                           {product.unit}
                         </small>
+                        {Number(product.shippingFee || 0) > 0 && (
+                          <span style={{ fontSize: '10px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, display: 'inline-block', marginTop: '2px' }}>
+                            📦 Delivery: {money(product.shippingFee)}/unit {product.shippingSoloOnly ? '(solo)' : ''}
+                          </span>
+                        )}
                         {Boolean(isProductComingSoon(product, storeSettings)) && (
                           <span style={{ fontSize: '10px', color: '#b45309', background: '#fef3c7', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, display: 'inline-block', marginTop: '2px' }}>
                             Soon · Remove
