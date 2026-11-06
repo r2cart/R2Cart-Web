@@ -33,3 +33,4 @@ export function calculateExtraShippingFees(cartItems, subtotal) {
 
   return extraFees;
 }
+

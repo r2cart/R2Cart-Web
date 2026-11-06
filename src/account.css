@@ -1722,10 +1722,466 @@
   flex-wrap: wrap;
 }
 
+/* Order Delivered Strip inside OrderCardV2 */
+.order-delivered-strip {
+  margin: 10px 14px 4px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.order-delivered-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.order-delivered-left .delivered-icon {
+  color: #059669;
+  flex-shrink: 0;
+}
+
+.order-delivered-rider-tag {
+  font-size: 11.5px;
+  color: #047857;
+  background: #d1fae5;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Out for delivery banner in OrderDetailPage */
+.order-out-for-delivery-banner {
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.order-out-for-delivery-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.order-out-for-delivery-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Assigned Rider Card */
+.order-rider-assigned-card {
+  margin-top: 16px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.order-rider-info-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.order-rider-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #059669;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.order-rider-name-row {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-rider-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  background: #ecfdf5;
+  color: #059669;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.order-rider-vehicle {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.order-rider-chat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+  transition: all 0.15s ease;
+}
+
+.order-item-rate-card {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ========================================================
+   Mobile-Specific Polish & Zero-Overflow Architecture (<= 640px)
+   ======================================================== */
 @media (max-width: 640px) {
+  .orders-main-container {
+    padding: 10px 10px 76px !important;
+    max-width: 100% !important;
+    overflow-x: clip !important;
+    box-sizing: border-box !important;
+  }
+
+  .orders-hero-banner {
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .orders-hero-info h1 {
+    font-size: 18px !important;
+  }
+
+  .orders-hero-info p {
+    font-size: 12px !important;
+  }
+
+  .orders-hero-stats {
+    width: 100% !important;
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    padding-bottom: 2px !important;
+    scrollbar-width: none !important;
+  }
+
+  .orders-hero-stats::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .orders-stat-pill {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+  }
+
+  .orders-controls-card {
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+    gap: 8px !important;
+  }
+
+  .orders-tabs-group {
+    gap: 5px !important;
+    padding: 2px 0 !important;
+  }
+
+  .orders-tab-btn {
+    padding: 5px 10px !important;
+    font-size: 11.5px !important;
+  }
+
+  .orders-tab-count {
+    min-width: 16px !important;
+    height: 16px !important;
+    font-size: 10px !important;
+    padding: 0 4px !important;
+  }
+
+  .orders-search-box input {
+    height: 36px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Order Card Container */
+  .order-card-v2 {
+    border-radius: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .order-card-v2-header {
+    padding: 10px 12px !important;
+  }
+
+  .order-card-top-row {
+    gap: 6px !important;
+  }
+
+  .order-number-badge {
+    font-size: 12.5px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .order-card-sub-row {
+    gap: 6px !important;
+  }
+
+  .order-date-text {
+    font-size: 11px !important;
+  }
+
+  .delivery-type-pill {
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 10.5px !important;
+    padding: 2px 6px !important;
+  }
+
+  .order-delivered-strip {
+    margin: 8px 10px 2px !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  .order-delivered-left {
+    font-size: 12px !important;
+  }
+
+  .order-card-v2-body {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  .order-item-thumb-box {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 8px !important;
+  }
+
+  .order-items-names {
+    font-size: 12px !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .order-grand-total-amount {
+    font-size: 16px !important;
+  }
+
+  .order-card-v2-footer {
+    padding: 10px 12px !important;
+  }
+
+  .order-footer-status-note {
+    font-size: 11px !important;
+  }
+
+  /* Fixed 2-Column Buttons Grid - Eliminates right-edge overflow on phones */
+  .order-card-btn-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .order-card-btn-actions .order-btn-cancel,
+  .order-card-btn-actions .order-btn-reorder {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 38px !important;
+    padding: 0 6px !important;
+    font-size: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+    flex: initial !important;
+  }
+
+  .order-card-btn-actions .order-btn-details {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    height: 40px !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+  }
+
+  /* When only 1 button exists in actions (e.g. only re-order or only details), span 2 cols */
+  .order-card-btn-actions > :only-child,
+  .order-card-btn-actions > :first-child:nth-last-child(2) {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Order Detail Page Mobile Improvements */
+  .order-detail-header-card {
+    padding: 14px 14px !important;
+    border-radius: 14px !important;
+    gap: 12px !important;
+  }
+
+  .order-detail-header-card h1 {
+    font-size: 18px !important;
+  }
+
   .order-header-actions {
-    width: 100%;
-    justify-content: flex-start;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .order-header-actions > * {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .order-header-actions .btn {
+    width: 100% !important;
+    height: 38px !important;
+    font-size: 12.5px !important;
+    justify-content: center !important;
+  }
+
+  .order-out-for-delivery-banner {
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .order-out-for-delivery-actions {
+    width: 100% !important;
+    flex-direction: column !important;
+  }
+
+  .order-out-for-delivery-actions > * {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  .order-rider-assigned-card {
+    padding: 12px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .order-rider-chat-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    height: 38px !important;
+  }
+
+  .order-section-card {
+    padding: 14px 12px !important;
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .order-section-card h3 {
+    font-size: 14px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .order-item-row-v2 {
+    gap: 8px !important;
+    padding: 8px 0 !important;
+  }
+
+  .order-item-row-v2 img {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .order-item-info-v2 b {
+    font-size: 12px !important;
+    word-break: break-word !important;
+  }
+
+  .order-item-price-v2 {
+    font-size: 13px !important;
+  }
+
+  .order-item-rate-card {
+    padding: 8px 10px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
   }
 }
 

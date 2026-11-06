@@ -904,26 +904,15 @@ function OrderCardV2({ order, onReorder, onCancel, onEdit, onChat }) {
 
       {/* Delivery Confirmation Strip for completed orders */}
       {order.status === 'Delivered' && (
-        <div style={{
-          margin: '10px 14px 4px',
-          background: '#ecfdf5',
-          border: '1px solid #a7f3d0',
-          borderRadius: '10px',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#065f46' }}>
-            <CheckCircle2 size={18} style={{ color: '#059669', flexShrink: 0 }} />
-            <span style={{ fontSize: '13px', fontWeight: 600 }}>
+        <div className="order-delivered-strip">
+          <div className="order-delivered-left">
+            <CheckCircle2 size={18} className="delivered-icon" />
+            <span>
               Delivered on <b>{formatDateTime(order.deliveredAt || order.date)}</b>
             </span>
           </div>
           {order.deliveryPerson?.name && (
-            <span style={{ fontSize: '11.5px', color: '#047857', background: '#d1fae5', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+            <span className="order-delivered-rider-tag">
               Delivered by {order.deliveryPerson.name}
             </span>
           )}
@@ -1112,20 +1101,7 @@ function OrderItemRateCard({ item, notify, refreshProducts }) {
   };
 
   return (
-    <div
-      style={{
-        marginTop: '8px',
-        padding: '8px 12px',
-        background: '#f8fafc',
-        border: '1px solid #e2e8f0',
-        borderRadius: '10px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px'
-      }}
-    >
+    <div className="order-item-rate-card">
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
           {submitted ? 'Your rating:' : 'Rate product:'}
@@ -1262,22 +1238,9 @@ export function OrderDetailPage() {
 
       {/* Out for delivery support guidance notice */}
       {isOutForDelivery && (
-        <div
-          style={{
-            marginBottom: '16px',
-            padding: '14px 18px',
-            background: '#f0f9ff',
-            border: '1px solid #bae6fd',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Truck size={22} color="#0284c7" />
+        <div className="order-out-for-delivery-banner">
+          <div className="order-out-for-delivery-info">
+            <Truck size={22} color="#0284c7" style={{ flexShrink: 0 }} />
             <div>
               <b style={{ display: 'block', fontSize: '13.5px', color: '#0369a1' }}>
                 Your order is currently Out for Delivery!
@@ -1289,25 +1252,11 @@ export function OrderDetailPage() {
               </span>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="order-out-for-delivery-actions">
             <button
               type="button"
               onClick={() => setChatModalOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: '#059669',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
-                transition: 'all 0.15s ease'
-              }}
+              className="order-rider-chat-btn"
             >
               <MessageSquare size={14} />
               <span>Chat with Rider {order.deliveryPerson?.name ? `(${order.deliveryPerson.name})` : ''}</span>
@@ -1457,70 +1406,31 @@ export function OrderDetailPage() {
 
             {/* Assigned Rider Card if order is out for delivery or has deliveryPerson */}
             {(isOutForDelivery || order.deliveryPerson) && (
-              <div
-                style={{
-                  marginTop: '16px',
-                  padding: '14px',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  flexWrap: 'wrap'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '50%',
-                      background: '#ecfdf5',
-                      color: '#059669',
-                      display: 'grid',
-                      placeItems: 'center',
-                      flexShrink: 0
-                    }}
-                  >
+              <div className="order-rider-assigned-card">
+                <div className="order-rider-info-left">
+                  <div className="order-rider-avatar">
                     <Truck size={22} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div className="order-rider-name-row">
                       <span>{order.deliveryPerson?.name || 'Assigned Delivery Partner'}</span>
-                      <span style={{ fontSize: '10.5px', fontWeight: 700, background: '#ecfdf5', color: '#059669', padding: '1px 6px', borderRadius: '6px' }}>
+                      <span className="order-rider-badge">
                         Rider
                       </span>
                     </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                    <div className="order-rider-vehicle">
                       {[order.deliveryPerson?.vehicleType, order.deliveryPerson?.vehicleNumber].filter(Boolean).join(' · ') || 'Out on delivery vehicle'}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setChatModalOpen(true)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 14px',
-                      borderRadius: '8px',
-                      background: '#059669',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '12.5px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
-                    }}
-                  >
-                    <MessageSquare size={13} /> Chat with Rider
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setChatModalOpen(true)}
+                  className="order-rider-chat-btn"
+                >
+                  <MessageSquare size={13} /> Chat with Rider
+                </button>
               </div>
             )}
           </div>
