@@ -1102,7 +1102,7 @@ function OrderItemRateCard({ item, notify, refreshProducts }) {
 
   return (
     <div className="order-item-rate-card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
         <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
           {submitted ? 'Your rating:' : 'Rate product:'}
         </span>
@@ -1440,9 +1440,9 @@ export function OrderDetailPage() {
             <h3>
               <span>Items in this Order ({itemList.length})</span>
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
               {itemList.map((item, idx) => (
-                <div key={item.id || idx} style={{ borderBottom: idx < itemList.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: '12px', marginBottom: '8px' }}>
+                <div key={item.id || idx} style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', borderBottom: idx < itemList.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: '12px', marginBottom: '8px' }}>
                   <div className="order-item-row-v2" style={{ borderBottom: 'none', paddingBottom: 0 }}>
                     <img
                       src={item.image}
