@@ -50,19 +50,29 @@ export default function AdminNavbarActions(){
  };
 
  const fireOrderAlert = (notice) => {
-   const alertKey = notice.id || `order-${notice.orderNumber}`;
+   const isCancelled = Boolean(notice.isCancelled) || notice.type === 'ORDER_CANCELLED' || String(notice.id || '').startsWith('order-cancel-');
+   const alertKey = notice.id || (isCancelled ? `order-cancel-${notice.orderNumber}` : `order-${notice.orderNumber}`);
    markAlertSeen(alertKey);
    playNotificationSound();
+   const title = isCancelled
+     ? `❌ Order #${notice.orderNumber || ''} Cancelled · R2Cart`
+     : '🚨 New Order Received! · R2Cart';
+   const body = isCancelled
+     ? (notice.text || `Order #${notice.orderNumber} was cancelled by customer. Stock restored.`)
+     : `${notice.title || 'New Order'} (${notice.text || 'Order placed'})`;
+
    triggerSystemNotification({
-     title: '🚨 New Order Received! · R2Cart',
-     body: `${notice.title || 'New Order'} (${notice.text || 'Order placed'})`,
+     title,
+     body,
      url: notice.path || '/admin/orders',
      tag: alertKey,
    });
    window.dispatchEvent(new CustomEvent('r2cart:new-order-alert', {
      detail: {
-       orderNumber: notice.orderNumber || (notice.title ? notice.title.replace(/^New order\s*#?/i, '') : 'New Order'),
+       isCancelled,
+       orderNumber: notice.orderNumber || (notice.title ? notice.title.replace(/^(New order|❌ Order)\s*#?/i, '') : 'Order'),
        customerName: notice.customerName || 'Customer',
+       reason: notice.reason || '',
        total: notice.total || '',
        itemsCount: notice.itemsCount || 1,
        url: notice.path || '/admin/orders',
@@ -74,9 +84,9 @@ export default function AdminNavbarActions(){
   const nextNotices=value?.notifications||[];
   const now = Date.now();
 
-  // Alert on ANY unalerted order placed within the last 30 minutes
+  // Alert on ANY unalerted order placed or cancelled within the last 30 minutes
   for (const n of nextNotices) {
-    if (n.id && n.id.startsWith('order-') && !seenAlertsRef.current.has(n.id)) {
+    if (n.id && (n.id.startsWith('order-') || n.id.startsWith('order-cancel-')) && !seenAlertsRef.current.has(n.id)) {
       const noticeTime = n.date ? new Date(n.date).getTime() : 0;
       const isRecent = noticeTime > 0 ? (now - noticeTime) < 30 * 60 * 1000 : true;
       if (isRecent) {
@@ -134,14 +144,17 @@ export default function AdminNavbarActions(){
   const onSwPush=event=>{
    if(event.data?.type==='R2CART_PUSH_RECEIVED'){
     const p=event.data.payload||{};
-    const alertKey=p.tag||p.orderId||p.data?.orderId||p.orderNumber||'sw-push';
+    const isCancelled = Boolean(p.isCancelled) || p.type === 'ADMIN_ORDER_CANCELLED' || String(p.tag || '').startsWith('order-cancel-');
+    const alertKey=p.tag||(isCancelled ? `order-cancel-${p.orderId||p.orderNumber}` : `order-${p.orderId||p.orderNumber}`)||'sw-push';
     if(!seenAlertsRef.current.has(alertKey)){
      markAlertSeen(alertKey);
      playNotificationSound();
      window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
       detail:{
-       orderNumber:p.orderNumber||p.data?.orderNumber||p.title||'New Order',
-       customerName:p.customerName||p.data?.customerName||p.body||'Customer',
+       isCancelled,
+       orderNumber:p.orderNumber||p.data?.orderNumber||p.title||'Order',
+       customerName:p.customerName||p.data?.customerName||p.cancelledByName||'Customer',
+       reason:p.reason||p.data?.reason||'',
        total:p.total||p.data?.total||'',
        itemsCount:p.itemsCount||p.data?.itemsCount||1,
        time:p.time||p.data?.time,
@@ -185,11 +198,37 @@ export default function AdminNavbarActions(){
               });
               window.dispatchEvent(new CustomEvent('r2cart:new-order-alert', {
                 detail: {
+                  isCancelled: false,
                   orderNumber: o.orderNumber,
                   customerName: o.customerName,
                   total: o.total,
                   itemsCount: o.itemsCount,
                   url: o.url || '/admin/orders',
+                }
+              }));
+            }
+            load();
+          } else if (payload.type === 'ORDER_CANCELLED' && payload.order) {
+            const o = payload.order;
+            const alertKey = `order-cancel-${o.id}`;
+            if (!seenAlertsRef.current.has(alertKey)) {
+              markAlertSeen(alertKey);
+              playNotificationSound();
+              triggerSystemNotification({
+                title: `❌ Order #${o.orderNumber} Cancelled · R2Cart`,
+                body: o.body || `Order #${o.orderNumber} was cancelled by ${o.customerName}. Stock restored.`,
+                url: o.url || `/admin/orders/${o.id}`,
+                tag: alertKey,
+              });
+              window.dispatchEvent(new CustomEvent('r2cart:new-order-alert', {
+                detail: {
+                  isCancelled: true,
+                  orderNumber: o.orderNumber,
+                  customerName: o.customerName,
+                  reason: o.reason,
+                  total: o.total,
+                  itemsCount: o.itemsCount,
+                  url: o.url || `/admin/orders/${o.id}`,
                 }
               }));
             }

@@ -339,14 +339,14 @@ export default function AdminLayout({ children }) {
         />
 
         {perm !== 'granted' && perm !== 'unsupported' && (
-          <div style={{ background: 'linear-gradient(90deg, #064E3B, #047857)', color: '#fff', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12.5px', fontWeight: 600, zIndex: 10, boxShadow: '0 4px 14px rgba(6,78,59,0.25)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>🔔</span>
-              <span><b>Browser Order Alerts are OFF:</b> Enable instant sound &amp; desktop popup notifications when customer orders arrive.</span>
+          <div style={{ background: 'linear-gradient(90deg, #064E3B, #047857)', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', fontSize: '12.5px', fontWeight: 600, zIndex: 10, boxShadow: '0 4px 14px rgba(6,78,59,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px', flex: 1 }}>
+              <span style={{ fontSize: '18px' }}>🔔</span>
+              <span><b>Live Order &amp; Cancel Alerts OFF:</b> Turn on popups &amp; sound for new orders &amp; cancellations (even when browser is minimized or closed).</span>
             </div>
             <button
               onClick={handleEnableAlerts}
-              style={{ background: '#FEF08A', color: '#064E3B', border: 'none', borderRadius: '8px', padding: '6px 16px', fontWeight: 800, cursor: 'pointer', fontSize: '12.5px', whiteSpace: 'nowrap', marginLeft: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+              style={{ background: '#FEF08A', color: '#064E3B', border: 'none', borderRadius: '8px', padding: '8px 18px', fontWeight: 800, cursor: 'pointer', fontSize: '12.5px', whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
             >
               ⚡ Enable Alerts Now
             </button>

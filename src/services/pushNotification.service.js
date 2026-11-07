@@ -94,20 +94,21 @@ export async function enableOrderAlerts({ role = 'ADMIN', onStatusChange } = {})
     // 4. Broadcast to all open UI components
     window.dispatchEvent(new CustomEvent('r2cart:notifications-enabled', { detail: { permission: 'granted' } }));
 
-    // 5. Trigger immediate test confirmation notification
+    // 5. Connect background push subscription safely and await it so mobile device is guaranteed registered in DB
+    const subRes = await subscribeToPush({ role }).catch((err) => {
+      console.warn('[Push] Background push sync warning:', err);
+      return null;
+    });
+
+    // 6. Trigger immediate test confirmation notification
     triggerSystemNotification({
       title: '🔔 Order Alerts Activated! · R2Cart',
-      body: 'You will now receive instant popups and sound for every incoming order.',
+      body: 'You will receive popups and sound for every incoming order and cancellation, even when browser is minimized.',
       url: role === 'ADMIN' ? '/admin/orders' : '/',
       tag: 'order-alerts-activated',
     });
 
-    // 6. Connect background push subscription safely in background
-    subscribeToPush({ role }).catch((err) => {
-      console.warn('[Push] Background push sync warning:', err);
-    });
-
-    return { success: true, permission: 'granted' };
+    return { success: true, permission: 'granted', webPush: Boolean(subRes?.subscription) };
   } catch (err) {
     console.error('enableOrderAlerts error:', err);
     return { success: false, error: err.message };
@@ -133,43 +134,47 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
       return { success: true, permission: 'granted', webPush: false };
     }
 
-    // 3. Ensure service worker is registered and ready (with safety timeout)
-    await registerServiceWorker();
-    const readyWithTimeout = Promise.race([
+    // 3. Ensure service worker is registered and active
+    let reg = await registerServiceWorker();
+    if (!reg && 'serviceWorker' in navigator) {
+      reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+    }
+
+    // Wait for service worker to become ready (generous timeout so mobile doesn't skip)
+    const swReady = await Promise.race([
       navigator.serviceWorker.ready,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 3500))
-    ]);
+      new Promise((resolve) => setTimeout(resolve, 6000))
+    ]).catch(() => null);
 
-    const reg = await readyWithTimeout.catch((err) => {
-      console.warn('[Push] SW not ready:', err.message);
-      return null;
-    });
+    const activeReg = swReady || reg || (await navigator.serviceWorker.getRegistration().catch(() => null));
 
-    if (!reg || !reg.pushManager) {
+    if (!activeReg || !activeReg.pushManager) {
+      console.warn('[Push] PushManager not available on registration');
       return { success: true, permission: 'granted', webPush: false };
     }
 
     // 4. Check for existing subscription or create new
-    let subscription = await reg.pushManager.getSubscription().catch(() => null);
+    let subscription = await activeReg.pushManager.getSubscription().catch(() => null);
     if (!subscription) {
       const convertedKey = urlBase64ToUint8Array(publicKey);
-      subscription = await reg.pushManager.subscribe({
+      subscription = await activeReg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedKey,
       }).catch((subErr) => {
-        console.warn('[Push] PushManager subscribe skipped:', subErr.message);
+        console.warn('[Push] PushManager subscribe error:', subErr.message);
         return null;
       });
     }
 
     if (!subscription) {
+      console.warn('[Push] Web Push subscription could not be established');
       return { success: true, permission: 'granted', webPush: false };
     }
 
     // 5. Send subscription to backend with role-aware authorization
-    const adminToken = localStorage.getItem('r2cart-admin-access-token');
-    const customerToken = localStorage.getItem('r2cart-access-token');
-    const deliveryToken = localStorage.getItem('r2cart-delivery-access-token');
+    const adminToken = localStorage.getItem('r2cart-admin-access-token') || sessionStorage.getItem('r2cart-admin-access-token');
+    const customerToken = localStorage.getItem('r2cart-access-token') || sessionStorage.getItem('r2cart-access-token');
+    const deliveryToken = localStorage.getItem('r2cart-delivery-access-token') || sessionStorage.getItem('r2cart-delivery-access-token');
     let token = customerToken;
     if (role === 'ADMIN') token = adminToken || customerToken;
     else if (role === 'DELIVERY_PERSON') token = deliveryToken || adminToken || customerToken;
@@ -183,6 +188,7 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
     });
 
     localStorage.setItem('r2cart_push_subscribed', 'true');
+    console.log('[Push] Device successfully subscribed to Web Push for role:', role);
 
     // Register FCM token in parallel for cross-platform support
     requestFcmToken({ role }).catch((err) => console.warn('[FCM] Token register skipped:', err.message));
@@ -251,10 +257,14 @@ export async function triggerSystemNotification({
   let notificationTriggered = false;
   if ('serviceWorker' in navigator) {
     try {
-      const reg = await Promise.race([
+      let reg = await Promise.race([
         navigator.serviceWorker.ready,
         new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 800))
       ]).catch(() => null);
+
+      if (!reg) {
+        reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+      }
 
       if (reg && reg.showNotification) {
         await reg.showNotification(title, options);
