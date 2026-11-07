@@ -173,12 +173,26 @@ export default function AdminNavbarActions(){
   // Real-Time Server-Sent Events (SSE) connection for instant zero-latency alerts
   let es = null;
   let esRetryTimer = null;
-  const adminToken = localStorage.getItem('r2cart-admin-access-token');
 
-  const connectSSE = () => {
-    if (!adminToken || typeof EventSource === 'undefined') return;
+  const connectSSE = async () => {
+    if (typeof EventSource === 'undefined') return;
+    let token = localStorage.getItem('r2cart-admin-access-token') || sessionStorage.getItem('r2cart-admin-access-token');
+    if (!token) return;
+
+    // Check if token is expired; if so, trigger silent refresh
     try {
-      const sseUrl = `${env.apiBaseUrl}/admin/orders/live-stream?token=${encodeURIComponent(adminToken)}`;
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          await api.get('/admin/notifications').catch(() => {});
+          token = localStorage.getItem('r2cart-admin-access-token') || sessionStorage.getItem('r2cart-admin-access-token');
+        }
+      }
+    } catch {}
+
+    try {
+      const sseUrl = `${env.apiBaseUrl}/admin/orders/live-stream?token=${encodeURIComponent(token)}`;
       es = new EventSource(sseUrl);
 
       es.onmessage = (event) => {
@@ -242,6 +256,7 @@ export default function AdminNavbarActions(){
 
       es.onerror = () => {
         es?.close();
+        api.get('/admin/notifications').catch(() => {});
         esRetryTimer = setTimeout(connectSSE, 6000);
       };
     } catch (err) {
