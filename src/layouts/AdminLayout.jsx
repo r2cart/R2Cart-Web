@@ -339,13 +339,16 @@ export default function AdminLayout({ children }) {
         />
 
         {perm !== 'granted' && perm !== 'unsupported' && (
-          <div style={{ background: 'linear-gradient(90deg, #148542, #0d5f2e)', color: '#fff', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 500, zIndex: 10 }}>
-            <span>🔔 <b>Turn on Order Alerts:</b> Get instant sound alerts and notifications when customer orders arrive.</span>
+          <div style={{ background: 'linear-gradient(90deg, #064E3B, #047857)', color: '#fff', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12.5px', fontWeight: 600, zIndex: 10, boxShadow: '0 4px 14px rgba(6,78,59,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>🔔</span>
+              <span><b>Browser Order Alerts are OFF:</b> Enable instant sound &amp; desktop popup notifications when customer orders arrive.</span>
+            </div>
             <button
               onClick={handleEnableAlerts}
-              style={{ background: '#fff', color: '#148542', border: 'none', borderRadius: '6px', padding: '5px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap', marginLeft: '12px' }}
+              style={{ background: '#FEF08A', color: '#064E3B', border: 'none', borderRadius: '8px', padding: '6px 16px', fontWeight: 800, cursor: 'pointer', fontSize: '12.5px', whiteSpace: 'nowrap', marginLeft: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
             >
-              Enable Alerts
+              ⚡ Enable Alerts Now
             </button>
           </div>
         )}

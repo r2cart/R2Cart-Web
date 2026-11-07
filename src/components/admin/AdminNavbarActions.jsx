@@ -4,17 +4,34 @@ import {Bell,Globe,Search,UserRound,X} from 'lucide-react';
 import {api} from '../../services/httpClient';
 import {mediaUrl} from '../../utils/media';
 import {useLanguage} from '../../context/LanguageContext';
+import {env} from '../../config/env';
 import {playNotificationSound,subscribeToPush,sendTestPush,triggerSystemNotification,enableOrderAlerts} from '../../services/pushNotification.service';
 import './navbar.css';
 
+const getInitialAlerted = () => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('r2cart-alerted-orders') || '[]'));
+  } catch {
+    return new Set();
+  }
+};
+
 export default function AdminNavbarActions(){
- const nav=useNavigate(),root=useRef(null),prevNoticesRef=useRef([]),seenAlertsRef=useRef(new Set());
+ const nav=useNavigate(),root=useRef(null),prevNoticesRef=useRef([]),seenAlertsRef=useRef(getInitialAlerted());
  const {lang,toggleLang,t}=useLanguage();
  const [q,setQ]=useState(''),[results,setResults]=useState([]),[menu,setMenu]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[data,setData]=useState(null),[noticeError,setNoticeError]=useState('');
  const [testStatus,setTestStatus]=useState('idle');
  const [perm,setPerm]=useState(()=>(typeof Notification!=='undefined'?Notification.permission:'unsupported'));
  const [read,setRead]=useState(()=>{try{return JSON.parse(localStorage.getItem('r2cart-admin-read-notifications')||'[]')}catch{return []}});
  const [cleared,setCleared]=useState(()=>{try{return JSON.parse(localStorage.getItem('r2cart-admin-cleared-notifications')||'[]')}catch{return []}});
+
+ const markAlertSeen = (id) => {
+   seenAlertsRef.current.add(id);
+   try {
+     const arr = Array.from(seenAlertsRef.current).slice(-300);
+     localStorage.setItem('r2cart-alerted-orders', JSON.stringify(arr));
+   } catch {}
+ };
 
  useEffect(()=>{
   const handlePerm=()=>setPerm(typeof Notification!=='undefined'?Notification.permission:'unsupported');
@@ -32,55 +49,75 @@ export default function AdminNavbarActions(){
   }
  };
 
+ const fireOrderAlert = (notice) => {
+   const alertKey = notice.id || `order-${notice.orderNumber}`;
+   markAlertSeen(alertKey);
+   playNotificationSound();
+   triggerSystemNotification({
+     title: '🚨 New Order Received! · R2Cart',
+     body: `${notice.title || 'New Order'} (${notice.text || 'Order placed'})`,
+     url: notice.path || '/admin/orders',
+     tag: alertKey,
+   });
+   window.dispatchEvent(new CustomEvent('r2cart:new-order-alert', {
+     detail: {
+       orderNumber: notice.orderNumber || (notice.title ? notice.title.replace(/^New order\s*#?/i, '') : 'New Order'),
+       customerName: notice.customerName || 'Customer',
+       total: notice.total || '',
+       itemsCount: notice.itemsCount || 1,
+       url: notice.path || '/admin/orders',
+     }
+   }));
+ };
+
  const load=()=>api.get('/admin/notifications').then(value=>{
   const nextNotices=value?.notifications||[];
-  const prevIds=new Set(prevNoticesRef.current.map(n=>n.id));
-  const newOrderNotices=nextNotices.filter(n=>n.id.startsWith('order-')&&!prevIds.has(n.id));
-  const newEnquiryNotices=nextNotices.filter(n=>n.id.startsWith('enquiry-')&&!prevIds.has(n.id));
-  if(prevNoticesRef.current.length>0&&newOrderNotices.length>0){
-   const latest=newOrderNotices[0];
-   if(!seenAlertsRef.current.has(latest.id)){
-    seenAlertsRef.current.add(latest.id);
-    playNotificationSound();
-    triggerSystemNotification({
-     title:'🚨 New Order Received! · R2Cart',
-     body:`${latest.title} (${latest.text})`,
-     url:latest.path||'/admin/orders',
-     tag:latest.id,
-    });
-    window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
-     detail:{
-      orderNumber:latest.orderNumber||latest.title.replace(/^New order\s*#?/i,''),
-      customerName:latest.customerName||'Customer',
-      total:latest.total||'',
-      itemsCount:latest.itemsCount||1,
-      url:latest.path||'/admin/orders',
-     }
-    }));
-   }
+  const now = Date.now();
+
+  // Alert on ANY unalerted order placed within the last 30 minutes
+  for (const n of nextNotices) {
+    if (n.id && n.id.startsWith('order-') && !seenAlertsRef.current.has(n.id)) {
+      const noticeTime = n.date ? new Date(n.date).getTime() : 0;
+      const isRecent = noticeTime > 0 ? (now - noticeTime) < 30 * 60 * 1000 : true;
+      if (isRecent) {
+        fireOrderAlert(n);
+        break; // Alert the most recent one first; subsequent ticks will process any others
+      } else {
+        markAlertSeen(n.id);
+      }
+    }
   }
-  if(prevNoticesRef.current.length>0&&newEnquiryNotices.length>0){
-   const latest=newEnquiryNotices[0];
-   if(!seenAlertsRef.current.has(latest.id)){
-    seenAlertsRef.current.add(latest.id);
-    playNotificationSound();
-    triggerSystemNotification({
-     title:'📞 New Customer Inquiry! · R2Cart',
-     body:`${latest.title} · ${latest.text}`,
-     url:latest.path||'/admin/enquiries',
-     tag:latest.id,
-    });
-    window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
-     detail:{
-      orderNumber:latest.title,
-      customerName:latest.text,
-      total:'Custom Inquiry',
-      itemsCount:1,
-      url:latest.path||'/admin/enquiries',
-     }
-    }));
-   }
+
+  // Also check inquiries
+  for (const n of nextNotices) {
+    if (n.id && n.id.startsWith('enquiry-') && !seenAlertsRef.current.has(n.id)) {
+      const noticeTime = n.date ? new Date(n.date).getTime() : 0;
+      const isRecent = noticeTime > 0 ? (now - noticeTime) < 30 * 60 * 1000 : true;
+      if (isRecent) {
+        markAlertSeen(n.id);
+        playNotificationSound();
+        triggerSystemNotification({
+          title: '📞 New Customer Inquiry! · R2Cart',
+          body: `${n.title} · ${n.text}`,
+          url: n.path || '/admin/enquiries',
+          tag: n.id,
+        });
+        window.dispatchEvent(new CustomEvent('r2cart:new-order-alert', {
+          detail: {
+            orderNumber: n.title,
+            customerName: n.text,
+            total: 'Custom Inquiry',
+            itemsCount: 1,
+            url: n.path || '/admin/enquiries',
+          }
+        }));
+        break;
+      } else {
+        markAlertSeen(n.id);
+      }
+    }
   }
+
   prevNoticesRef.current=nextNotices;
   setData(value);
   setNoticeError('');
@@ -88,7 +125,8 @@ export default function AdminNavbarActions(){
 
  useEffect(()=>{
   load();
-  const timer=setInterval(load,12000);
+  // Fast 4.5s polling as ultra-reliable real-time fallback
+  const timer=setInterval(load,4500);
   
   window.addEventListener('r2cart:settings-updated',load);
 
@@ -98,7 +136,7 @@ export default function AdminNavbarActions(){
     const p=event.data.payload||{};
     const alertKey=p.tag||p.orderId||p.data?.orderId||p.orderNumber||'sw-push';
     if(!seenAlertsRef.current.has(alertKey)){
-     seenAlertsRef.current.add(alertKey);
+     markAlertSeen(alertKey);
      playNotificationSound();
      window.dispatchEvent(new CustomEvent('r2cart:new-order-alert',{
       detail:{
@@ -118,11 +156,67 @@ export default function AdminNavbarActions(){
    navigator.serviceWorker.addEventListener('message',onSwPush);
   }
 
+  // Real-Time Server-Sent Events (SSE) connection for instant zero-latency alerts
+  let es = null;
+  let esRetryTimer = null;
+  const adminToken = localStorage.getItem('r2cart-admin-access-token');
+
+  const connectSSE = () => {
+    if (!adminToken || typeof EventSource === 'undefined') return;
+    try {
+      const sseUrl = `${env.apiBaseUrl}/admin/orders/live-stream?token=${encodeURIComponent(adminToken)}`;
+      es = new EventSource(sseUrl);
+
+      es.onmessage = (event) => {
+        if (!event.data) return;
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'NEW_ORDER' && payload.order) {
+            const o = payload.order;
+            const alertKey = `order-${o.id}`;
+            if (!seenAlertsRef.current.has(alertKey)) {
+              markAlertSeen(alertKey);
+              playNotificationSound();
+              triggerSystemNotification({
+                title: '🚨 New Order Received! · R2Cart',
+                body: `Order #${o.orderNumber} (₹${o.total}) from ${o.customerName}`,
+                url: o.url || '/admin/orders',
+                tag: alertKey,
+              });
+              window.dispatchEvent(new CustomEvent('r2cart:new-order-alert', {
+                detail: {
+                  orderNumber: o.orderNumber,
+                  customerName: o.customerName,
+                  total: o.total,
+                  itemsCount: o.itemsCount,
+                  url: o.url || '/admin/orders',
+                }
+              }));
+            }
+            load();
+          }
+        } catch (err) {
+          console.warn('[SSE] Event parse warning:', err);
+        }
+      };
+
+      es.onerror = () => {
+        es?.close();
+        esRetryTimer = setTimeout(connectSSE, 6000);
+      };
+    } catch (err) {
+      console.warn('[SSE] Init warning:', err);
+    }
+  };
+
+  connectSSE();
+
   const close=e=>{if(!root.current?.contains(e.target))setMenu('')};
   document.addEventListener('pointerdown',close);
   return()=>{
    clearInterval(timer);
-   
+   if (esRetryTimer) clearTimeout(esRetryTimer);
+   if (es) es.close();
    window.removeEventListener('r2cart:settings-updated',load);
    if('serviceWorker' in navigator)navigator.serviceWorker.removeEventListener('message',onSwPush);
    document.removeEventListener('pointerdown',close);

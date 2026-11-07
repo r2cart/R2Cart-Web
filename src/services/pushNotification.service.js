@@ -94,7 +94,15 @@ export async function enableOrderAlerts({ role = 'ADMIN', onStatusChange } = {})
     // 4. Broadcast to all open UI components
     window.dispatchEvent(new CustomEvent('r2cart:notifications-enabled', { detail: { permission: 'granted' } }));
 
-    // 5. Connect background push subscription safely in background
+    // 5. Trigger immediate test confirmation notification
+    triggerSystemNotification({
+      title: '🔔 Order Alerts Activated! · R2Cart',
+      body: 'You will now receive instant popups and sound for every incoming order.',
+      url: role === 'ADMIN' ? '/admin/orders' : '/',
+      tag: 'order-alerts-activated',
+    });
+
+    // 6. Connect background push subscription safely in background
     subscribeToPush({ role }).catch((err) => {
       console.warn('[Push] Background push sync warning:', err);
     });
@@ -239,31 +247,39 @@ export async function triggerSystemNotification({
     data: { url: url || '/admin/orders' },
   };
 
-  // 1. Try ServiceWorker Registration showNotification (supported by Windows Toast & Action Center)
+  // 1. Try ServiceWorker Registration showNotification with fast timeout guard
+  let notificationTriggered = false;
   if ('serviceWorker' in navigator) {
     try {
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 800))
+      ]).catch(() => null);
+
       if (reg && reg.showNotification) {
         await reg.showNotification(title, options);
-        return true;
+        notificationTriggered = true;
       }
     } catch (e) {
       console.warn('SW showNotification fallback:', e);
     }
   }
 
-  // 2. Direct Window Notification fallback
-  try {
-    const notif = new Notification(title, options);
-    notif.onclick = () => {
-      window.focus();
-      if (url) window.location.href = url;
-    };
-    return true;
-  } catch (err) {
-    console.warn('Direct Notification fallback error:', err);
-    return false;
+  // 2. Direct Window Notification fallback (ensures desktop popup appears reliably)
+  if (!notificationTriggered && typeof Notification !== 'undefined') {
+    try {
+      const notif = new Notification(title, options);
+      notif.onclick = () => {
+        window.focus();
+        if (url) window.location.href = url;
+      };
+      notificationTriggered = true;
+    } catch (err) {
+      console.warn('Direct Notification fallback error:', err);
+    }
   }
+
+  return notificationTriggered;
 }
 
 export async function sendTestPush(role = 'ADMIN') {
