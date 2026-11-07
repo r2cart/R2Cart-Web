@@ -56,6 +56,11 @@ async function refreshSession(role = 'CUSTOMER'){
    : role === 'DELIVERY'
    ? 'r2cart-delivery-access-token'
    : 'r2cart-access-token';
+ const activeRefKey = role === 'ADMIN'
+   ? 'r2cart-admin-refresh-token'
+   : role === 'DELIVERY'
+   ? 'r2cart-delivery-refresh-token'
+   : 'r2cart-refresh-token';
  const activeUsrKey = role === 'ADMIN'
    ? 'r2cart-admin-user'
    : role === 'DELIVERY'
@@ -64,24 +69,16 @@ async function refreshSession(role = 'CUSTOMER'){
 
  const doRefresh=async()=>{
   const refreshEndpoint=`${env.apiBaseUrl}/auth/refresh`;
-  // HttpOnly cookie (r2cart_refresh / r2cart_admin_refresh / r2cart_delivery_refresh) is sent automatically
-  // via credentials:'include' — no body/header token needed (BUG-03 fix)
+  const storedRefreshToken = getStoredToken(activeRefKey);
   const res=await fetch(refreshEndpoint,{
    method:'POST',
    credentials:'include',
-   headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({ role })
+   headers:{'Content-Type':'application/json', ...(storedRefreshToken ? { 'x-refresh-token': storedRefreshToken } : {})},
+   body:JSON.stringify({ role, refreshToken: storedRefreshToken || undefined })
   });
 
   const payload=await res.json();
   if(!res.ok){
-   // Only clear credentials if the refresh token is explicitly rejected as invalid or expired
-   // DO NOT clear on 5xx or server restart during git push deployment
-   if(res.status===401&&(payload?.message?.includes('invalid')||payload?.message?.includes('expired')||payload?.message?.includes('required'))){
-    try { sessionStorage.removeItem(activeAccKey); } catch {}
-    try { localStorage.removeItem(activeAccKey); } catch {}
-    try { localStorage.removeItem(activeUsrKey); } catch {}
-   }
    const refreshErrorMsg=res.status===401?'Session expired. Please sign in again.':(payload?.message||'Session refresh failed');
    throw new ApiError(refreshErrorMsg,res.status,payload);
   }
@@ -91,6 +88,10 @@ async function refreshSession(role = 'CUSTOMER'){
    try { sessionStorage.setItem(activeAccKey,session.accessToken); } catch {}
    try { localStorage.setItem(activeAccKey,session.accessToken); } catch {}
    try { localStorage.setItem('r2cart-session-active','1'); } catch {}
+  }
+  if(session?.refreshToken){
+   try { sessionStorage.setItem(activeRefKey,session.refreshToken); } catch {}
+   try { localStorage.setItem(activeRefKey,session.refreshToken); } catch {}
   }
   if(session?.user){
    try { localStorage.setItem(activeUsrKey,JSON.stringify(session.user)); } catch {}

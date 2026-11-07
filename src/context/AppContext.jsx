@@ -34,7 +34,7 @@ export const formatLocation=(address)=>{
   if(cityLine)return cityLine;
   return address.area||address.city||DEFAULT_LOCATION;
 };
-const isInvalidCustomer=value=>Boolean(value)&&(value.role&&value.role!=='CUSTOMER'||value.email?.toLowerCase()==='aarav@example.com'||value.name?.trim().toLowerCase()==='aarav sharma');
+const isInvalidCustomer=value=>Boolean(value)&&(value.email?.toLowerCase()==='aarav@example.com'||value.name?.trim().toLowerCase()==='aarav sharma');
 export const isTimeWithinOperatingHours=(openStr,closeStr)=>{
   if(!openStr||!closeStr)return true;
   try{

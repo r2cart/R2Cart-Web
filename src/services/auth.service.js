@@ -44,6 +44,7 @@ const save = session => {
   }
 
   if (session.accessToken) setTok('r2cart-access-token', session.accessToken);
+  if (session.refreshToken) setTok('r2cart-refresh-token', session.refreshToken);
   localStorage.setItem('r2cart-user', JSON.stringify(session.user));
   localStorage.setItem('r2cart-session-active', '1');
   return session.user;
@@ -53,12 +54,18 @@ const saveAdmin = session => {
   if (session.accessToken) {
     setTok('r2cart-admin-access-token', session.accessToken);
   }
+  if (session.refreshToken) {
+    setTok('r2cart-admin-refresh-token', session.refreshToken);
+  }
   localStorage.setItem('r2cart-admin-user', JSON.stringify(session.user));
   localStorage.setItem('r2cart-admin', 'true');
   const role = session.user?.role || session.user?.staffRole;
   if (role === 'DELIVERY_PERSON') {
     if (session.accessToken) {
       setTok('r2cart-delivery-access-token', session.accessToken);
+    }
+    if (session.refreshToken) {
+      setTok('r2cart-delivery-refresh-token', session.refreshToken);
     }
     localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
     localStorage.setItem('r2cart-delivery', 'true');
@@ -69,6 +76,9 @@ const saveAdmin = session => {
 const saveDelivery = session => {
   if (session.accessToken) {
     setTok('r2cart-delivery-access-token', session.accessToken);
+  }
+  if (session.refreshToken) {
+    setTok('r2cart-delivery-refresh-token', session.refreshToken);
   }
   localStorage.setItem('r2cart-delivery-user', JSON.stringify(session.user));
   localStorage.setItem('r2cart-delivery', 'true');
