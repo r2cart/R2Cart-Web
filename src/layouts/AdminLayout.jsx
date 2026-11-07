@@ -207,6 +207,7 @@ export default function AdminLayout({ children }) {
     const res = await enableOrderAlerts({ role: 'ADMIN', onStatusChange: setPerm });
     if (res.success) {
       setPerm('granted');
+      alert('🔔 Live Order Alerts Activated!\n\nYour device is now registered to receive popups & audio alarms for orders and cancellations even when this browser is minimized or closed.');
     } else if (res.reason === 'permission_denied') {
       alert(res.message || 'Notifications are blocked in your browser. Please allow notifications in your browser settings.');
     }

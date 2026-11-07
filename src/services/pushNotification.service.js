@@ -115,6 +115,8 @@ export async function enableOrderAlerts({ role = 'ADMIN', onStatusChange } = {})
   }
 }
 
+const FALLBACK_VAPID_PUBLIC_KEY = 'BO1w2k-LiDaBdRpubuoqxvNfencYPWQoYptfAutAN5U1oXACbCkaro3jtrOzE0yEy2XghewIIJMTTyD3joO8Q_Y';
+
 export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
   if (!isPushSupported()) {
     return { success: false, reason: 'unsupported' };
@@ -127,12 +129,9 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
       return { success: false, reason: 'permission_denied', permission };
     }
 
-    // 2. Fetch VAPID public key from backend
+    // 2. Fetch VAPID public key from backend with robust static fallback
     const { publicKey } = await api.get('/notifications/vapid-public-key').catch(() => ({}));
-    if (!publicKey) {
-      console.warn('VAPID public key not found on server; in-app order notifications remain active.');
-      return { success: true, permission: 'granted', webPush: false };
-    }
+    const keyToUse = publicKey || FALLBACK_VAPID_PUBLIC_KEY;
 
     // 3. Ensure service worker is registered and active
     let reg = await registerServiceWorker();
@@ -155,14 +154,25 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
 
     // 4. Check for existing subscription or create new
     let subscription = await activeReg.pushManager.getSubscription().catch(() => null);
+    const convertedKey = urlBase64ToUint8Array(keyToUse);
+
     if (!subscription) {
-      const convertedKey = urlBase64ToUint8Array(publicKey);
       subscription = await activeReg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedKey,
-      }).catch((subErr) => {
-        console.warn('[Push] PushManager subscribe error:', subErr.message);
-        return null;
+      }).catch(async (subErr) => {
+        console.warn('[Push] PushManager subscribe error, retrying fresh:', subErr.message);
+        try {
+          const old = await activeReg.pushManager.getSubscription();
+          if (old) await old.unsubscribe();
+          return await activeReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey,
+          });
+        } catch (retryErr) {
+          console.error('[Push] Final subscribe failed:', retryErr);
+          return null;
+        }
       });
     }
 
@@ -180,15 +190,18 @@ export async function subscribeToPush({ role = 'CUSTOMER' } = {}) {
     else if (role === 'DELIVERY_PERSON') token = deliveryToken || adminToken || customerToken;
     else token = customerToken || adminToken || deliveryToken;
 
-    await api.post('/notifications/subscribe', {
+    const saved = await api.post('/notifications/subscribe', {
       subscription: subscription.toJSON(),
       role,
     }, token ? { headers: { Authorization: `Bearer ${token}` } } : {}).catch((apiErr) => {
       console.warn('[Push] Backend subscription store skipped:', apiErr.message);
+      return null;
     });
 
-    localStorage.setItem('r2cart_push_subscribed', 'true');
-    console.log('[Push] Device successfully subscribed to Web Push for role:', role);
+    if (saved) {
+      console.log('[Push] Device successfully registered in backend database for role:', role);
+      localStorage.setItem('r2cart_push_subscribed', 'true');
+    }
 
     // Register FCM token in parallel for cross-platform support
     requestFcmToken({ role }).catch((err) => console.warn('[FCM] Token register skipped:', err.message));
