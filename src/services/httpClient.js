@@ -46,7 +46,14 @@ const headersFor=(path,options)=>{
 };
 
 async function parse(response){
- const data=response.status===204?null:await response.json();
+ if(response.status===204)return {data:null,response};
+ const raw=await response.text();
+ let data=null;
+ try{
+  data=raw?JSON.parse(raw):null;
+ }catch{
+  data={message:response.status===429?'Server is currently busy. Please wait a moment and try again.':(response.status>=500?'Server is restarting. Please try again shortly.':(raw?.slice(0,120)||'Unexpected response'))};
+ }
  return {data,response};
 }
 

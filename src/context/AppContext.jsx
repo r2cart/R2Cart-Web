@@ -346,14 +346,14 @@ export function AppProvider({children}){
   window.addEventListener('visibilitychange', handleVisibilityOrFocus);
   window.addEventListener('focus', handleVisibilityOrFocus);
 
-  // Periodic sync every 20 seconds while user is actively viewing so emergency alerts and new products propagate quickly
+  // Periodic sync every 2 minutes while user is actively viewing so emergency alerts and new products propagate
   const pollInterval = setInterval(() => {
     if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
       lastSync = Date.now();
       refreshProducts().catch(() => {});
       refreshDelivery().catch(() => {});
     }
-  }, 20000);
+  }, 120000);
 
   return()=>{
     window.removeEventListener('r2cart:categories-updated',refresh);

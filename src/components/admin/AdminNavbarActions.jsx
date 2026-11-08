@@ -136,8 +136,12 @@ export default function AdminNavbarActions(){
 
  useEffect(()=>{
   load();
-  // Fast 4.5s polling as ultra-reliable real-time fallback
-  const timer=setInterval(load,4500);
+  // Conservative 30s background polling fallback only while tab is active
+  const timer=setInterval(()=>{
+    if(typeof document!=='undefined'&&!document.hidden){
+      load();
+    }
+  },30000);
   
   window.addEventListener('r2cart:settings-updated',load);
 
@@ -254,10 +258,14 @@ export default function AdminNavbarActions(){
         }
       };
 
+      let sseRetryDelay = 15000;
       es.onerror = () => {
         es?.close();
-        api.get('/admin/notifications').catch(() => {});
-        esRetryTimer = setTimeout(connectSSE, 6000);
+        es = null;
+        if (esRetryTimer) clearTimeout(esRetryTimer);
+        // Exponential backoff up to 60s without spamming notification API
+        esRetryTimer = setTimeout(connectSSE, sseRetryDelay);
+        sseRetryDelay = Math.min(sseRetryDelay * 1.5, 60000);
       };
     } catch (err) {
       console.warn('[SSE] Init warning:', err);
