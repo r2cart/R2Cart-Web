@@ -222,9 +222,9 @@ export function SearchPage() {
   };
 
   const scenario = searchData?.scenario || 'PARTIAL_MATCHES';
-  const results = dedupeProductPacks(searchData?.results || []);
+  const results = searchData?.results || [];
   const exactProduct = searchData?.exactProduct;
-  const similarProducts = dedupeProductPacks(searchData?.similarProducts || []);
+  const similarProducts = searchData?.similarProducts || [];
   const suggestions = searchData?.suggestions || [];
   const isSearchActive = Boolean(debouncedQ.trim());
 

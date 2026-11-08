@@ -129,7 +129,8 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function request(path,options={}){
  if(!env.apiBaseUrl)throw new ApiError('API is not configured. Mock services are active.',0);
  const method=(options.method||'GET').toUpperCase();
- const isSafeToRetry=method==='GET'||options.retry===true;
+ const isAuth=isAuthEndpoint(path);
+ const isSafeToRetry=method==='GET'||options.retry===true||isAuth;
  const maxRetries=isSafeToRetry?2:0;
  const isDelivery=isDeliveryPath(path);
  const isAdmin=isAdminPath(path);
@@ -137,7 +138,7 @@ export async function request(path,options={}){
 
  for(let attempt=0;attempt<=maxRetries;attempt++){
   const controller=new AbortController();
-  const timeoutMs=options.body instanceof FormData?65000:path.startsWith('/admin/products/import')?75000:env.requestTimeout;
+  const timeoutMs=options.body instanceof FormData?65000:path.startsWith('/admin/products/import')?75000:(isAuth?70000:Math.max(env.requestTimeout, 35000));
   const timeout=setTimeout(()=>controller.abort(),timeoutMs);
 
   try{
@@ -185,8 +186,8 @@ export async function request(path,options={}){
     await wait(1500*(attempt+1));
     continue;
    }
-   if(error.name==='AbortError')throw new ApiError('Server response timed out. Please try again.',408);
-   if(error instanceof TypeError)throw new ApiError('Connecting to R2Cart server…',0);
+   if(error.name==='AbortError')throw new ApiError('Server response timed out. The server may be waking up, please try again.',408);
+   if(error instanceof TypeError)throw new ApiError('Connecting to R2Cart server… Please try again shortly.',0);
    throw error;
   }
  }

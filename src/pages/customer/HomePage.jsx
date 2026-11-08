@@ -441,14 +441,26 @@ export function HomePage(){
      return (
       <Reveal key="categoryRails" type="up"><div className="container">
        {railsToRender.map(category=>{
-        const catProducts=products.filter(p=>p.category===category.slug||p.category?.slug===category.slug||p.categoryId===category.id);
+        const catProducts = products.filter(p =>
+          p.category === category.slug ||
+          p.category?.slug === category.slug ||
+          p.categorySlug === category.slug ||
+          p.categoryId === category.id ||
+          p.category === category.id
+        );
         if(!catProducts.length)return null;
+        const seenCatIds = new Set();
+        const list = catProducts.filter(p => {
+          if (!p || !p.id || seenCatIds.has(p.id)) return false;
+          seenCatIds.add(p.id);
+          return true;
+        });
         return (
           <ProductRail 
             key={category.slug} 
             title={category.badgeActive && category.badgeText ? `${tCat(category.name)} · 🇮🇳 ${category.badgeText}` : tCat(category.name)} 
             to={`/category/${category.slug}`} 
-            items={dedupeProductPacks(catProducts)}
+            items={list}
           />
         );
        })}

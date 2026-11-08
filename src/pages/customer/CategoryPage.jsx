@@ -3,7 +3,7 @@ import {Link,useParams} from 'react-router-dom';
 import {Clock, Megaphone} from 'lucide-react';
 import {EmptyState,ProductGrid,Skeletons} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
-import {dedupeProductPacks} from '../../utils/products';
+import {api} from '../../services/httpClient';
 
 const PageHead=({eyebrow,title,badge,text})=>(
   <div className="page-head">
@@ -33,9 +33,10 @@ const PageHead=({eyebrow,title,badge,text})=>(
   </div>
 );
 
-export function CategoryPage(){
+ export function CategoryPage(){
  const {slug}=useParams();
  const {categories,products,storeSettings,refreshProducts}=useApp();
+ const [categoryProducts, setCategoryProducts] = useState(null);
  const categoryOrder = storeSettings?.policies?.homeLayout?.categoryOrder || [];
  const orderedCategories = useMemo(() => {
   if (!categoryOrder.length) {
@@ -60,11 +61,28 @@ export function CategoryPage(){
  const comingSoonCats = storeSettings?.policies?.homeLayout?.comingSoonCategories || [];
  const isCatSoon = Boolean(active && comingSoonCats.includes(active.slug));
 
- useEffect(()=>{
+ // Live fetch for the active category (race-condition protected, matches mobile app behavior)
+ useEffect(() => {
+  if (!active?.slug) return;
+  let isCurrent = true;
   setCatLoading(true);
+
+  api.get(`/products?category=${active.slug}&limit=250`)
+    .then(res => {
+      if (isCurrent && Array.isArray(res)) {
+        setCategoryProducts(res);
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      if (isCurrent) setCatLoading(false);
+    });
+
+  return () => { isCurrent = false; };
+ }, [active?.slug]);
+
+ useEffect(()=>{
   refreshProducts().catch(()=>{});
-  const timer=setTimeout(()=>setCatLoading(false),200);
-  return()=>clearTimeout(timer);
  },[slug]);
 
  useEffect(() => {
@@ -85,11 +103,29 @@ export function CategoryPage(){
  },[active?.id, active?.noticeActive, active?.noticeTitle, active?.noticeMessage, slug]);
 
  if(!active)return null;
- let raw=products.filter(product=>product.category===active.slug||product.category?.slug===active.slug||product.categoryId===active.id);
+ const baseProducts = categoryProducts !== null ? categoryProducts : products;
+ let raw = categoryProducts !== null
+   ? categoryProducts
+   : baseProducts.filter(product =>
+       product.categorySlug === active.slug ||
+       product.category === active.slug ||
+       product.category === active.name ||
+       product.category?.slug === active.slug ||
+       product.category?.name === active.name ||
+       product.categoryId === active.id ||
+       product.category === active.id
+     );
  if(stock==='in')raw=raw.filter(product=>product.stock);
  if(sort==='low')raw=[...raw].sort((a,b)=>a.price-b.price);
  if(sort==='high')raw=[...raw].sort((a,b)=>b.price-a.price);
- const list=dedupeProductPacks(raw);
+
+ // Deduplicate strictly by product.id so all listed products and variants appear in full!
+ const seenIds = new Set();
+ const list = raw.filter(p => {
+   if (!p || !p.id || seenIds.has(p.id)) return false;
+   seenIds.add(p.id);
+   return true;
+ });
  return <div className="container page category-page-container">
   <div className="listing-layout">
    <aside className="category-sidebar">
