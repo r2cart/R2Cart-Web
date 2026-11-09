@@ -270,6 +270,7 @@ export function AppProvider({children}){
       deliveryFee:Number(v.deliveryFee),
       minimumOrder:Number(v.minimumOrder),
       freeDeliveryThreshold:Number(v.freeDeliveryThreshold),
+      handlingFee:Number(v.handlingFee||0),
       estimatedMinutes:Number(v.estimatedMinutes||30),
       radiusKm:Number(v.radiusKm||5),
       openingTime:v.openingTime||null,
@@ -287,6 +288,7 @@ export function AppProvider({children}){
       deliveryFee:Number(a.deliveryFee),
       minimumOrder:Number(a.minimumOrder),
       freeDeliveryThreshold:Number(a.freeDeliveryThreshold),
+      handlingFee:Number(a.handlingFee||0),
       estimatedMinutes:Number(a.estimatedMinutes||20),
       radiusKm:Number(a.radiusKm||5),
       allowCod:a.allowCod??true,
@@ -392,7 +394,7 @@ export function AppProvider({children}){
  const cartItems=useMemo(()=>products.filter(p=>cart[p.id]).map(p=>({...p,qty:cart[p.id]})),[cart,products]);
  const isPanIndiaCart = useMemo(() => cartItems.some(p => p.deliveryScope === 'PAN_INDIA' || p.deliveryScope === 'CUSTOM'), [cartItems]);
  const subtotal=cartItems.reduce((sum,p)=>sum+p.price*p.qty,0),mrpTotal=cartItems.reduce((sum,p)=>sum+p.mrp*p.qty,0);
- const deliveryConfig=useMemo(()=>({minimumOrder:Number(storeSettings?.minimumOrder||0),deliveryFee:Number(storeSettings?.deliveryFee||0),freeDeliveryThreshold:Number(storeSettings?.freeDeliveryThreshold||0),estimatedDelivery:storeSettings?.estimatedDelivery||'15–20 mins'}),[storeSettings]);
+ const deliveryConfig=useMemo(()=>({minimumOrder:Number(storeSettings?.minimumOrder||0),deliveryFee:Number(storeSettings?.deliveryFee||0),freeDeliveryThreshold:Number(storeSettings?.freeDeliveryThreshold||0),handlingFee:Number(storeSettings?.handlingFee||0),estimatedDelivery:storeSettings?.estimatedDelivery||'15–20 mins'}),[storeSettings]);
  const availableLocalities=useMemo(()=>{
   const set=new Set();
   deliveryZones.forEach(zone=>{
@@ -440,6 +442,7 @@ export function AppProvider({children}){
       minimumOrder:Number(villageMatch.minimumOrder),
       deliveryFee:Number(villageMatch.deliveryFee),
       freeDeliveryThreshold:Number(villageMatch.freeDeliveryThreshold),
+      handlingFee:Number(villageMatch.handlingFee !== undefined && villageMatch.handlingFee !== null ? villageMatch.handlingFee : (storeSettings?.handlingFee || 0)),
       estimatedDelivery:`${villageMatch.estimatedMinutes||30} minutes`,
       radiusKm:Number(villageMatch.radiusKm||5),
       openingTime:effOpen,
@@ -476,6 +479,7 @@ export function AppProvider({children}){
       minimumOrder:Number(areaMatch.minimumOrder),
       deliveryFee:Number(areaMatch.deliveryFee),
       freeDeliveryThreshold:Number(areaMatch.freeDeliveryThreshold),
+      handlingFee:Number(areaMatch.handlingFee !== undefined && areaMatch.handlingFee !== null ? areaMatch.handlingFee : (storeSettings?.handlingFee || 0)),
       estimatedDelivery:`${areaMatch.estimatedMinutes||20} minutes`,
       radiusKm:Number(areaMatch.radiusKm||5),
       openingTime:effOpen,
@@ -511,6 +515,7 @@ export function AppProvider({children}){
       minimumOrder:Number(anyMatch.minimumOrder),
       deliveryFee:Number(anyMatch.deliveryFee),
       freeDeliveryThreshold:Number(anyMatch.freeDeliveryThreshold),
+      handlingFee:Number(anyMatch.handlingFee !== undefined && anyMatch.handlingFee !== null ? anyMatch.handlingFee : (storeSettings?.handlingFee || 0)),
       estimatedDelivery:`${anyMatch.estimatedMinutes||25} minutes`,
       radiusKm:Number(anyMatch.radiusKm||5),
       openingTime:effOpen,

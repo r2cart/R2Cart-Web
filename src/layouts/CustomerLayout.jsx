@@ -1013,10 +1013,8 @@ export function CartDrawer() {
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
   const extraShipping = calculateExtraShippingFees(cartItems, subtotal, rules);
   const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
-  const isSoloCart = (cartItems || []).length === 1;
-  const fee = extraShipping > 0
-    ? (isSoloCart ? extraShipping : Math.max(baseDeliveryFee, extraShipping))
-    : baseDeliveryFee;
+  const fee = extraShipping > 0 ? extraShipping : baseDeliveryFee;
+  const handlingFee = Math.max(0, Number(rules?.handlingFee || 0));
 
   const effectiveStatus = storeSettings?.effectiveStatus;
   const isEmergencyPaused = Boolean(
@@ -1522,7 +1520,7 @@ export function CartDrawer() {
                   padding: '12px 14px'
                 }}
               >
-                <PriceSummary compact title="Bill Details" mrpTotal={mrpTotal} subtotal={subtotal} deliveryFee={fee} />
+                <PriceSummary compact title="Bill Details" mrpTotal={mrpTotal} subtotal={subtotal} deliveryFee={fee} handlingFee={handlingFee} />
               </div>
             </>
           )}
@@ -1573,7 +1571,7 @@ export function CartDrawer() {
               }}
             >
               <div style={{ textAlign: 'left' }}>
-                <b style={{ fontSize: '15px' }}>{money(subtotal + fee)}</b>
+                <b style={{ fontSize: '15px' }}>{money(subtotal + fee + handlingFee)}</b>
                 <span style={{ fontSize: '11px', display: 'block', opacity: 0.9 }}>
                   {itemCount} {itemCount === 1 ? 'item' : 'items'} · Total
                 </span>

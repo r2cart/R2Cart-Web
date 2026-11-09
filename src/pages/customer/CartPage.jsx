@@ -153,12 +153,11 @@ export function CartPage() {
   const itemSurcharges = shippingBreakdown.itemSurcharges;
   const waiveSuggestions = shippingBreakdown.waiveSuggestions;
   const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
-  const isSoloCart = (cartItems || []).length === 1;
-  const deliveryFee = extraShipping > 0
-    ? (isSoloCart ? extraShipping : Math.max(baseDeliveryFee, extraShipping))
-    : baseDeliveryFee;
+  // When product-level delivery charge is active, it completely replaces base delivery fee (never double-charged):
+  const deliveryFee = extraShipping > 0 ? extraShipping : baseDeliveryFee;
+  const handlingFee = Math.max(0, Number(rules?.handlingFee || 0));
   const couponDiscount = applied?.discount || 0;
-  const total = Math.max(0, subtotal + deliveryFee - couponDiscount);
+  const total = Math.max(0, subtotal + deliveryFee + handlingFee - couponDiscount);
   const minimumRemaining = Math.max(0, Number(rules?.minimumOrder || 0) - subtotal);
   const productSavings = Math.max(0, Number(mrpTotal || 0) - Number(subtotal || 0));
   const totalSavings = productSavings + couponDiscount;
@@ -1373,7 +1372,9 @@ export function CartPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#1e293b' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span>Delivery Fee</span>
-                    {freeThreshold > 0 && (
+                    {extraShipping > 0 ? (
+                      <small style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: 600 }}>Product delivery charge applied</small>
+                    ) : freeThreshold > 0 && (
                       <small style={{ fontSize: '10.5px', color: '#64748b' }}>
                         {subtotal >= freeThreshold ? 'Base delivery waived' : `Free standard on orders above ${money(freeThreshold)}`}
                       </small>
@@ -1390,17 +1391,28 @@ export function CartPage() {
 
                 {/* Item-level Delivery Surcharge Breakdown (when applicable) */}
                 {extraShipping > 0 && (
-                  <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11.5px', color: '#475569' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
-                      <span>Includes Item Delivery Charge:</span>
-                      <span>+{money(extraShipping)}</span>
+                  <div style={{ background: '#f0f9ff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #bae6fd', fontSize: '11.5px', color: '#0369a1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#0369a1', marginBottom: '3px' }}>
+                      <span>Item Delivery Rate:</span>
+                      <span>{money(extraShipping)}</span>
                     </div>
                     {itemSurcharges.map(sc => (
-                      <div key={sc.id} style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '11px' }}>
+                      <div key={sc.id} style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontSize: '11px' }}>
                         <span>• {sc.name} ({money(sc.feePerUnit)} × {sc.qty})</span>
                         <span>{money(sc.totalFee)}</span>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Handling Fee */}
+                {handlingFee > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span>Handling / Packaging Fee</span>
+                      <small style={{ fontSize: '10.5px', color: '#64748b' }}>Platform & safety packaging fee</small>
+                    </div>
+                    <b>{money(handlingFee)}</b>
                   </div>
                 )}
 

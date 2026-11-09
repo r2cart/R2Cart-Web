@@ -16,6 +16,7 @@ const villageBlank = {
   deliveryFee: '',
   minimumOrder: '',
   freeDeliveryThreshold: '',
+  handlingFee: '',
   radiusKm: '5.0',
   allowCod: true,
   allowScheduled: true,
@@ -358,6 +359,7 @@ export function AdminDelivery() {
         deliveryFee: parseNumOrNull(editVillage.deliveryFee),
         minimumOrder: parseNumOrNull(editVillage.minimumOrder),
         freeDeliveryThreshold: parseNumOrNull(editVillage.freeDeliveryThreshold),
+        handlingFee: editVillage.handlingFee !== '' && editVillage.handlingFee !== null && editVillage.handlingFee !== undefined ? Number(editVillage.handlingFee) : null,
         radiusKm: editVillage.radiusKm ? Number(editVillage.radiusKm) : 5.0,
         allowCod: editVillage.allowCod !== false,
         allowScheduled: editVillage.allowScheduled !== false,
@@ -482,6 +484,7 @@ export function AdminDelivery() {
         minimumOrder: Number(form.minimumOrder),
         deliveryFee: Number(form.deliveryFee),
         freeDeliveryThreshold: Number(form.freeDeliveryThreshold),
+        handlingFee: Number(form.handlingFee || 0),
         estimatedDelivery: form.estimatedDelivery,
         allowCod: form.allowCod === 'on',
         allowScheduled: form.allowScheduled === 'on'
@@ -1038,6 +1041,22 @@ export function AdminDelivery() {
               />
               <small style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Cart total above which delivery fee becomes free (₹0)</small>
             </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '20px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Global Handling / Packaging Fee</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#0284c7', background: '#f0f9ff', padding: '1px 6px', borderRadius: '4px' }}>₹ INR</span>
+              </div>
+              <input
+                min="0"
+                type="number"
+                name="handlingFee"
+                defaultValue={config.handlingFee ?? 0}
+                placeholder="0"
+                style={{ height: '42px', padding: '0 14px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', width: '100%', boxSizing: 'border-box' }}
+              />
+              <small style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Standard handling/packaging fee applied globally (0 or blank = no handling fee)</small>
+            </label>
           </div>
 
           {/* Full Width Field: Estimated Delivery Window */}
@@ -1314,6 +1333,19 @@ export function AdminDelivery() {
                 onChange={e => setEditVillage(curr => ({ ...curr, freeDeliveryThreshold: e.target.value }))}
                 placeholder={editVillage?.overrideMode === 'PARTIAL' ? 'Inherit global default' : '0'}
               />
+            </label>
+            <label>
+              Handling / Packaging Fee Override (₹)
+              <input
+                min="0"
+                type="number"
+                value={editVillage?.handlingFee ?? ''}
+                onChange={e => setEditVillage(curr => ({ ...curr, handlingFee: e.target.value }))}
+                placeholder={`Inherit global (${config?.handlingFee ? `₹${config.handlingFee}` : '₹0'})`}
+              />
+              <small style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                Leave blank to inherit global handling fee
+              </small>
             </label>
             <label>
               Custom Estimated ETA (Minutes)
