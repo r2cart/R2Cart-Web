@@ -446,8 +446,9 @@ export function CheckoutPage() {
   const extraShipping = shippingBreakdown.extraFees;
   const itemSurcharges = shippingBreakdown.itemSurcharges;
   const baseDeliveryFee = (rules.freeDeliveryThreshold > 0 && subtotal >= rules.freeDeliveryThreshold) ? 0 : Number(rules.deliveryFee || 0);
-  // When product-level delivery charge is active, it completely replaces base delivery fee (never double-charged):
-  const deliveryFee = extraShipping > 0 ? extraShipping : baseDeliveryFee;
+  // Below freeDeliveryThreshold, standard store fee applies.
+  // Once subtotal qualifies for free store delivery, product delivery surcharge applies (until waived off).
+  const deliveryFee = baseDeliveryFee > 0 ? baseDeliveryFee : extraShipping;
   const handlingFee = Math.max(0, Number(rules.handlingFee || 0));
   const total = Math.max(0, subtotal + deliveryFee + handlingFee - (coupon?.discount || 0));
   const minimumRemaining = Math.max(0, rules.minimumOrder - subtotal);
@@ -1748,7 +1749,7 @@ export function CheckoutPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#1e293b' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span>Delivery Partner Fee</span>
-                    {extraShipping > 0 ? (
+                    {baseDeliveryFee === 0 && extraShipping > 0 ? (
                       <small style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: 600 }}>Product delivery charge applied</small>
                     ) : rules?.freeDeliveryThreshold > 0 && (
                       <small style={{ fontSize: '10.5px', color: '#64748b' }}>
@@ -1765,8 +1766,8 @@ export function CheckoutPage() {
                   </b>
                 </div>
 
-                {/* Item-level Delivery Surcharge Breakdown (when applicable) */}
-                {extraShipping > 0 && (
+                {/* Item-level Delivery Surcharge Breakdown (when applicable above free delivery threshold) */}
+                {baseDeliveryFee === 0 && extraShipping > 0 && (
                   <div style={{ background: '#f0f9ff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #bae6fd', fontSize: '11.5px', color: '#0369a1' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#0369a1', marginBottom: '3px' }}>
                       <span>Item Delivery Rate:</span>

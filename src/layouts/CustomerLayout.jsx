@@ -1013,7 +1013,7 @@ export function CartDrawer() {
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
   const extraShipping = calculateExtraShippingFees(cartItems, subtotal, rules);
   const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
-  const fee = extraShipping > 0 ? extraShipping : baseDeliveryFee;
+  const fee = baseDeliveryFee > 0 ? baseDeliveryFee : extraShipping;
   const handlingFee = Math.max(0, Number(rules?.handlingFee || 0));
 
   const effectiveStatus = storeSettings?.effectiveStatus;
