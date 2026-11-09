@@ -153,7 +153,10 @@ export function CartPage() {
   const itemSurcharges = shippingBreakdown.itemSurcharges;
   const waiveSuggestions = shippingBreakdown.waiveSuggestions;
   const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
-  const deliveryFee = baseDeliveryFee + extraShipping;
+  const isSoloCart = (cartItems || []).length === 1;
+  const deliveryFee = extraShipping > 0
+    ? (isSoloCart ? extraShipping : Math.max(baseDeliveryFee, extraShipping))
+    : baseDeliveryFee;
   const couponDiscount = applied?.discount || 0;
   const total = Math.max(0, subtotal + deliveryFee - couponDiscount);
   const minimumRemaining = Math.max(0, Number(rules?.minimumOrder || 0) - subtotal);

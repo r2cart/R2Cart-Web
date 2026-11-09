@@ -446,7 +446,10 @@ export function CheckoutPage() {
   const extraShipping = shippingBreakdown.extraFees;
   const itemSurcharges = shippingBreakdown.itemSurcharges;
   const baseDeliveryFee = (rules.freeDeliveryThreshold > 0 && subtotal >= rules.freeDeliveryThreshold) ? 0 : Number(rules.deliveryFee || 0);
-  const deliveryFee = baseDeliveryFee + extraShipping;
+  const isSoloCart = (cartItems || []).length === 1;
+  const deliveryFee = extraShipping > 0
+    ? (isSoloCart ? extraShipping : Math.max(baseDeliveryFee, extraShipping))
+    : baseDeliveryFee;
   const total = Math.max(0, subtotal + deliveryFee - (coupon?.discount || 0));
   const minimumRemaining = Math.max(0, rules.minimumOrder - subtotal);
   const productSavings = Math.max(0, Number(mrpTotal || 0) - Number(subtotal || 0));
