@@ -1,9 +1,9 @@
 /**
  * Calculates extra product-level shipping fees based on quantity,
- * solo cart rules, and minimum other items cart value thresholds.
+ * village targeting, and minimum other items cart value thresholds.
  */
-export function calculateExtraShippingFees(cartItems, subtotal) {
-  const breakdown = getCartShippingBreakdown(cartItems, subtotal);
+export function calculateExtraShippingFees(cartItems, subtotal, activeLocation) {
+  const breakdown = getCartShippingBreakdown(cartItems, subtotal, activeLocation);
   return breakdown.extraFees;
 }
 
@@ -11,7 +11,7 @@ export function calculateExtraShippingFees(cartItems, subtotal) {
  * Provides a detailed breakdown of item-level delivery surcharges and
  * suggestions on how much more to add to waive the fee.
  */
-export function getCartShippingBreakdown(cartItems, subtotal) {
+export function getCartShippingBreakdown(cartItems, subtotal, activeLocation) {
   if (!Array.isArray(cartItems) || cartItems.length === 0) {
     return { extraFees: 0, itemSurcharges: [], waiveSuggestions: [] };
   }
@@ -20,10 +20,35 @@ export function getCartShippingBreakdown(cartItems, subtotal) {
   const itemSurcharges = [];
   const waiveSuggestions = [];
 
+  // Extract possible location identifiers (villageId, villageName, zoneId, zoneName, area, name)
+  const locId = typeof activeLocation === 'object'
+    ? String(activeLocation?.villageId || activeLocation?.id || activeLocation?.zoneId || '').trim().toLowerCase()
+    : '';
+  const locName = typeof activeLocation === 'object'
+    ? String(activeLocation?.villageName || activeLocation?.name || activeLocation?.area || '').trim().toLowerCase()
+    : String(activeLocation || '').trim().toLowerCase();
+
   for (const itm of cartItems) {
     const product = itm.product || itm;
     const feePerUnit = Math.max(0, Number(product?.shippingFee) || 0);
     if (feePerUnit <= 0) continue;
+
+    // Check village / locality targeting if configured on the product
+    const rawVillages = Array.isArray(product?.shippingVillages)
+      ? product.shippingVillages
+      : (typeof product?.shippingVillages === 'string' && product.shippingVillages.trim()
+          ? product.shippingVillages.split(',').map(s => s.trim()).filter(Boolean)
+          : []);
+
+    if (rawVillages.length > 0 && (locId || locName)) {
+      const isMatch = rawVillages.some(target => {
+        const t = String(target || '').trim().toLowerCase();
+        return t && (t === locId || t === locName);
+      });
+      if (!isMatch) {
+        continue; // Does not apply to user's selected village
+      }
+    }
 
     const qty = Math.max(1, parseInt(itm.qty || itm.quantity, 10) || 1);
     const soloOnly = Boolean(product?.shippingSoloOnly);
@@ -32,31 +57,23 @@ export function getCartShippingBreakdown(cartItems, subtotal) {
     const otherItemsSubtotal = Math.max(0, Number(subtotal || 0) - itemLineTotal);
 
     let feeApplied = 0;
-    if (soloOnly) {
-      const isSolo = cartItems.length === 1;
+    if (minOtherCartValue > 0) {
+      if (otherItemsSubtotal < minOtherCartValue) {
+        feeApplied = feePerUnit * qty;
+        const diff = Math.max(1, Math.ceil(minOtherCartValue - otherItemsSubtotal));
+        waiveSuggestions.push({
+          productId: product.id,
+          productName: product.name,
+          amountNeeded: diff,
+          currentOther: otherItemsSubtotal,
+          minRequired: minOtherCartValue,
+          feeToSave: feeApplied
+        });
+      }
+    } else if (soloOnly) {
+      const isSolo = cartItems.length === 1 || otherItemsSubtotal === 0;
       if (isSolo) {
         feeApplied = feePerUnit * qty;
-        if (minOtherCartValue > 0) {
-          waiveSuggestions.push({
-            productId: product.id,
-            productName: product.name,
-            amountNeeded: Math.max(1, Math.ceil(minOtherCartValue)),
-            currentOther: 0,
-            feeToSave: feeApplied
-          });
-        }
-      } else {
-        if (minOtherCartValue > 0 && otherItemsSubtotal < minOtherCartValue) {
-          feeApplied = feePerUnit * qty;
-          const diff = Math.max(1, Math.ceil(minOtherCartValue - otherItemsSubtotal));
-          waiveSuggestions.push({
-            productId: product.id,
-            productName: product.name,
-            amountNeeded: diff,
-            currentOther: otherItemsSubtotal,
-            feeToSave: feeApplied
-          });
-        }
       }
     } else {
       feeApplied = feePerUnit * qty;
@@ -71,12 +88,11 @@ export function getCartShippingBreakdown(cartItems, subtotal) {
         feePerUnit,
         totalFee: feeApplied,
         soloOnly,
-        minOtherCartValue
+        minOtherCartValue,
+        shippingVillages: rawVillages
       });
     }
   }
 
   return { extraFees, itemSurcharges, waiveSuggestions };
 }
-
-

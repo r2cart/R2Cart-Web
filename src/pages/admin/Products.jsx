@@ -26,7 +26,7 @@ import { compressImage } from '../../utils/imageCompressor';
 import { mediaUrl } from '../../utils/media';
 
 const AdminTitle=({title,text,action})=><div className="admin-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>;
-const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',minOrderQty:1,sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',shippingSoloOnly:false,shippingMinOtherCartValue:'',orderMode:'DIRECT_ORDER'};
+const emptyProduct={name:'',nameHi:'',category:'',unit:'',mrp:'',price:'',costPrice:'',stock:'',lowStockThreshold:'',minOrderQty:1,sku:'',description:'',image:'',status:'ACTIVE',featured:false,bestSeller:false,deliveryScope:'LOCAL',deliveryLocations:[],shippingFee:'',shippingSoloOnly:false,shippingMinOtherCartValue:'',shippingVillages:[],orderMode:'DIRECT_ORDER'};
 const payload=product=>({
   name:product.name,
   category:product.category,
@@ -47,6 +47,7 @@ const payload=product=>({
   shippingFee:product.shippingFee?Number(product.shippingFee):0,
   shippingSoloOnly:Boolean(product.shippingSoloOnly),
   shippingMinOtherCartValue:product.shippingMinOtherCartValue?Number(product.shippingMinOtherCartValue):0,
+  shippingVillages:Array.isArray(product.shippingVillages)?product.shippingVillages:(product.shippingVillages?String(product.shippingVillages).split(',').map(s=>s.trim()).filter(Boolean):[]),
   orderMode:product.orderMode||'DIRECT_ORDER'
 });
 
@@ -666,7 +667,7 @@ export function AdminProducts(){
           </td>
         </tr>
       ))
-    ) : error?<tr><td colSpan="9"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="9">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td style={{verticalAlign:'middle'}}><div className="product-cell">{product.image?<img src={product.image} alt={product.name || 'Product'} onError={e=>{e.currentTarget.style.display='none'}}/>:<div style={{width:'44px',height:'44px',borderRadius:'8px',background:'#f1f5f9',display:'grid',placeItems:'center',flexShrink:0,color:'#94a3b8'}}><Package size={20}/></div>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b title={product.name}>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small>{Number(product.shippingFee || 0) > 0 && <span style={{display:'inline-block',background:'#f0f9ff',color:'#0369a1',border:'1px solid #bae6fd',borderRadius:'4px',padding:'0 4px',fontSize:'10px',fontWeight:700,marginTop:'2px'}}>🚚 +₹{product.shippingFee}/unit {product.shippingSoloOnly ? '(Solo)' : ''}</span>}</span></div></td><td className="product-table-cat-col" title={product.categoryName||product.category}><b>{product.categoryName||product.category}</b></td><td style={{whiteSpace:'nowrap'}}><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td style={{whiteSpace:'nowrap'}}>{money(product.mrp)}</td><td style={{whiteSpace:'nowrap'}}><b>{money(product.price)}</b></td><td style={{whiteSpace:'nowrap',verticalAlign:'middle'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span className={product.stock<=0?'badge badge-red':product.stock<=product.lowStockThreshold?'badge badge-amber':''} style={{fontSize:'11px',fontWeight:700}}>{product.stock<=0?'0 Sold Out':`${product.stock} in stock`}</span>{product.stock>0?<button type="button" onClick={()=>toggleStock(product,0)} title="Click to Mark as Sold Out / Out of Stock" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontWeight:700}}>Sold Out</button>:<button type="button" onClick={()=>toggleStock(product,20)} title="Click to Restock / Mark In Stock (+20 units)" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:700}}>+ In Stock</button>}</div></td><td style={{whiteSpace:'nowrap'}}><button type="button" disabled={busy===`soon-${product.id}`} onClick={()=>toggleComingSoon(product)} style={{fontSize:'10px',padding:'3px 8px',borderRadius:'6px',border:checkIsSoon(product)?'1.5px solid #fde68a':'1px solid #e2e8f0',background:checkIsSoon(product)?'#fef3c7':'#f8fafc',color:checkIsSoon(product)?'#b45309':'#64748b',cursor:'pointer',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'4px'}} title={checkIsSoon(product)?'Marked as Coming Soon (Click to make Available)':'Marked as Available (Click to mark Coming Soon)'}><Clock3 size={11}/>{checkIsSoon(product)?'Soon: ON':'Soon: OFF'}</button></td><td style={{whiteSpace:'nowrap'}}><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td className="td-actions" style={{whiteSpace:'nowrap',textAlign:'right',paddingRight:'16px'}}><div className="table-actions" style={{justifyContent:'flex-end'}}><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)} className="r2c-table-btn r2c-btn-view" title="View product details"><Eye size={15}/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`} state={{ product }} className="r2c-table-btn r2c-btn-edit" title="Edit product"><Edit2 size={15}/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)} className="r2c-table-btn r2c-btn-delete" title="Delete product"><Trash2 size={15}/></button></div></td></tr>)}
+    ) : error?<tr><td colSpan="9"><p role="alert">{error}</p><Button variant="outline" onClick={()=>setRefresh(value=>value+1)}>Try again</Button></td></tr>:!list.length?<tr><td colSpan="9">{totalProducts?'No products match these filters.':'No products yet. Add your first product or use bulk import.'}</td></tr>:list.map(product=><tr key={product.id}><td style={{verticalAlign:'middle'}}><div className="product-cell">{product.image?<img src={product.image} alt={product.name || 'Product'} onError={e=>{e.currentTarget.style.display='none'}}/>:<div style={{width:'44px',height:'44px',borderRadius:'8px',background:'#f1f5f9',display:'grid',placeItems:'center',flexShrink:0,color:'#94a3b8'}}><Package size={20}/></div>}<span><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><b title={product.name}>{product.name}</b>{product.packCount>1&&<span style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'12px',padding:'1px 7px',fontSize:'10.5px',fontWeight:800}}>📦 {product.packCount} Packs</span>}</div><small>{product.sku}</small>{Number(product.shippingFee || 0) > 0 && <span style={{display:'inline-block',background:'#f0f9ff',color:'#0369a1',border:'1px solid #bae6fd',borderRadius:'4px',padding:'0 4px',fontSize:'10px',fontWeight:700,marginTop:'2px'}}>🚚 +₹{product.shippingFee}/unit {Number(product.shippingMinOtherCartValue || 0) > 0 ? `(Waive ≥ ₹${product.shippingMinOtherCartValue})` : (product.shippingSoloOnly ? '(Solo)' : '')} {product.shippingVillages?.length ? `• 📍 ${product.shippingVillages.length} vil.` : ''}</span>}</span></div></td><td className="product-table-cat-col" title={product.categoryName||product.category}><b>{product.categoryName||product.category}</b></td><td style={{whiteSpace:'nowrap'}}><b>{product.unit}</b>{product.packCount>1&&<small style={{display:'block',color:'#059669',fontSize:'11px',fontWeight:700,marginTop:'2px'}}>+{product.packCount-1} more size{product.packCount>2?'s':''}</small>}</td><td style={{whiteSpace:'nowrap'}}>{money(product.mrp)}</td><td style={{whiteSpace:'nowrap'}}><b>{money(product.price)}</b></td><td style={{whiteSpace:'nowrap',verticalAlign:'middle'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span className={product.stock<=0?'badge badge-red':product.stock<=product.lowStockThreshold?'badge badge-amber':''} style={{fontSize:'11px',fontWeight:700}}>{product.stock<=0?'0 Sold Out':`${product.stock} in stock`}</span>{product.stock>0?<button type="button" onClick={()=>toggleStock(product,0)} title="Click to Mark as Sold Out / Out of Stock" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontWeight:700}}>Sold Out</button>:<button type="button" onClick={()=>toggleStock(product,20)} title="Click to Restock / Mark In Stock (+20 units)" style={{fontSize:'10px',padding:'2px 7px',borderRadius:'6px',border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:700}}>+ In Stock</button>}</div></td><td style={{whiteSpace:'nowrap'}}><button type="button" disabled={busy===`soon-${product.id}`} onClick={()=>toggleComingSoon(product)} style={{fontSize:'10px',padding:'3px 8px',borderRadius:'6px',border:checkIsSoon(product)?'1.5px solid #fde68a':'1px solid #e2e8f0',background:checkIsSoon(product)?'#fef3c7':'#f8fafc',color:checkIsSoon(product)?'#b45309':'#64748b',cursor:'pointer',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'4px'}} title={checkIsSoon(product)?'Marked as Coming Soon (Click to make Available)':'Marked as Available (Click to mark Coming Soon)'}><Clock3 size={11}/>{checkIsSoon(product)?'Soon: ON':'Soon: OFF'}</button></td><td style={{whiteSpace:'nowrap'}}><button disabled={!!busy} onClick={()=>toggle(product)} aria-label="Toggle product status"><StatusBadge status={product.status==='ACTIVE'?'Active':'Inactive'}/></button></td><td className="td-actions" style={{whiteSpace:'nowrap',textAlign:'right',paddingRight:'16px'}}><div className="table-actions" style={{justifyContent:'flex-end'}}><button disabled={!!busy} aria-label="View product" onClick={()=>inspect(product.id)} className="r2c-table-btn r2c-btn-view" title="View product details"><Eye size={15}/></button><Link aria-label="Edit product" to={`${basePath}/products/${product.id}/edit`} state={{ product }} className="r2c-table-btn r2c-btn-edit" title="Edit product"><Edit2 size={15}/></Link><button disabled={!!busy} aria-label="Delete product" onClick={()=>setConfirm(product)} className="r2c-table-btn r2c-btn-delete" title="Delete product"><Trash2 size={15}/></button></div></td></tr>)}
    </tbody></table></div></div>
   )}
   {!loading&&!error&&pagination.pages>1&&<Pagination page={page} setPage={setPage} total={pagination.pages}/>}
@@ -910,7 +911,7 @@ export function ProductDetailModal({ view, onClose, basePath = '/admin' }) {
                     border: '1px solid #bae6fd'
                   }}
                 >
-                  🚚 Delivery Fee: {money(view.shippingFee)}/unit {view.shippingSoloOnly ? `(Solo only${Number(view.shippingMinOtherCartValue || 0) > 0 ? `, waived if others ≥ ${money(view.shippingMinOtherCartValue)}` : ''})` : ''}
+                  🚚 Delivery Fee: {money(view.shippingFee)}/unit {Number(view.shippingMinOtherCartValue || 0) > 0 ? `(Waived if other items ≥ ${money(view.shippingMinOtherCartValue)})` : (view.shippingSoloOnly ? '(Solo only)' : '')} {view.shippingVillages?.length ? `• 📍 ${view.shippingVillages.length} villages` : '• 🌐 All villages'}
                 </span>
               )}
 
@@ -1168,8 +1169,27 @@ export function ProductForm(){
  const isCategoryScopedAdmin = currentUser?.staffRole === 'CATEGORY_ADMIN' || assignedCategoryIds.length > 0;
  const showSpecialtyControls = true; // Available to all admins (Local Admin, Category Admin, Super Admin)
  const basePath = isSuper ? '/super-admin' : '/admin';
- const {notify,refreshProducts,storeSettings,setStoreSettings}=useApp();
+ const {notify,refreshProducts,storeSettings,setStoreSettings,deliveryZones}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();
+ const [villageOptions, setVillageOptions] = useState([]);
+ const [villageSearch, setVillageSearch] = useState('');
+
+ useEffect(() => {
+   if (deliveryZones && deliveryZones.length > 0) {
+     setVillageOptions(deliveryZones.map(z => ({ id: z.id || z.name, name: z.name || z.id })));
+   } else {
+     adminService.getDeliveryAreas?.()
+       .then(res => {
+         const list = [];
+         (res || []).forEach(a => {
+           (a.villages || []).forEach(v => list.push({ id: v.id || v.name, name: v.name || v.id }));
+           if (!a.villages?.length) list.push({ id: a.id || a.name, name: a.name || a.id });
+         });
+         setVillageOptions(list);
+       })
+       .catch(() => {});
+   }
+ }, [deliveryZones]);
  const [isComingSoon, setIsComingSoon] = useState(() => {
    return isProductComingSoon(routeProduct || (id ? { id } : null), storeSettings);
  });
@@ -2860,7 +2880,7 @@ export function ProductForm(){
         <div style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
           <div style={{ marginBottom: '10px' }}>
             <h5 style={{ margin: '0 0 2px 0', fontSize: '13px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>📦</span> Custom Product Delivery & Shipping Charges (Optional)
+              <span>📦</span> Custom Product Delivery & Waive-off Rules (Optional)
             </h5>
             <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
               Configure extra delivery fees for heavy/special items. If left blank or 0, normal store delivery rules will apply.
@@ -2887,28 +2907,6 @@ export function ProductForm(){
             </div>
 
             {Number(form.shippingFee || 0) > 0 && (
-              <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                  Solo Cart Condition
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.shippingSoloOnly)}
-                    onChange={e => set('shippingSoloOnly', e.target.checked)}
-                    style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#059669' }}
-                  />
-                  <span style={{ fontSize: '12.5px', color: '#1e293b', fontWeight: 600 }}>
-                    Apply only when this product is the ONLY item in cart
-                  </span>
-                </label>
-                <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                  When enabled, charge will not apply if customer adds other products meeting the minimum threshold below.
-                </small>
-              </div>
-            )}
-
-            {Number(form.shippingFee || 0) > 0 && Boolean(form.shippingSoloOnly) && (
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                   Min Other Items Cart Value to Waive (₹)
@@ -2919,15 +2917,148 @@ export function ProductForm(){
                   step="1"
                   value={form.shippingMinOtherCartValue ?? ''}
                   onChange={e => set('shippingMinOtherCartValue', e.target.value)}
-                  placeholder="e.g. 199 (0 or blank = waive on any other item)"
+                  placeholder="e.g. 199 (Blank or 0 = Always charge)"
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
                 />
                 <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                  If other items total is less than this amount, delivery charge will STILL be applied.
+                  If other items total in cart is ≥ this amount, delivery charge will be WAIVED OFF (free).
                 </small>
               </div>
             )}
           </div>
+
+          {Number(form.shippingFee || 0) > 0 && (
+            <div style={{ marginTop: '14px', background: '#f8fafc', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                <div>
+                  <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1e293b', display: 'block' }}>
+                    Applicable Villages for this Delivery Charge
+                  </span>
+                  <small style={{ color: '#64748b', fontSize: '11px' }}>
+                    Apply this charge across all serviceable villages or only for specific village(s).
+                  </small>
+                </div>
+
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => set('shippingVillages', [])}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid',
+                      background: (!form.shippingVillages || form.shippingVillages.length === 0) ? '#0284c7' : '#ffffff',
+                      color: (!form.shippingVillages || form.shippingVillages.length === 0) ? '#ffffff' : '#475569',
+                      borderColor: (!form.shippingVillages || form.shippingVillages.length === 0) ? '#0284c7' : '#cbd5e1'
+                    }}
+                  >
+                    🌐 All Villages (Default)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!form.shippingVillages || form.shippingVillages.length === 0) {
+                        set('shippingVillages', villageOptions.length > 0 ? [villageOptions[0].name || villageOptions[0].id] : ['Custom Area']);
+                      }
+                    }}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid',
+                      background: (form.shippingVillages && form.shippingVillages.length > 0) ? '#0284c7' : '#ffffff',
+                      color: (form.shippingVillages && form.shippingVillages.length > 0) ? '#ffffff' : '#475569',
+                      borderColor: (form.shippingVillages && form.shippingVillages.length > 0) ? '#0284c7' : '#cbd5e1'
+                    }}
+                  >
+                    📍 Selected Villages Only {(form.shippingVillages && form.shippingVillages.length > 0) ? `(${form.shippingVillages.length})` : ''}
+                  </button>
+                </div>
+              </div>
+
+              {form.shippingVillages && form.shippingVillages.length > 0 && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #cbd5e1' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      placeholder="Filter village name..."
+                      value={villageSearch}
+                      onChange={e => setVillageSearch(e.target.value)}
+                      style={{ padding: '5px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '200px' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => set('shippingVillages', villageOptions.map(v => v.name || v.id))}
+                        style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set('shippingVillages', [])}
+                        style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Reset to All Villages
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '160px', overflowY: 'auto', padding: '6px', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    {villageOptions.length === 0 ? (
+                      <span style={{ fontSize: '11.5px', color: '#94a3b8', padding: '6px' }}>No villages registered yet in Delivery Management.</span>
+                    ) : (
+                      villageOptions
+                        .filter(v => !villageSearch || (v.name || '').toLowerCase().includes(villageSearch.toLowerCase()))
+                        .map(v => {
+                          const vKey = v.name || v.id;
+                          const isSelected = (form.shippingVillages || []).includes(vKey) || (form.shippingVillages || []).includes(v.id);
+                          return (
+                            <button
+                              key={v.id || v.name}
+                              type="button"
+                              onClick={() => {
+                                const curr = Array.isArray(form.shippingVillages) ? [...form.shippingVillages] : [];
+                                if (isSelected) {
+                                  set('shippingVillages', curr.filter(x => x !== vKey && x !== v.id && x !== v.name));
+                                } else {
+                                  set('shippingVillages', [...curr, vKey]);
+                                }
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '4px 9px',
+                                borderRadius: '6px',
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                border: '1px solid',
+                                background: isSelected ? '#ecfdf5' : '#f8fafc',
+                                color: isSelected ? '#047857' : '#475569',
+                                borderColor: isSelected ? '#a7f3d0' : '#e2e8f0'
+                              }}
+                            >
+                              <span>{isSelected ? '✓' : '+'}</span>
+                              <span>{v.name}</span>
+                            </button>
+                          );
+                        })
+                    )}
+                  </div>
+                  <small style={{ color: '#64748b', fontSize: '11px', marginTop: '6px', display: 'block' }}>
+                    Yeh delivery charge sirf inhi selected villages ke customers par lagega. Baaki villages ke customers ko standard delivery fee lagegi.
+                  </small>
+                </div>
+              )}
+            </div>
+          )}
         </div>
        </section>
 

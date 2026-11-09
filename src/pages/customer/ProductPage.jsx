@@ -802,7 +802,11 @@ export function ProductPage() {
                   }}
                 >
                   <Package size={13} color="#0284c7" />
-                  <span>Delivery: {money(product.shippingFee)}/unit {product.shippingSoloOnly ? '(solo cart)' : ''}</span>
+                  <span>
+                    Delivery: {money(product.shippingFee)}/unit
+                    {Number(product.shippingMinOtherCartValue || 0) > 0 ? ` • Free on ${money(product.shippingMinOtherCartValue)}+ other items` : (product.shippingSoloOnly ? ' (solo cart)' : '')}
+                    {product.shippingVillages?.length ? ` • Selected areas` : ''}
+                  </span>
                 </div>
               )}
 

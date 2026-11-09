@@ -442,7 +442,7 @@ export function CheckoutPage() {
     );
   }, [selectedAddress, rules, storeSettings, effectiveStatus, emergencyType, affectedVillageIds, deliveryZones]);
 
-  const shippingBreakdown = useMemo(() => getCartShippingBreakdown(cartItems, subtotal), [cartItems, subtotal]);
+  const shippingBreakdown = useMemo(() => getCartShippingBreakdown(cartItems, subtotal, selectedAddress || rules), [cartItems, subtotal, selectedAddress, rules]);
   const extraShipping = shippingBreakdown.extraFees;
   const itemSurcharges = shippingBreakdown.itemSurcharges;
   const baseDeliveryFee = (rules.freeDeliveryThreshold > 0 && subtotal >= rules.freeDeliveryThreshold) ? 0 : Number(rules.deliveryFee || 0);

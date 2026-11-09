@@ -1011,7 +1011,7 @@ export function CartDrawer() {
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const rules = activeDeliveryRules || deliveryConfig;
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
-  const extraShipping = calculateExtraShippingFees(cartItems, subtotal);
+  const extraShipping = calculateExtraShippingFees(cartItems, subtotal, rules);
   const baseDeliveryFee = freeThreshold > 0 && subtotal >= freeThreshold ? 0 : Number(rules?.deliveryFee || 0);
   const fee = baseDeliveryFee + extraShipping;
 
@@ -1412,7 +1412,7 @@ export function CartDrawer() {
                         </small>
                         {Number(product.shippingFee || 0) > 0 && (
                           <span style={{ fontSize: '10px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, display: 'inline-block', marginTop: '2px' }}>
-                            📦 Delivery: {money(product.shippingFee)}/unit {product.shippingSoloOnly ? '(solo)' : ''}
+                            📦 Delivery: {money(product.shippingFee)}/unit {Number(product.shippingMinOtherCartValue || 0) > 0 ? `(Free on ${money(product.shippingMinOtherCartValue)}+ other)` : (product.shippingSoloOnly ? '(solo)' : '')}
                           </span>
                         )}
                         {Boolean(isProductComingSoon(product, storeSettings)) && (

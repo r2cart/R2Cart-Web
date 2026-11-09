@@ -148,7 +148,7 @@ export function CartPage() {
   // Calculations
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const freeThreshold = Number(rules?.freeDeliveryThreshold || 0);
-  const shippingBreakdown = useMemo(() => getCartShippingBreakdown(cartItems, subtotal), [cartItems, subtotal]);
+  const shippingBreakdown = useMemo(() => getCartShippingBreakdown(cartItems, subtotal, rules), [cartItems, subtotal, rules]);
   const extraShipping = shippingBreakdown.extraFees;
   const itemSurcharges = shippingBreakdown.itemSurcharges;
   const waiveSuggestions = shippingBreakdown.waiveSuggestions;
@@ -1034,11 +1034,11 @@ export function CartPage() {
                           {product.unit || 'Standard Pack'}
                         </div>
 
-                        {Number(product.shippingFee || 0) > 0 && (
-                          <span style={{ fontSize: '11px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px' }}>
-                            📦 Delivery: {money(product.shippingFee)}/unit {product.shippingSoloOnly ? '(solo cart)' : ''}
-                          </span>
-                        )}
+                          {Number(product.shippingFee || 0) > 0 && (
+                            <span style={{ fontSize: '11px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px' }}>
+                              📦 Delivery: {money(product.shippingFee)}/unit {Number(product.shippingMinOtherCartValue || 0) > 0 ? `(Free if other items ≥ ${money(product.shippingMinOtherCartValue)})` : (product.shippingSoloOnly ? '(solo cart)' : '')}
+                            </span>
+                          )}
 
                         {/* Stock Warnings */}
                         {product.stock <= 0 ? (
