@@ -796,7 +796,15 @@ export function AdminOrderDetails() {
   const isCancelled = order.status === 'Cancelled';
 
   // Quick next-stage helper
-  const nextStage = order.status === 'New' ? 'Confirmed' : order.status === 'Confirmed' ? 'Packing' : null;
+  const nextStage = order.status === 'New'
+    ? 'Confirmed'
+    : order.status === 'Confirmed'
+      ? 'Packing'
+      : order.status === 'Packing'
+        ? 'Out for Delivery'
+        : order.status === 'Out for Delivery'
+          ? 'Delivered'
+          : null;
 
   return (
     <div className="order-details-shell">
