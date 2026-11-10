@@ -1119,6 +1119,13 @@ export function AdminOrderDetails() {
                 <b>{Number(order.deliveryFee) === 0 ? <span style={{ color: '#15803d' }}>FREE</span> : money(order.deliveryFee)}</b>
               </div>
 
+              {Number(order.handlingFee || 0) > 0 && (
+                <div className="bill-row">
+                  <span>Handling / Packaging Fee</span>
+                  <b>{money(order.handlingFee)}</b>
+                </div>
+              )}
+
               {/* Grand Total Highlight Banner */}
               <div className="bill-grand-banner">
                 <div className="bill-grand-left">

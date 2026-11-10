@@ -1192,7 +1192,8 @@ export function OrderDetailPage() {
   const customerMobile = snapshot?.mobile || address.mobile || order.phone || user?.phone || '';
   const total = order.total ?? order.grandTotal ?? 0;
   const deliveryFee = Number(order.deliveryFee || 0);
-  const itemTotal = order.itemTotal ?? total - deliveryFee;
+  const handlingFee = Number(order.handlingFee || 0);
+  const itemTotal = order.itemTotal ?? Math.max(0, total - deliveryFee - handlingFee);
   const isScheduled = order.deliveryType === 'SCHEDULED';
   const isDelivered = String(order.status || '').trim().toLowerCase() === 'delivered';
   const isOutForDelivery = order.status === 'Out for Delivery';
@@ -1579,6 +1580,13 @@ export function OrderDetailPage() {
                 <span>Delivery Fee</span>
                 <b>{deliveryFee > 0 ? money(deliveryFee) : <span style={{ color: '#10b981' }}>FREE</span>}</b>
               </div>
+
+              {handlingFee > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4b5563' }}>
+                  <span>Handling Fee</span>
+                  <b>{money(handlingFee)}</b>
+                </div>
+              )}
 
               {(order.couponDiscount || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669' }}>

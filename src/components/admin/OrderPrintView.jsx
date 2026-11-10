@@ -226,6 +226,12 @@ export function OrderPrintModal({ open, onClose, order, storeSettings, initialMo
                     <span>Delivery Charges</span>
                     <span>{Number(order.deliveryFee || 0) === 0 ? 'FREE' : `₹${Number(order.deliveryFee).toFixed(2)}`}</span>
                   </div>
+                  {Number(order.handlingFee || 0) > 0 && (
+                    <div className="thermal-row">
+                      <span>Handling / Packaging Fee</span>
+                      <span>₹{Number(order.handlingFee).toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="thermal-divider-solid" />
                   <div className="thermal-row thermal-grand-total">
                     <span>COLLECT / TOTAL:</span>
@@ -439,9 +445,15 @@ export function OrderPrintModal({ open, onClose, order, storeSettings, initialMo
                         </div>
                       )}
                       <div className="a4-total-row">
-                        <span>Delivery & Packaging Fee</span>
+                        <span>Delivery Fee</span>
                         <b>{Number(order.deliveryFee || 0) === 0 ? 'FREE' : `₹${Number(order.deliveryFee).toFixed(2)}`}</b>
                       </div>
+                      {Number(order.handlingFee || 0) > 0 && (
+                        <div className="a4-total-row">
+                          <span>Handling / Packaging Fee</span>
+                          <b>₹{Number(order.handlingFee).toFixed(2)}</b>
+                        </div>
+                      )}
                       <div className="a4-grand-row">
                         <span>Grand Total (INR):</span>
                         <b>₹{Number(order.total || order.grandTotal || 0).toFixed(2)}</b>
