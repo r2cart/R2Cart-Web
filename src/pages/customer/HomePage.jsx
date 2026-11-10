@@ -6,7 +6,7 @@ import {useApp} from '../../context/AppContext';
 import {useLanguage} from '../../context/LanguageContext';
 import {normalizeHomeLayout} from '../../config/homeLayout';
 import {catalogService} from '../../services/catalog.service';
-import {dedupeProductPacks} from '../../utils/products';
+import {dedupeProductPacks, interleaveProductVariants} from '../../utils/products';
 import {useScrollReveal} from '../../hooks/useScrollReveal';
 
 /**
@@ -460,7 +460,7 @@ export function HomePage(){
             key={category.slug} 
             title={category.badgeActive && category.badgeText ? `${tCat(category.name)} · 🇮🇳 ${category.badgeText}` : tCat(category.name)} 
             to={`/category/${category.slug}`} 
-            items={list}
+            items={interleaveProductVariants(list)}
           />
         );
        })}

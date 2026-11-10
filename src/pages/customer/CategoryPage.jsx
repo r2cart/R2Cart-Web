@@ -4,6 +4,7 @@ import {Clock, Megaphone} from 'lucide-react';
 import {EmptyState,ProductGrid,Skeletons} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {api} from '../../services/httpClient';
+import {interleaveProductVariants} from '../../utils/products';
 
 const PageHead=({eyebrow,title,badge,text})=>(
   <div className="page-head">
@@ -121,11 +122,15 @@ const PageHead=({eyebrow,title,badge,text})=>(
 
  // Deduplicate strictly by product.id so all listed products and variants appear in full!
  const seenIds = new Set();
- const list = raw.filter(p => {
+ let list = raw.filter(p => {
    if (!p || !p.id || seenIds.has(p.id)) return false;
    seenIds.add(p.id);
    return true;
  });
+
+ if (!sort || sort === 'popular') {
+   list = interleaveProductVariants(list);
+ }
  return <div className="container page category-page-container">
   <div className="listing-layout">
    <aside className="category-sidebar">
