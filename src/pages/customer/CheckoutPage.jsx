@@ -719,12 +719,13 @@ export function CheckoutPage() {
         items: cartItems.map((p) => ({ productId: p.id, quantity: p.qty }))
       });
 
-      sessionStorage.setItem('last-order', JSON.stringify(order));
-      sessionStorage.removeItem('r2cart-coupon');
-      sessionStorage.removeItem('r2cart-coupon-discount');
+      try { sessionStorage.setItem('last-order', JSON.stringify(order)); } catch {}
+      try { localStorage.setItem('r2cart-last-order', JSON.stringify(order)); } catch {}
+      try { sessionStorage.removeItem('r2cart-coupon'); } catch {}
+      try { sessionStorage.removeItem('r2cart-coupon-discount'); } catch {}
       setOrderList((current) => [order, ...current]);
       setCart({});
-      await refreshProducts();
+      await refreshProducts().catch(() => {});
       window.dispatchEvent(new Event('r2cart:products-updated'));
       window.dispatchEvent(new Event('r2cart:orders-updated'));
       notify('Order placed successfully! 🎉');

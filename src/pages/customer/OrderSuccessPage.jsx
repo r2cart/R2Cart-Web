@@ -31,7 +31,15 @@ export function OrderSuccessPage() {
     typeof Notification !== 'undefined' && Notification.permission === 'granted'
   );
   const [copied, setCopied] = useState(false);
-  const last = JSON.parse(sessionStorage.getItem('last-order') || 'null');
+  const last = (() => {
+    try {
+      const fromSession = sessionStorage.getItem('last-order');
+      if (fromSession) return JSON.parse(fromSession);
+      const fromLocal = localStorage.getItem('r2cart-last-order');
+      if (fromLocal) return JSON.parse(fromLocal);
+    } catch {}
+    return null;
+  })();
 
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {

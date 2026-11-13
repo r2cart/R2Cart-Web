@@ -614,12 +614,18 @@ export function OrdersPage() {
   };
 
   const handleCancelOrder = async (orderId, reason) => {
-    await orderService.cancel(orderId, reason);
-    setOrderList(current => current.map(o => (o.id === orderId || o.orderNumber === orderId ? { ...o, status: 'Cancelled' } : o)));
-    await refreshProducts();
-    window.dispatchEvent(new Event('r2cart:orders-updated'));
-    window.dispatchEvent(new Event('r2cart:products-updated'));
-    notify('Order cancelled successfully. Deducted stock has been restored.', 'success');
+    try {
+      await orderService.cancel(orderId, reason);
+      if (typeof setFreshOrder === 'function') setFreshOrder(current => current ? { ...current, status: 'Cancelled' } : null);
+      setOrderList(current => current.map(o => (o.id === orderId || o.orderNumber === orderId ? { ...o, status: 'Cancelled' } : o)));
+      await refreshProducts().catch(() => {});
+      window.dispatchEvent(new Event('r2cart:orders-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
+      notify('Order cancelled successfully. Deducted stock has been restored.', 'success');
+    } catch (err) {
+      notify(err.message || 'Failed to cancel order. Please try again.', 'error');
+      throw err;
+    }
   };
 
   const handleUpdateDetails = async (payload) => {
@@ -1207,12 +1213,18 @@ export function OrderDetailPage() {
   };
 
   const handleCancelOrder = async (orderId, reason) => {
-    await orderService.cancel(orderId, reason);
-    setOrderList(current => current.map(o => (o.id === orderId || o.orderNumber === orderId ? { ...o, status: 'Cancelled' } : o)));
-    await refreshProducts();
-    window.dispatchEvent(new Event('r2cart:orders-updated'));
-    window.dispatchEvent(new Event('r2cart:products-updated'));
-    notify('Order cancelled successfully. Deducted stock has been restored.', 'success');
+    try {
+      await orderService.cancel(orderId, reason);
+      if (typeof setFreshOrder === 'function') setFreshOrder(current => current ? { ...current, status: 'Cancelled' } : null);
+      setOrderList(current => current.map(o => (o.id === orderId || o.orderNumber === orderId ? { ...o, status: 'Cancelled' } : o)));
+      await refreshProducts().catch(() => {});
+      window.dispatchEvent(new Event('r2cart:orders-updated'));
+      window.dispatchEvent(new Event('r2cart:products-updated'));
+      notify('Order cancelled successfully. Deducted stock has been restored.', 'success');
+    } catch (err) {
+      notify(err.message || 'Failed to cancel order. Please try again.', 'error');
+      throw err;
+    }
   };
 
   const handleUpdateDetails = async (payload) => {

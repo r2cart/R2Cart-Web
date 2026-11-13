@@ -1,26 +1,18 @@
 import {api} from './httpClient';
 
-// Clean stale refresh tokens from localStorage (they are now HttpOnly cookies)
-(function cleanStaleTokens() {
-  if (typeof window === 'undefined') return;
-  ['r2cart-refresh-token','r2cart-admin-refresh-token','r2cart-delivery-refresh-token'].forEach(key => {
-    try { localStorage.removeItem(key); } catch {}
-  });
-})();
-
 export const setTok = (k, v) => {
-  try { sessionStorage.setItem(k, v); } catch {}
   try { localStorage.setItem(k, v); } catch {}
+  try { sessionStorage.setItem(k, v); } catch {}
 };
 
 export const dropTok = k => {
-  try { sessionStorage.removeItem(k); } catch {}
   try { localStorage.removeItem(k); } catch {}
+  try { sessionStorage.removeItem(k); } catch {}
 };
 
 export const getTok = k => {
   try {
-    return sessionStorage.getItem(k) || localStorage.getItem(k) || null;
+    return localStorage.getItem(k) || sessionStorage.getItem(k) || null;
   } catch {
     return null;
   }
@@ -110,6 +102,7 @@ export const authService = {
       await api.post('/auth/logout', { role: 'CUSTOMER' }).catch(() => {});
     } finally {
       dropTok('r2cart-access-token');
+      dropTok('r2cart-refresh-token');
       localStorage.removeItem('r2cart-user');
       localStorage.removeItem('r2cart-session-active');
     }
@@ -120,6 +113,7 @@ export const authService = {
       await api.post('/auth/logout', { role: 'ADMIN' }).catch(() => {});
     } finally {
       dropTok('r2cart-admin-access-token');
+      dropTok('r2cart-admin-refresh-token');
       localStorage.removeItem('r2cart-admin-user');
       localStorage.removeItem('r2cart-admin');
     }
@@ -130,6 +124,7 @@ export const authService = {
       await api.post('/auth/logout', { role: 'DELIVERY' }).catch(() => {});
     } finally {
       dropTok('r2cart-delivery-access-token');
+      dropTok('r2cart-delivery-refresh-token');
       localStorage.removeItem('r2cart-delivery-user');
       localStorage.removeItem('r2cart-delivery');
     }

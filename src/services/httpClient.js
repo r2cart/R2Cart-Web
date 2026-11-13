@@ -10,7 +10,7 @@ let refreshDeliveryPromise=null;
 
 const getStoredToken = key => {
   try {
-    return sessionStorage.getItem(key) || localStorage.getItem(key) || null;
+    return localStorage.getItem(key) || sessionStorage.getItem(key) || null;
   } catch {
     return null;
   }
@@ -92,13 +92,13 @@ async function refreshSession(role = 'CUSTOMER'){
 
   const session=payload?.data??payload;
   if(session?.accessToken){
-   try { sessionStorage.setItem(activeAccKey,session.accessToken); } catch {}
    try { localStorage.setItem(activeAccKey,session.accessToken); } catch {}
+   try { sessionStorage.setItem(activeAccKey,session.accessToken); } catch {}
    try { localStorage.setItem('r2cart-session-active','1'); } catch {}
   }
   if(session?.refreshToken){
-   try { sessionStorage.setItem(activeRefKey,session.refreshToken); } catch {}
    try { localStorage.setItem(activeRefKey,session.refreshToken); } catch {}
+   try { sessionStorage.setItem(activeRefKey,session.refreshToken); } catch {}
   }
   if(session?.user){
    try { localStorage.setItem(activeUsrKey,JSON.stringify(session.user)); } catch {}

@@ -72,7 +72,24 @@ clearLegacyDemoSession();
 export function AppProvider({children}){
  const [cart,setCart]=useState(()=>storage.get('cart',{}));
  const [favorites,setFavorites]=useState(()=>storage.get('favorites',[]));
- const [user,setUserState]=useState(()=>{if(!onlineSession()){storage.remove('user');return null}const stored=storage.get('user',null);if(isInvalidCustomer(stored)){localStorage.removeItem('r2cart-access-token');storage.remove('user');return null}return stored});
+ const [user,setUserState]=useState(()=>{
+  const stored=storage.get('user',null);
+  if(isInvalidCustomer(stored)){
+   try { localStorage.removeItem('r2cart-access-token'); } catch {}
+   try { localStorage.removeItem('r2cart-refresh-token'); } catch {}
+   storage.remove('user');
+   return null;
+  }
+  if(!onlineSession()){
+   if(!stored){
+    storage.remove('user');
+    return null;
+   }
+   try { localStorage.setItem('r2cart-session-active','1'); } catch {}
+   return stored;
+  }
+  return stored;
+ });
  const [location,setLocation]=useState(DEFAULT_LOCATION);
  const [addressList,setAddressList]=useState([]);
  const [addressesLoaded,setAddressesLoaded]=useState(false);
@@ -123,13 +140,29 @@ export function AppProvider({children}){
  },[user?.id]);
 
  function onlineSession(){
-   return Boolean(sessionStorage.getItem('r2cart-access-token'))||
-          Boolean(localStorage.getItem('r2cart-access-token'))||
-          Boolean(localStorage.getItem('r2cart-session-active'));
+   return Boolean(localStorage.getItem('r2cart-access-token'))||
+          Boolean(sessionStorage.getItem('r2cart-access-token'))||
+          Boolean(localStorage.getItem('r2cart-session-active'))||
+          Boolean(localStorage.getItem('r2cart-refresh-token'))||
+          Boolean(sessionStorage.getItem('r2cart-refresh-token'));
  }
  const online=onlineSession;
  const setUser=value=>{setUserState(value);if(value)storage.set('user',value);else storage.remove('user')};
- const clearCustomerView=()=>{setUserState(null);setAddressList([]);setAddressesLoaded(false);setActiveAddressId(null);setLocation(DEFAULT_LOCATION);storage.remove('user');storage.remove('location');storage.remove('active_address_id');sessionStorage.removeItem('r2cart-access-token');localStorage.removeItem('r2cart-access-token');localStorage.removeItem('r2cart-session-active')};
+ const clearCustomerView=()=>{
+   setUserState(null);
+   setAddressList([]);
+   setAddressesLoaded(false);
+   setActiveAddressId(null);
+   setLocation(DEFAULT_LOCATION);
+   storage.remove('user');
+   storage.remove('location');
+   storage.remove('active_address_id');
+   try { sessionStorage.removeItem('r2cart-access-token'); } catch {}
+   try { sessionStorage.removeItem('r2cart-refresh-token'); } catch {}
+   try { localStorage.removeItem('r2cart-access-token'); } catch {}
+   try { localStorage.removeItem('r2cart-refresh-token'); } catch {}
+   try { localStorage.removeItem('r2cart-session-active'); } catch {}
+ };
  const logout=async()=>{try{await authService.logout()}finally{clearCustomerView()}};
  useEffect(()=>{
   if(typeof window!=='undefined'){
