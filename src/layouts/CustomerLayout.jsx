@@ -1,5 +1,5 @@
 import {useEffect, useState, useMemo, useCallback} from 'react'; import {Link,NavLink,useLocation,useNavigate} from 'react-router-dom';
-import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,Trash2,UserRound,X,Zap,AlertCircle,Moon} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Briefcase,Camera,Check,ChevronDown,Clock3,Copy,Globe,Heart,History,Home,LogOut,MapPin,Menu,Minus,Package,Plus,Search,Share2,ShoppingBag,ShoppingCart,Sparkles,Trash2,UserRound,X,Zap,AlertCircle,Moon,Smartphone} from 'lucide-react';
 import {useApp} from '../context/AppContext'; import {Button,Modal,SearchInput,money} from '../components/ui';
 import {useLanguage} from '../context/LanguageContext';
 import brandWordmark from '../assets/r2cart-logo.png';
@@ -13,6 +13,7 @@ import {ItemPrice,PriceSummary} from '../components/customer/PriceSummary';
 import {isProductComingSoon} from '../config/homeLayout';
 import {AuthPromptModal} from '../components/customer/AuthPromptModal';
 import {FloatingBottomCartBar} from '../components/customer/FloatingBottomCartBar';
+import {AppInstallTopBanner, AppInstallFooterCard, PLAY_STORE_URL} from '../components/customer/AppInstallBanner';
 import {subscribeToPush,playNotificationSound} from '../services/pushNotification.service';
 export function Logo(){return <Link className="logo" to="/" aria-label={`${BRAND.name} home`}><span className="brand-wordmark"><img src={brandWordmark} alt={BRAND.name}/></span></Link>}
 function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();const [q,setQ]=useState('');const [open,setOpen]=useState(false);const [history,setHistory]=useState([]);const load=async()=>{setOpen(true);try{setHistory(user?await customerService.searchHistory():JSON.parse(localStorage.getItem('r2cart-search-history')||'[]'))}catch(error){notify(error.message,'error')}};const go=value=>{const query=value.trim();if(!query)return;setOpen(false);nav(`/search?q=${encodeURIComponent(query)}`)};const remove=async value=>{try{const next=history.filter(item=>item!==value);if(user)await customerService.removeSearch(value);else localStorage.setItem('r2cart-search-history',JSON.stringify(next));setHistory(next);notify('Search removed')}catch(error){notify(error.message,'error')}};const clear=async()=>{try{if(user)await customerService.clearSearchHistory();else localStorage.removeItem('r2cart-search-history');setHistory([]);notify('Search history cleared')}catch(error){notify(error.message,'error')}};return <div className="header-search"><SearchInput value={q} onChange={setQ} onSubmit={()=>go(q)} onFocus={load} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&<div className="header-search-history" onMouseDown={event=>event.preventDefault()}><div className="row between"><b>Recent searches</b>{history.length>0&&<button type="button" onClick={clear}>Clear all</button>}</div>{history.length?<div>{history.map(item=><span className="header-history-row" key={item}><button type="button" onClick={()=>go(item)}><History/><span>{item}</span></button><button type="button" className="remove-history" onClick={()=>remove(item)} aria-label={`Remove ${item}`}>×</button></span>)}</div>:<p>No recent searches yet.</p>}</div>}</div>}export function Header(){
@@ -113,6 +114,31 @@ function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();co
           </button>
           {!isSearchPage?<HeaderSearch user={user}/>:<div style={{flex:1,minWidth:'160px'}}/>}
           <div className="header-right-actions">
+            <a
+              href={PLAY_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="install-app-header-btn"
+              title="Download Android App / ऐप डाउनलोड करें"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'linear-gradient(135deg, rgba(5,150,105,0.12) 0%, rgba(4,120,87,0.18) 100%)',
+                color: '#059669',
+                border: '1px solid rgba(5,150,105,0.3)',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 700,
+                textDecoration: 'none',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Smartphone size={14} color="#059669" />
+              <span>Get App</span>
+            </a>
             <button type="button" className="lang-toggle-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Toggle language">
               <Globe size={15} color="#059669"/>
               <span>{lang==='hi'?'English':'हिंदी'}</span>
@@ -136,6 +162,28 @@ function HeaderSearch({user}){const nav=useNavigate();const {notify}=useApp();co
           <div className="mobile-top-bar">
             <Logo/>
             <div className="mobile-head-actions">
+              <a
+                href={PLAY_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Get App"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: '#ECFDF5',
+                  color: '#059669',
+                  border: '1px solid #A7F3D0',
+                  padding: '4px 8px',
+                  borderRadius: '16px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textDecoration: 'none'
+                }}
+              >
+                <Smartphone size={12} color="#059669" />
+                <span>App</span>
+              </a>
               <button type="button" className="mobile-lang-btn" onClick={toggleLang} title={lang==='hi'?'Switch to English':'हिंदी में बदलें'} aria-label="Switch language">
                 <Globe size={13} color="#059669"/>
                 <span>{lang==='hi'?'EN':'हिन्दी'}</span>
@@ -414,10 +462,11 @@ export function Footer(){
                 <span>Share Website / शेयर करें</span>
               </button>
             </div>
+            <AppInstallFooterCard />
           </div>
           <div><h4>{BRAND.name}</h4><Link to="/about">About Us</Link><Link to="/contact">Contact Us</Link><Link to="/support">Help & Support</Link><Link to="/grievance">Grievance Redressal</Link></div>
           <div><h4>Policies & Legal</h4><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms & Conditions</Link><Link to="/refund-policy">Return & Refund Policy</Link><Link to="/cancellation-policy">Cancellation Policy</Link><Link to="/cookie-policy">Cookie Policy</Link></div>
-          <div><h4>Delivery & Shopping</h4><Link to="/delivery-info">Shipping & Delivery</Link><Link to="/orders">Track Your Order</Link><Link to="/coupons">Offers & Coupons</Link><Link to="/search">Browse Catalogue</Link></div>
+          <div><h4>Delivery & Shopping</h4><Link to="/delivery-info">Shipping & Delivery</Link><Link to="/orders">Track Your Order</Link><Link to="/coupons">Offers & Coupons</Link><Link to="/search">Browse Catalogue</Link><a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer" style={{color:'#10B981',fontWeight:700}}>Download Android App ↗</a></div>
         </div>
         <div className="footer-bottom">
           <div className="container">© 2026 {legalEntity} · {BRAND.tagline} · All rights reserved.</div>
@@ -2176,6 +2225,7 @@ export default function CustomerLayout({children}){
     </div>
    </aside>
   )}
+  <AppInstallTopBanner/>
   <Header/>
   <DesktopNav/>
   <CustomerBack/>
