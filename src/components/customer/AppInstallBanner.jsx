@@ -189,77 +189,153 @@ export function AppInstallFooterCard() {
   return (
     <div
       style={{
-        marginTop: '18px',
-        padding: '14px 16px',
+        marginTop: '20px',
+        padding: '16px 18px',
         borderRadius: '16px',
-        backgroundColor: '#132A20',
-        border: '1px solid rgba(16, 185, 129, 0.35)',
+        background: 'linear-gradient(145deg, rgba(20, 36, 28, 0.85) 0%, rgba(12, 22, 17, 0.95) 100%)',
+        border: '1px solid rgba(16, 185, 129, 0.25)',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+        maxWidth: '350px',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
-        maxWidth: '360px',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
+        gap: '14px',
+        backdropFilter: 'blur(10px)',
+        transition: 'all 0.2s ease'
       }}
     >
+      {/* Top Header: App Identity & Rating */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div
           style={{
-            width: '42px',
-            height: '42px',
+            width: '44px',
+            height: '44px',
             borderRadius: '12px',
-            backgroundColor: '#059669',
+            backgroundColor: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#FFFFFF',
             flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(5, 150, 105, 0.4)'
+            padding: '5px',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.15)'
           }}
         >
-          <Smartphone size={22} color="#FFFFFF" />
+          <img
+            src={brandMark}
+            alt="R2Cart App"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
         </div>
-        <div>
-          <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.2px' }}>
-            Get R2Cart Android App
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.2px' }}>
+              R2Cart App
+            </span>
+            <span
+              style={{
+                fontSize: '9.5px',
+                fontWeight: 800,
+                color: '#34D399',
+                background: 'rgba(16, 185, 129, 0.16)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                padding: '1px 6px',
+                borderRadius: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px'
+              }}
+            >
+              ★ 4.9 · FREE
+            </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px', lineHeight: 1.35 }}>
-            Faster checkout, live order tracking & special app offers
-          </div>
+          <p
+            style={{
+              margin: '3px 0 0',
+              fontSize: '11px',
+              color: '#94A3B8',
+              lineHeight: 1.35
+            }}
+          >
+            Live tracking, 10-min fast delivery & special app discounts
+          </p>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleInstallClick}
+      {/* Official Google Play Store Badge Button */}
+      <a
+        href={PLAY_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px',
-          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+          gap: '12px',
+          backgroundColor: '#000000',
           color: '#FFFFFF',
-          border: 'none',
-          padding: '10px 16px',
+          padding: '9px 18px',
           borderRadius: '10px',
-          fontSize: '12.5px',
-          fontWeight: 800,
+          border: '1px solid rgba(255, 255, 255, 0.22)',
+          textDecoration: 'none',
+          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-          transition: 'all 0.2s ease',
           width: '100%'
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.background = '#047857';
-          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.borderColor = '#10B981';
+          e.currentTarget.style.background = '#090D12';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.28)';
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.background = 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.22)';
+          e.currentTarget.style.background = '#000000';
           e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.4)';
         }}
       >
-        <Download size={15} strokeWidth={2.5} />
-        <span>Download on Google Play</span>
-      </button>
+        {/* Authentic 4-color Google Play Triangle Vector */}
+        <svg
+          viewBox="0 0 512 512"
+          width="23"
+          height="23"
+          style={{ flexShrink: 0 }}
+          aria-hidden="true"
+        >
+          <path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z" fill="#EA4335" />
+          <path d="M47 0C44 3.2 42.3 7.8 42.3 13v486c0 5.2 1.7 9.8 4.7 13l246.7-246.7L47 0z" fill="#4285F4" />
+          <path d="M385.4 337.8L104.6 499l220.7-221.3 60.1 60.1z" fill="#34A853" />
+          <path d="M469.7 236.4l-84.3-48.5-50.1 50.1 50.1 50.1 84.3-48.5c15.8-9.1 15.8-24.1 0-33.2z" fill="#FBBC04" />
+        </svg>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
+          <span
+            style={{
+              fontSize: '8.5px',
+              fontWeight: 600,
+              color: '#9CA3AF',
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase'
+            }}
+          >
+            GET IT ON
+          </span>
+          <span
+            style={{
+              fontSize: '14.5px',
+              fontWeight: 700,
+              color: '#FFFFFF',
+              letterSpacing: '-0.2px',
+              fontFamily: 'system-ui, -apple-system, sans-serif'
+            }}
+          >
+            Google Play
+          </span>
+        </div>
+      </a>
     </div>
   );
 }
