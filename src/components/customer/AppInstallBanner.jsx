@@ -189,20 +189,19 @@ export function AppInstallFooterCard() {
   return (
     <div
       style={{
-        marginTop: '20px',
-        padding: '16px',
+        marginTop: '18px',
+        padding: '14px 16px',
         borderRadius: '16px',
-        background: 'linear-gradient(135deg, rgba(6, 95, 70, 0.08) 0%, rgba(4, 120, 87, 0.15) 100%)',
-        border: '1.5px solid rgba(16, 185, 129, 0.3)',
+        backgroundColor: '#132A20',
+        border: '1px solid rgba(16, 185, 129, 0.35)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
+        flexDirection: 'column',
         gap: '12px',
-        maxWidth: '420px'
+        maxWidth: '360px',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div
           style={{
             width: '42px',
@@ -213,16 +212,17 @@ export function AppInstallFooterCard() {
             alignItems: 'center',
             justifyContent: 'center',
             color: '#FFFFFF',
-            flexShrink: 0
+            flexShrink: 0,
+            boxShadow: '0 2px 8px rgba(5, 150, 105, 0.4)'
           }}
         >
-          <Smartphone size={22} />
+          <Smartphone size={22} color="#FFFFFF" />
         </div>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text, #0F172A)' }}>
+          <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.2px' }}>
             Get R2Cart Android App
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--muted, #64748B)', marginTop: '2px' }}>
+          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px', lineHeight: 1.35 }}>
             Faster checkout, live order tracking & special app offers
           </div>
         </div>
@@ -234,20 +234,30 @@ export function AppInstallFooterCard() {
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '6px',
-          background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+          justifyContent: 'center',
+          gap: '8px',
+          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
           color: '#FFFFFF',
           border: 'none',
-          padding: '8px 16px',
+          padding: '10px 16px',
           borderRadius: '10px',
-          fontSize: '12px',
-          fontWeight: 700,
+          fontSize: '12.5px',
+          fontWeight: 800,
           cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(5, 150, 105, 0.25)',
-          transition: 'all 0.2s ease'
+          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+          transition: 'all 0.2s ease',
+          width: '100%'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = '#047857';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
+          e.currentTarget.style.transform = 'translateY(0)';
         }}
       >
-        <Download size={14} />
+        <Download size={15} strokeWidth={2.5} />
         <span>Download on Google Play</span>
       </button>
     </div>
