@@ -3,6 +3,8 @@ const keys=['name','category','unit','mrp','price','stock','description','groupC
 
 export const exportColumns=['Product ID','SKU','Product Name','Category','Pack Size','Cost Price','MRP','Selling Price','Stock','Low Stock Alert','Status','Product Group Code','Image URL','Description'];
 
+export const exportColumnsWithoutPrice=['S.No','Product ID','SKU','Product Name','Category','Pack Size / Unit','Stock Quantity','Stock Status','Status','Product Group Code','Description'];
+
 const download=(bytes,name,type)=>{const url=URL.createObjectURL(new Blob([bytes],{type})),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 async function workbook(){const module=await import('exceljs');return new module.default.Workbook()}
 
@@ -96,6 +98,165 @@ export async function downloadProductsExcel(products, categories, categoryFilter
 
  const filename=`R2Cart-products-${categoryFilter||'all'}-${new Date().toISOString().slice(0,10)}.xlsx`;
  download(await book.xlsx.writeBuffer(),filename,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+
+/**
+ * 1-Click download of listed products WITHOUT any price, cost, or MRP columns.
+ * Produces a professionally formatted Excel spreadsheet (.xlsx).
+ */
+export async function downloadProductsListWithoutPrice(products, categories, categoryFilter = 'all') {
+  const book = await workbook();
+  const sheet = book.addWorksheet('Listed Products');
+  sheet.addRow(exportColumnsWithoutPrice);
+
+  // Header styling: Emerald green header, bold white text
+  const headerRow = sheet.getRow(1);
+  headerRow.height = 28;
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  products.forEach((p, index) => {
+    const stockQty = Number(p.stock || 0);
+    const lowThreshold = Number(p.lowStockThreshold || 10);
+    const stockStatus = stockQty <= 0 ? 'Sold Out' : stockQty <= lowThreshold ? 'Low Stock' : 'In Stock';
+    const statusLabel = p.status === 'INACTIVE' ? 'Inactive' : 'Active';
+
+    let catName = p.categoryName || '';
+    if (!catName && categories && Array.isArray(categories)) {
+      const match = categories.find(c => c.slug === p.categorySlug || c.slug === p.category || c.id === p.categoryId);
+      if (match) catName = match.name;
+    }
+    if (!catName) catName = p.categorySlug || p.category || '';
+
+    const row = sheet.addRow([
+      index + 1,
+      p.id || '',
+      p.sku || '',
+      p.name || '',
+      catName,
+      p.unit || '',
+      stockQty,
+      stockStatus,
+      statusLabel,
+      p.groupCode || p.variantGroupId || '',
+      p.description || ''
+    ]);
+
+    row.height = 22;
+    row.alignment = { vertical: 'middle' };
+
+    // Center alignment for specific columns
+    row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell(8).alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell(9).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Color code stock status
+    if (stockQty <= 0) {
+      row.getCell(8).font = { color: { argb: 'FFDC2626' }, bold: true };
+    } else if (stockQty <= lowThreshold) {
+      row.getCell(8).font = { color: { argb: 'FFD97706' }, bold: true };
+    } else {
+      row.getCell(8).font = { color: { argb: 'FF16A34A' }, bold: true };
+    }
+
+    if (p.status === 'INACTIVE') {
+      row.getCell(9).font = { color: { argb: 'FF94A3B8' } };
+    }
+  });
+
+  sheet.columns = [
+    { width: 8 },  // S.No
+    { width: 18 }, // Product ID
+    { width: 18 }, // SKU
+    { width: 34 }, // Product Name
+    { width: 24 }, // Category
+    { width: 16 }, // Pack Size
+    { width: 16, style: { numFmt: '#,##0' } }, // Stock Quantity
+    { width: 16 }, // Stock Status
+    { width: 14 }, // Status
+    { width: 20 }, // Product Group Code
+    { width: 45 }  // Description
+  ];
+
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  // Summary worksheet
+  const summarySheet = book.addWorksheet('Summary');
+  summarySheet.addRow(['R2Cart - Listed Products (Catalogue Without Price)']);
+  summarySheet.getRow(1).font = { bold: true, size: 14, color: { argb: 'FF059669' } };
+  summarySheet.addRow([]);
+  summarySheet.addRow(['Generated Date:', new Date().toLocaleString('en-IN')]);
+  summarySheet.addRow(['Total Products Listed:', products.length]);
+  summarySheet.addRow(['Category Scope:', categoryFilter === 'all' || !categoryFilter ? 'All Categories' : categoryFilter]);
+  summarySheet.addRow(['Notice:', 'Confidential catalogue & inventory list without commercial pricing details.']);
+  summarySheet.columns = [{ width: 25 }, { width: 55 }];
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const safeCat = (!categoryFilter || categoryFilter === 'all') ? 'All' : categoryFilter.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `R2Cart-products-without-price-${safeCat}-${dateStr}.xlsx`;
+
+  download(
+    await book.xlsx.writeBuffer(),
+    filename,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+}
+
+/**
+ * 1-Click download of listed products WITHOUT price in CSV format.
+ */
+export function downloadProductsCsvWithoutPrice(products, categories, categoryFilter = 'all') {
+  const escapeCsv = (val) => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const lines = [
+    exportColumnsWithoutPrice.map(escapeCsv).join(',')
+  ];
+
+  products.forEach((p, index) => {
+    const stockQty = Number(p.stock || 0);
+    const lowThreshold = Number(p.lowStockThreshold || 10);
+    const stockStatus = stockQty <= 0 ? 'Sold Out' : stockQty <= lowThreshold ? 'Low Stock' : 'In Stock';
+    const statusLabel = p.status === 'INACTIVE' ? 'Inactive' : 'Active';
+
+    let catName = p.categoryName || '';
+    if (!catName && categories && Array.isArray(categories)) {
+      const match = categories.find(c => c.slug === p.categorySlug || c.slug === p.category || c.id === p.categoryId);
+      if (match) catName = match.name;
+    }
+    if (!catName) catName = p.categorySlug || p.category || '';
+
+    const row = [
+      index + 1,
+      p.id || '',
+      p.sku || '',
+      p.name || '',
+      catName,
+      p.unit || '',
+      stockQty,
+      stockStatus,
+      statusLabel,
+      p.groupCode || p.variantGroupId || '',
+      p.description || ''
+    ];
+
+    lines.push(row.map(escapeCsv).join(','));
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const safeCat = (!categoryFilter || categoryFilter === 'all') ? 'All' : categoryFilter.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `R2Cart-products-without-price-${safeCat}-${dateStr}.csv`;
+
+  download(new TextEncoder().encode(csvContent), filename, 'text/csv;charset=utf-8;');
 }
 
 export function parseCsv(text){

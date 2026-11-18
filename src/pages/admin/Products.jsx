@@ -8,11 +8,12 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState,useRef} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
-import {ArrowLeft,Star,Upload,Check,Clock3,Copy,Crop,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet} from 'lucide-react';
+import {ArrowLeft,Star,Upload,Check,Clock3,Copy,Crop,Download,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {isProductComingSoon} from '../../config/homeLayout';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
+import {downloadProductsListWithoutPrice, downloadProductsCsvWithoutPrice} from '../../services/product-import.service';
 import ProductVariants from '../../components/admin/ProductVariants';
 import NewProductPacks from '../../components/admin/NewProductPacks';
 import ImageCropperModal from '../../components/admin/ImageCropperModal';
@@ -107,6 +108,8 @@ export function AdminProducts(){
  const [list,setList]=useState(adminProductsCache?.list || []);
  const [loading,setLoading]=useState(!adminProductsCache);
  const [manageOpen,setManageOpen]=useState(false);
+ const [exportingNoPrice, setExportingNoPrice] = useState(false);
+ const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
  const [confirm,setConfirm]=useState(null);
  const [deleteAllConfirm,setDeleteAllConfirm]=useState(false);
  const [deleteCatConfirm,setDeleteCatConfirm]=useState(null);
@@ -371,6 +374,32 @@ export function AdminProducts(){
     adminProductsCache=null;
   }
  };
+ const handleDownloadListWithoutPrice = async (format = 'xlsx') => {
+   setExportingNoPrice(true);
+   setDownloadMenuOpen(false);
+   try {
+     const categoryParam = cat === 'all' ? '' : cat;
+     const res = await adminService.exportProducts(categoryParam);
+     const prods = res?.products || [];
+     if (!prods.length) {
+       notify(`No listed products found in ${cat === 'all' ? 'the store' : cat} to download.`, 'error');
+       return;
+     }
+     if (format === 'csv') {
+       downloadProductsCsvWithoutPrice(prods, categories, cat);
+       notify(`Downloaded ${prods.length} listed products (CSV without price) successfully!`);
+     } else {
+       await downloadProductsListWithoutPrice(prods, categories, cat);
+       notify(`Downloaded ${prods.length} listed products (Excel without price) successfully!`);
+     }
+   } catch (err) {
+     console.error('Error downloading product list:', err);
+     notify(err?.message || 'Failed to download product list.', 'error');
+   } finally {
+     setExportingNoPrice(false);
+   }
+ };
+
  const inspect=async id=>{setBusy(id);try{setView(await adminService.product(id))}catch(reason){notify(reason.message,'error')}finally{setBusy('')}};
 
  return <>
@@ -488,6 +517,128 @@ export function AdminProducts(){
           )}
         </div>
       )}
+
+      {/* 1-Click Download Listed Products (Without Price) */}
+      <div style={{position:'relative',display:'inline-flex',alignItems:'stretch'}}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={exportingNoPrice}
+          onClick={() => handleDownloadListWithoutPrice('xlsx')}
+          style={{
+            display:'inline-flex',
+            alignItems:'center',
+            gap:'6px',
+            borderColor:'#0284c7',
+            color:'#0369a1',
+            background:'#f0f9ff',
+            fontWeight:700,
+            fontSize:'13px',
+            padding:'7px 12px',
+            borderRadius:'8px',
+            borderTopRightRadius:0,
+            borderBottomRightRadius:0,
+            borderRightWidth:0
+          }}
+          title="1-Click Download Listed Products without price (Excel .xlsx)"
+        >
+          <Download size={15} color="#0284c7" />
+          <span>{exportingNoPrice ? 'Downloading…' : 'Download List (No Price)'}</span>
+        </Button>
+        <button
+          type="button"
+          disabled={exportingNoPrice}
+          onClick={() => setDownloadMenuOpen(v => !v)}
+          style={{
+            padding:'0 8px',
+            background:'#f0f9ff',
+            border:'1px solid #0284c7',
+            borderTopRightRadius:'8px',
+            borderBottomRightRadius:'8px',
+            color:'#0369a1',
+            cursor:'pointer',
+            display:'inline-flex',
+            alignItems:'center',
+            justifyContent:'center'
+          }}
+          title="Choose download format (Excel / CSV)"
+        >
+          <span style={{fontSize:'10px'}}>▾</span>
+        </button>
+
+        {downloadMenuOpen && (
+          <>
+            <div
+              style={{position:'fixed',inset:0,zIndex:998}}
+              onClick={() => setDownloadMenuOpen(false)}
+            />
+            <div
+              style={{
+                position:'absolute',
+                right:0,
+                top:'calc(100% + 6px)',
+                background:'#ffffff',
+                borderRadius:'10px',
+                border:'1px solid #bae6fd',
+                boxShadow:'0 10px 25px -5px rgba(2, 132, 199, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                padding:'6px',
+                minWidth:'220px',
+                zIndex:999,
+                display:'flex',
+                flexDirection:'column',
+                gap:'4px'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => handleDownloadListWithoutPrice('xlsx')}
+                style={{
+                  display:'flex',
+                  alignItems:'center',
+                  gap:'8px',
+                  padding:'8px 10px',
+                  border:'none',
+                  borderRadius:'6px',
+                  background:'transparent',
+                  color:'#0f172a',
+                  fontSize:'12.5px',
+                  fontWeight:600,
+                  cursor:'pointer',
+                  textAlign:'left'
+                }}
+                onMouseEnter={e=>e.currentTarget.style.background='#f0f9ff'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+              >
+                <FileSpreadsheet size={15} color="#059669" />
+                <span>Download as Excel (.xlsx)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadListWithoutPrice('csv')}
+                style={{
+                  display:'flex',
+                  alignItems:'center',
+                  gap:'8px',
+                  padding:'8px 10px',
+                  border:'none',
+                  borderRadius:'6px',
+                  background:'transparent',
+                  color:'#0f172a',
+                  fontSize:'12.5px',
+                  fontWeight:600,
+                  cursor:'pointer',
+                  textAlign:'left'
+                }}
+                onMouseEnter={e=>e.currentTarget.style.background='#f0f9ff'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+              >
+                <Download size={15} color="#0284c7" />
+                <span>Download as CSV (.csv)</span>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       {canCreate && (
         <Link className="btn btn-outline" to={`${basePath}/products/import`} style={{display:'inline-flex',alignItems:'center',gap:'6px',borderColor:'#10b981',color:'#047857',fontWeight:700}}>

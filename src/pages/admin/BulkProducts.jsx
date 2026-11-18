@@ -4,7 +4,7 @@ import {ArrowLeft,Download,Upload,CheckCircle2,FileSpreadsheet,Layers,RefreshCw,
 import {Button,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
-import {downloadTemplate,downloadProductsExcel,readProductFile,readImageZip,downloadErrors} from '../../services/product-import.service';
+import {downloadTemplate,downloadProductsExcel,downloadProductsListWithoutPrice,downloadProductsCsvWithoutPrice,readProductFile,readImageZip,downloadErrors} from '../../services/product-import.service';
 import useAdminCategories from '../../hooks/useAdminCategories';
 
 export default function BulkProducts(){
@@ -13,6 +13,7 @@ export default function BulkProducts(){
  
  const [selectedCat,setSelectedCat]=useState('all');
  const [exporting,setExporting]=useState(false);
+ const [exportingNoPrice,setExportingNoPrice]=useState(false);
  const [categoryStats,setCategoryStats]=useState({all:0});
 
  const [rows,setRows]=useState([]);
@@ -54,6 +55,24 @@ export default function BulkProducts(){
    setError(reason.message||'Failed to export products.');
   }finally{
    setExporting(false);
+  }
+ };
+
+ const handleExportWithoutPrice = async () => {
+  setExportingNoPrice(true);
+  setError('');
+  try {
+   const res = await adminService.exportProducts(selectedCat === 'all' ? '' : selectedCat);
+   const prods = res?.products || [];
+   if (!prods.length) {
+    throw new Error(`No products found in ${selectedCat === 'all' ? 'the store' : selectedCat} to export.`);
+   }
+   await downloadProductsListWithoutPrice(prods, categories, selectedCat);
+   notify(`Exported ${prods.length} products (without price) successfully!`);
+  } catch (reason) {
+   setError(reason.message || 'Failed to download products.');
+  } finally {
+   setExportingNoPrice(false);
   }
  };
 
@@ -235,7 +254,7 @@ export default function BulkProducts(){
        </select>
       </div>
 
-      <div style={{marginTop:'18px',display:'flex',gap:'8px'}}>
+      <div style={{marginTop:'18px',display:'flex',gap:'8px',flexWrap:'wrap'}}>
        <Button
         variant="primary"
         disabled={exporting||busy}
@@ -243,6 +262,27 @@ export default function BulkProducts(){
         style={{display:'inline-flex',alignItems:'center',gap:'8px',padding:'9px 18px',fontWeight:700}}
        >
         <Download size={17}/> {exporting ? 'Preparing Sheet…' : `Download Excel Sheet (${categoryStats[selectedCat]!==undefined?categoryStats[selectedCat]:'All'})`}
+       </Button>
+
+       <Button
+        variant="outline"
+        disabled={exportingNoPrice||busy}
+        onClick={handleExportWithoutPrice}
+        style={{
+         display:'inline-flex',
+         alignItems:'center',
+         gap:'6px',
+         borderColor:'#0284c7',
+         color:'#0369a1',
+         background:'#f0f9ff',
+         fontWeight:700,
+         fontSize:'13px',
+         padding:'9px 16px'
+        }}
+        title="1-Click Download listed products catalogue without commercial prices"
+       >
+        <Download size={16} color="#0284c7"/>
+        <span>{exportingNoPrice ? 'Downloading…' : 'Download List (Without Price)'}</span>
        </Button>
 
        <Button
