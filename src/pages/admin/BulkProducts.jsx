@@ -8,7 +8,7 @@ import {downloadTemplate,downloadProductsExcel,downloadProductsCategoryPdfWithou
 import useAdminCategories from '../../hooks/useAdminCategories';
 
 export default function BulkProducts(){
- const {notify,refreshProducts}=useApp();
+ const {notify,refreshProducts,storeSettings}=useApp();
  const {categories,categoryError,reloadCategories}=useAdminCategories();
  
  const [selectedCat,setSelectedCat]=useState('all');
@@ -67,7 +67,7 @@ export default function BulkProducts(){
    if (!prods.length) {
     throw new Error(`No products found in ${selectedCat === 'all' ? 'the store' : selectedCat} to export.`);
    }
-   await downloadProductsCategoryPdfWithoutPrice(prods, categories, selectedCat);
+   await downloadProductsCategoryPdfWithoutPrice(prods, categories, selectedCat, storeSettings);
    notify(`Exported ${prods.length} products (Category-wise PDF) successfully!`);
   } catch (reason) {
    setError(reason.message || 'Failed to download products.');

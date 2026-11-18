@@ -1,3 +1,5 @@
+import { isProductComingSoon } from '../config/homeLayout';
+
 export const columns=['Product Name','Category','Pack Size','MRP','Selling Price','Stock','Description','Product Group Code','Image URL','Image Filename','Status'];
 const keys=['name','category','unit','mrp','price','stock','description','groupCode','image','imageFile','status'];
 
@@ -105,13 +107,19 @@ export async function downloadProductsExcel(products, categories, categoryFilter
  * - Grouped by Category
  * - Only Product Name and Unit / Pack Size (NO prices)
  */
-export async function downloadProductsCategoryPdfWithoutPrice(products, categories, categoryFilter = 'all') {
+export async function downloadProductsCategoryPdfWithoutPrice(products, categories, categoryFilter = 'all', storeSettings = null) {
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageHeight = doc.internal.pageSize.getHeight();
   const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Exclude Coming Soon products completely (Soon: ON)
+  const availableProducts = (products || []).filter(p => {
+    if (!p) return false;
+    return !p.isSoon && !p.comingSoon && p.status !== 'COMING_SOON' && !isProductComingSoon(p, storeSettings);
+  });
 
   // 1. Group products by category
   const catMap = new Map();
@@ -128,7 +136,7 @@ export async function downloadProductsCategoryPdfWithoutPrice(products, categori
   }
 
   // Populate products into category buckets
-  products.forEach(p => {
+  availableProducts.forEach(p => {
     const slug = p.categorySlug || p.category || 'other';
     const catName = p.categoryName || (catMap.get(slug)?.name) || slug || 'General Products';
     if (!catMap.has(slug)) {
@@ -263,10 +271,16 @@ export async function downloadProductsCategoryPdfWithoutPrice(products, categori
  * 1-Click download of listed products WITHOUT any price, cost, or MRP columns.
  * Produces a professionally formatted Excel spreadsheet (.xlsx).
  */
-export async function downloadProductsListWithoutPrice(products, categories, categoryFilter = 'all') {
+export async function downloadProductsListWithoutPrice(products, categories, categoryFilter = 'all', storeSettings = null) {
   const book = await workbook();
   const sheet = book.addWorksheet('Listed Products');
   sheet.addRow(exportColumnsWithoutPrice);
+
+  // Exclude Coming Soon products completely (Soon: ON)
+  const availableProducts = (products || []).filter(p => {
+    if (!p) return false;
+    return !p.isSoon && !p.comingSoon && p.status !== 'COMING_SOON' && !isProductComingSoon(p, storeSettings);
+  });
 
   // Header styling: Emerald green header, bold white text
   const headerRow = sheet.getRow(1);
@@ -275,7 +289,7 @@ export async function downloadProductsListWithoutPrice(products, categories, cat
   headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-  products.forEach((p, index) => {
+  availableProducts.forEach((p, index) => {
     const stockQty = Number(p.stock || 0);
     const lowThreshold = Number(p.lowStockThreshold || 10);
     const stockStatus = stockQty <= 0 ? 'Sold Out' : stockQty <= lowThreshold ? 'Low Stock' : 'In Stock';
@@ -369,18 +383,24 @@ export async function downloadProductsListWithoutPrice(products, categories, cat
 /**
  * 1-Click download of listed products WITHOUT price in CSV format.
  */
-export function downloadProductsCsvWithoutPrice(products, categories, categoryFilter = 'all') {
+export function downloadProductsCsvWithoutPrice(products, categories, categoryFilter = 'all', storeSettings = null) {
   const escapeCsv = (val) => {
     if (val === null || val === undefined) return '""';
     const str = String(val).replace(/"/g, '""');
     return `"${str}"`;
   };
 
+  // Exclude Coming Soon products completely (Soon: ON)
+  const availableProducts = (products || []).filter(p => {
+    if (!p) return false;
+    return !p.isSoon && !p.comingSoon && p.status !== 'COMING_SOON' && !isProductComingSoon(p, storeSettings);
+  });
+
   const lines = [
     exportColumnsWithoutPrice.map(escapeCsv).join(',')
   ];
 
-  products.forEach((p, index) => {
+  availableProducts.forEach((p, index) => {
     const stockQty = Number(p.stock || 0);
     const lowThreshold = Number(p.lowStockThreshold || 10);
     const stockStatus = stockQty <= 0 ? 'Sold Out' : stockQty <= lowThreshold ? 'Low Stock' : 'In Stock';

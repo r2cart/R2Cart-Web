@@ -386,14 +386,14 @@ export function AdminProducts(){
        return;
      }
      if (format === 'csv') {
-       downloadProductsCsvWithoutPrice(prods, categories, cat);
-       notify(`Downloaded ${prods.length} listed products (CSV without price) successfully!`);
+       downloadProductsCsvWithoutPrice(prods, categories, cat, storeSettings);
+       notify(`Downloaded listed products (CSV without price) successfully!`);
      } else if (format === 'xlsx') {
-       await downloadProductsListWithoutPrice(prods, categories, cat);
-       notify(`Downloaded ${prods.length} listed products (Excel without price) successfully!`);
+       await downloadProductsListWithoutPrice(prods, categories, cat, storeSettings);
+       notify(`Downloaded listed products (Excel without price) successfully!`);
      } else {
-       await downloadProductsCategoryPdfWithoutPrice(prods, categories, cat);
-       notify(`Downloaded ${prods.length} listed products (Category-wise PDF) successfully!`);
+       await downloadProductsCategoryPdfWithoutPrice(prods, categories, cat, storeSettings);
+       notify(`Downloaded listed products (Category-wise PDF) successfully!`);
      }
    } catch (err) {
      console.error('Error downloading product list:', err);

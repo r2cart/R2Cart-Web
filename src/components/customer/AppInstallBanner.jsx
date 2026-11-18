@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Download, X, Star, ShieldCheck } from 'lucide-react';
-import brandLogo from '../../assets/r2cart-logo.png';
+import brandMark from '../../assets/r2cart-mark.svg';
 
 export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.r2cart';
 
@@ -70,22 +70,22 @@ export function AppInstallTopBanner() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           <div
             style={{
-              width: '42px',
-              height: '34px',
-              borderRadius: '8px',
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
               backgroundColor: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
               flexShrink: 0,
-              padding: '3px 6px'
+              padding: '4px'
             }}
           >
             <img
-              src={brandLogo}
+              src={brandMark}
               alt="R2Cart App"
-              style={{ width: '100%', height: 'auto', maxHeight: '100%', objectFit: 'contain' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           </div>
 
@@ -212,23 +212,23 @@ export function AppInstallFooterCard() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div
           style={{
-            width: '48px',
-            height: '40px',
-            borderRadius: '10px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
             backgroundColor: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
-            padding: '4px 7px',
+            padding: '5px',
             boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
             border: '1px solid rgba(255, 255, 255, 0.15)'
           }}
         >
           <img
-            src={brandLogo}
+            src={brandMark}
             alt="R2Cart App"
-            style={{ width: '100%', height: 'auto', maxHeight: '100%', objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
 
