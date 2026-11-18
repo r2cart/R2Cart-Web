@@ -101,6 +101,165 @@ export async function downloadProductsExcel(products, categories, categoryFilter
 }
 
 /**
+ * 1-Click download of listed products in PDF format.
+ * - Grouped by Category
+ * - Only Product Name and Unit / Pack Size (NO prices)
+ */
+export async function downloadProductsCategoryPdfWithoutPrice(products, categories, categoryFilter = 'all') {
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // 1. Group products by category
+  const catMap = new Map();
+
+  // Seed categories from categories array to preserve order
+  if (Array.isArray(categories)) {
+    categories.forEach(c => {
+      catMap.set(c.slug, {
+        name: c.name || c.slug,
+        slug: c.slug,
+        items: []
+      });
+    });
+  }
+
+  // Populate products into category buckets
+  products.forEach(p => {
+    const slug = p.categorySlug || p.category || 'other';
+    const catName = p.categoryName || (catMap.get(slug)?.name) || slug || 'General Products';
+    if (!catMap.has(slug)) {
+      catMap.set(slug, {
+        name: catName,
+        slug,
+        items: []
+      });
+    }
+    catMap.get(slug).items.push({
+      name: String(p.name || '').trim(),
+      unit: String(p.unit || '').trim() || '1 unit'
+    });
+  });
+
+  // Filter out empty categories and sort alphabetically
+  const activeCategories = Array.from(catMap.values())
+    .filter(c => c.items.length > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Sort products within each category alphabetically
+  activeCategories.forEach(c => {
+    c.items.sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  const totalProducts = activeCategories.reduce((sum, c) => sum + c.items.length, 0);
+
+  // 2. Draw Top Document Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(15, 23, 42); // slate-900
+  doc.text('R2Cart', 14, 18);
+
+  doc.setFontSize(11);
+  doc.setTextColor(5, 150, 105); // emerald-600
+  doc.text('Listed Products Catalogue (Category-wise)', 42, 18);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139); // slate-500
+  const genDateStr = new Date().toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  doc.text(`Generated: ${genDateStr}  ·  Categories: ${activeCategories.length}  ·  Total Products: ${totalProducts}  ·  Product Name & Unit Only (No Price)`, 14, 25);
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.5);
+  doc.line(14, 28, pageWidth - 14, 28);
+
+  let currentY = 34;
+
+  // 3. Render Each Category and its Products
+  activeCategories.forEach((cat) => {
+    // If not enough room for category banner and at least a few rows, start new page
+    if (currentY + 28 > pageHeight - 16) {
+      doc.addPage();
+      currentY = 16;
+    }
+
+    // Category heading banner
+    doc.setFillColor(240, 253, 244); // #f0fdf4
+    doc.setDrawColor(167, 243, 208); // #a7f3d0
+    doc.roundedRect(14, currentY, pageWidth - 28, 8, 1.5, 1.5, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(4, 120, 87); // #047857
+    doc.text(`${cat.name}  (${cat.items.length} items)`, 17, currentY + 5.5);
+
+    currentY += 10;
+
+    autoTable(doc, {
+      head: [['#', 'Product Name', 'Unit / Pack Size']],
+      body: cat.items.map((it, i) => [
+        i + 1,
+        it.name,
+        it.unit
+      ]),
+      startY: currentY,
+      margin: { left: 14, right: 14 },
+      theme: 'grid',
+      headStyles: {
+        fillColor: [5, 150, 105],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8.5,
+        halign: 'left',
+        cellPadding: 2.2
+      },
+      bodyStyles: {
+        fontSize: 8.5,
+        textColor: [30, 41, 59],
+        cellPadding: 2.2
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 12 },
+        1: { halign: 'left', cellWidth: 130 },
+        2: { halign: 'center', cellWidth: 40, fontStyle: 'bold' }
+      }
+    });
+
+    currentY = doc.lastAutoTable.finalY + 8;
+  });
+
+  // 4. Global Footer on All Pages
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text('R2Cart Store Directory  ·  Confidential Inventory Listing  ·  Product Name & Unit Only', 14, pageHeight - 8);
+    doc.text(`Page ${p} of ${totalPages}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
+  }
+
+  const dateSlug = new Date().toISOString().slice(0, 10);
+  const safeCat = (!categoryFilter || categoryFilter === 'all') ? 'All-Categories' : categoryFilter.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `R2Cart-products-by-category-${safeCat}-${dateSlug}.pdf`;
+
+  doc.save(filename);
+}
+
+/**
  * 1-Click download of listed products WITHOUT any price, cost, or MRP columns.
  * Produces a professionally formatted Excel spreadsheet (.xlsx).
  */

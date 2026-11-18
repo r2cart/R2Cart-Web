@@ -8,12 +8,12 @@ function getAdminUser() {
 import { hasPermission } from '../../utils/permissions';
 import {useEffect,useState,useRef} from 'react';
 import {Link,useLocation,useNavigate,useParams,useSearchParams} from 'react-router-dom';
-import {ArrowLeft,Star,Upload,Check,Clock3,Copy,Crop,Download,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet} from 'lucide-react';
+import {ArrowLeft,Star,Upload,Check,Clock3,Copy,Crop,Download,Edit2,Eye,ImagePlus,LayoutGrid,Package,Plus,Search,Sparkles,Table as TableIcon,Trash2,ChevronLeft,ChevronRight,GripVertical,FileSpreadsheet,FileText} from 'lucide-react';
 import {Button,ConfirmDialog,Modal,Pagination,StatusBadge,money} from '../../components/ui';
 import {isProductComingSoon} from '../../config/homeLayout';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
-import {downloadProductsListWithoutPrice, downloadProductsCsvWithoutPrice} from '../../services/product-import.service';
+import {downloadProductsCategoryPdfWithoutPrice, downloadProductsListWithoutPrice, downloadProductsCsvWithoutPrice} from '../../services/product-import.service';
 import ProductVariants from '../../components/admin/ProductVariants';
 import NewProductPacks from '../../components/admin/NewProductPacks';
 import ImageCropperModal from '../../components/admin/ImageCropperModal';
@@ -374,7 +374,7 @@ export function AdminProducts(){
     adminProductsCache=null;
   }
  };
- const handleDownloadListWithoutPrice = async (format = 'xlsx') => {
+ const handleDownloadListWithoutPrice = async (format = 'pdf') => {
    setExportingNoPrice(true);
    setDownloadMenuOpen(false);
    try {
@@ -388,9 +388,12 @@ export function AdminProducts(){
      if (format === 'csv') {
        downloadProductsCsvWithoutPrice(prods, categories, cat);
        notify(`Downloaded ${prods.length} listed products (CSV without price) successfully!`);
-     } else {
+     } else if (format === 'xlsx') {
        await downloadProductsListWithoutPrice(prods, categories, cat);
        notify(`Downloaded ${prods.length} listed products (Excel without price) successfully!`);
+     } else {
+       await downloadProductsCategoryPdfWithoutPrice(prods, categories, cat);
+       notify(`Downloaded ${prods.length} listed products (Category-wise PDF) successfully!`);
      }
    } catch (err) {
      console.error('Error downloading product list:', err);
@@ -518,13 +521,13 @@ export function AdminProducts(){
         </div>
       )}
 
-      {/* 1-Click Download Listed Products (Without Price) */}
+      {/* 1-Click Download Listed Products (Category-wise PDF, Without Price) */}
       <div style={{position:'relative',display:'inline-flex',alignItems:'stretch'}}>
         <Button
           type="button"
           variant="outline"
           disabled={exportingNoPrice}
-          onClick={() => handleDownloadListWithoutPrice('xlsx')}
+          onClick={() => handleDownloadListWithoutPrice('pdf')}
           style={{
             display:'inline-flex',
             alignItems:'center',
@@ -540,10 +543,10 @@ export function AdminProducts(){
             borderBottomRightRadius:0,
             borderRightWidth:0
           }}
-          title="1-Click Download Listed Products without price (Excel .xlsx)"
+          title="1-Click Download Category-wise PDF with Product Name & Unit only (No Price)"
         >
-          <Download size={15} color="#0284c7" />
-          <span>{exportingNoPrice ? 'Downloading…' : 'Download List (No Price)'}</span>
+          <FileText size={15} color="#0284c7" />
+          <span>{exportingNoPrice ? 'Generating PDF…' : 'Download PDF (No Price)'}</span>
         </Button>
         <button
           type="button"
@@ -561,7 +564,7 @@ export function AdminProducts(){
             alignItems:'center',
             justifyContent:'center'
           }}
-          title="Choose download format (Excel / CSV)"
+          title="Choose download format (PDF / Excel / CSV)"
         >
           <span style={{fontSize:'10px'}}>▾</span>
         </button>
@@ -582,13 +585,36 @@ export function AdminProducts(){
                 border:'1px solid #bae6fd',
                 boxShadow:'0 10px 25px -5px rgba(2, 132, 199, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
                 padding:'6px',
-                minWidth:'220px',
+                minWidth:'250px',
                 zIndex:999,
                 display:'flex',
                 flexDirection:'column',
                 gap:'4px'
               }}
             >
+              <button
+                type="button"
+                onClick={() => handleDownloadListWithoutPrice('pdf')}
+                style={{
+                  display:'flex',
+                  alignItems:'center',
+                  gap:'8px',
+                  padding:'8px 10px',
+                  border:'none',
+                  borderRadius:'6px',
+                  background:'#f0fdf4',
+                  color:'#047857',
+                  fontSize:'12.5px',
+                  fontWeight:700,
+                  cursor:'pointer',
+                  textAlign:'left'
+                }}
+                onMouseEnter={e=>e.currentTarget.style.background='#dcfce7'}
+                onMouseLeave={e=>e.currentTarget.style.background='#f0fdf4'}
+              >
+                <FileText size={15} color="#059669" />
+                <span>📄 Category PDF (Name & Unit Only)</span>
+              </button>
               <button
                 type="button"
                 onClick={() => handleDownloadListWithoutPrice('xlsx')}
@@ -609,8 +635,8 @@ export function AdminProducts(){
                 onMouseEnter={e=>e.currentTarget.style.background='#f0f9ff'}
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}
               >
-                <FileSpreadsheet size={15} color="#059669" />
-                <span>Download as Excel (.xlsx)</span>
+                <FileSpreadsheet size={15} color="#0284c7" />
+                <span>📊 Excel Sheet (.xlsx - No Price)</span>
               </button>
               <button
                 type="button"
@@ -632,8 +658,8 @@ export function AdminProducts(){
                 onMouseEnter={e=>e.currentTarget.style.background='#f0f9ff'}
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}
               >
-                <Download size={15} color="#0284c7" />
-                <span>Download as CSV (.csv)</span>
+                <Download size={15} color="#64748b" />
+                <span>📝 Plain CSV (.csv - No Price)</span>
               </button>
             </div>
           </>

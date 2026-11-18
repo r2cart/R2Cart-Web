@@ -1,10 +1,10 @@
 import {useState, useEffect} from 'react';
 import {Link} from 'react-router-dom';
-import {ArrowLeft,Download,Upload,CheckCircle2,FileSpreadsheet,Layers,RefreshCw,AlertCircle,Filter,Sparkles,Check,Edit3,PlusCircle} from 'lucide-react';
+import {ArrowLeft,Download,Upload,CheckCircle2,FileSpreadsheet,FileText,Layers,RefreshCw,AlertCircle,Filter,Sparkles,Check,Edit3,PlusCircle} from 'lucide-react';
 import {Button,money} from '../../components/ui';
 import {useApp} from '../../context/AppContext';
 import {adminService} from '../../services/admin.service';
-import {downloadTemplate,downloadProductsExcel,downloadProductsListWithoutPrice,downloadProductsCsvWithoutPrice,readProductFile,readImageZip,downloadErrors} from '../../services/product-import.service';
+import {downloadTemplate,downloadProductsExcel,downloadProductsCategoryPdfWithoutPrice,downloadProductsListWithoutPrice,downloadProductsCsvWithoutPrice,readProductFile,readImageZip,downloadErrors} from '../../services/product-import.service';
 import useAdminCategories from '../../hooks/useAdminCategories';
 
 export default function BulkProducts(){
@@ -67,8 +67,8 @@ export default function BulkProducts(){
    if (!prods.length) {
     throw new Error(`No products found in ${selectedCat === 'all' ? 'the store' : selectedCat} to export.`);
    }
-   await downloadProductsListWithoutPrice(prods, categories, selectedCat);
-   notify(`Exported ${prods.length} products (without price) successfully!`);
+   await downloadProductsCategoryPdfWithoutPrice(prods, categories, selectedCat);
+   notify(`Exported ${prods.length} products (Category-wise PDF) successfully!`);
   } catch (reason) {
    setError(reason.message || 'Failed to download products.');
   } finally {
@@ -279,10 +279,10 @@ export default function BulkProducts(){
          fontSize:'13px',
          padding:'9px 16px'
         }}
-        title="1-Click Download listed products catalogue without commercial prices"
+        title="1-Click Download Category-wise PDF with Product Name & Unit only (No Price)"
        >
-        <Download size={16} color="#0284c7"/>
-        <span>{exportingNoPrice ? 'Downloading…' : 'Download List (Without Price)'}</span>
+        <FileText size={16} color="#0284c7"/>
+        <span>{exportingNoPrice ? 'Generating PDF…' : 'Download Category PDF (No Price)'}</span>
        </Button>
 
        <Button
