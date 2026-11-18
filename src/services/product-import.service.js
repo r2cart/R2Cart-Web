@@ -103,9 +103,43 @@ export async function downloadProductsExcel(products, categories, categoryFilter
 }
 
 /**
+ * Helper to determine if a product is eligible for the No-Price catalogue export.
+ * Excludes:
+ *  1. Inactive products (status !== 'ACTIVE' or isActive === false)
+ *  2. Coming Soon products (Soon: ON)
+ *  3. Products under inactive categories
+ */
+export function isProductEligibleForNoPriceExport(p, storeSettings = null, inactiveCatSlugs = new Set()) {
+  if (!p) return false;
+
+  // 1. Exclude Inactive products
+  const normStatus = String(p.status || '').trim().toUpperCase();
+  if (normStatus === 'INACTIVE' || p.isActive === false || p.active === false) {
+    return false;
+  }
+  if (normStatus && normStatus !== 'ACTIVE') {
+    return false;
+  }
+
+  // 2. Exclude Coming Soon products
+  if (p.isSoon || p.comingSoon || normStatus === 'COMING_SOON' || isProductComingSoon(p, storeSettings)) {
+    return false;
+  }
+
+  // 3. Exclude products in an inactive category
+  const slug = p.categorySlug || p.category;
+  if (slug && inactiveCatSlugs && inactiveCatSlugs.has(slug)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * 1-Click download of listed products in PDF format.
  * - Grouped by Category
  * - Only Product Name and Unit / Pack Size (NO prices)
+ * - Excludes both Coming Soon AND Inactive products
  */
 export async function downloadProductsCategoryPdfWithoutPrice(products, categories, categoryFilter = 'all', storeSettings = null) {
   const { jsPDF } = await import('jspdf');
@@ -115,23 +149,32 @@ export async function downloadProductsCategoryPdfWithoutPrice(products, categori
   const pageHeight = doc.internal.pageSize.getHeight();
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Exclude Coming Soon products completely (Soon: ON)
-  const availableProducts = (products || []).filter(p => {
-    if (!p) return false;
-    return !p.isSoon && !p.comingSoon && p.status !== 'COMING_SOON' && !isProductComingSoon(p, storeSettings);
-  });
+  const inactiveCatSlugs = new Set(
+    (Array.isArray(categories) ? categories : [])
+      .filter(c => c && (String(c.status || '').toUpperCase() === 'INACTIVE' || c.isActive === false))
+      .map(c => c.slug)
+  );
+
+  // Exclude Coming Soon (Soon: ON) and Inactive products completely
+  const availableProducts = (products || []).filter(p => isProductEligibleForNoPriceExport(p, storeSettings, inactiveCatSlugs));
+
+  if (!availableProducts.length) {
+    throw new Error('No active listed products found to export (excluding Coming Soon and Inactive products).');
+  }
 
   // 1. Group products by category
   const catMap = new Map();
 
-  // Seed categories from categories array to preserve order
+  // Seed categories from categories array to preserve order (excluding inactive categories)
   if (Array.isArray(categories)) {
     categories.forEach(c => {
-      catMap.set(c.slug, {
-        name: c.name || c.slug,
-        slug: c.slug,
-        items: []
-      });
+      if (c && !inactiveCatSlugs.has(c.slug)) {
+        catMap.set(c.slug, {
+          name: c.name || c.slug,
+          slug: c.slug,
+          items: []
+        });
+      }
     });
   }
 
@@ -163,6 +206,10 @@ export async function downloadProductsCategoryPdfWithoutPrice(products, categori
   });
 
   const totalProducts = activeCategories.reduce((sum, c) => sum + c.items.length, 0);
+
+  if (totalProducts === 0) {
+    throw new Error('No active listed products found to export (excluding Coming Soon and Inactive products).');
+  }
 
   // 2. Draw Top Document Header
   doc.setFont('helvetica', 'bold');
@@ -276,11 +323,18 @@ export async function downloadProductsListWithoutPrice(products, categories, cat
   const sheet = book.addWorksheet('Listed Products');
   sheet.addRow(exportColumnsWithoutPrice);
 
-  // Exclude Coming Soon products completely (Soon: ON)
-  const availableProducts = (products || []).filter(p => {
-    if (!p) return false;
-    return !p.isSoon && !p.comingSoon && p.status !== 'COMING_SOON' && !isProductComingSoon(p, storeSettings);
-  });
+  const inactiveCatSlugs = new Set(
+    (Array.isArray(categories) ? categories : [])
+      .filter(c => c && (String(c.status || '').toUpperCase() === 'INACTIVE' || c.isActive === false))
+      .map(c => c.slug)
+  );
+
+  // Exclude Coming Soon (Soon: ON) and Inactive products completely
+  const availableProducts = (products || []).filter(p => isProductEligibleForNoPriceExport(p, storeSettings, inactiveCatSlugs));
+
+  if (!availableProducts.length) {
+    throw new Error('No active listed products found to export (excluding Coming Soon and Inactive products).');
+  }
 
   // Header styling: Emerald green header, bold white text
   const headerRow = sheet.getRow(1);
@@ -390,11 +444,18 @@ export function downloadProductsCsvWithoutPrice(products, categories, categoryFi
     return `"${str}"`;
   };
 
-  // Exclude Coming Soon products completely (Soon: ON)
-  const availableProducts = (products || []).filter(p => {
-    if (!p) return false;
-    return !p.isSoon && !p.comingSoon && p.status !== 'COMING_SOON' && !isProductComingSoon(p, storeSettings);
-  });
+  const inactiveCatSlugs = new Set(
+    (Array.isArray(categories) ? categories : [])
+      .filter(c => c && (String(c.status || '').toUpperCase() === 'INACTIVE' || c.isActive === false))
+      .map(c => c.slug)
+  );
+
+  // Exclude Coming Soon (Soon: ON) and Inactive products completely
+  const availableProducts = (products || []).filter(p => isProductEligibleForNoPriceExport(p, storeSettings, inactiveCatSlugs));
+
+  if (!availableProducts.length) {
+    throw new Error('No active listed products found to export (excluding Coming Soon and Inactive products).');
+  }
 
   const lines = [
     exportColumnsWithoutPrice.map(escapeCsv).join(',')
